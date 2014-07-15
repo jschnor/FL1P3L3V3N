@@ -6,7 +6,7 @@ $fields = array(
 	
 	// enter your rule sets here //
 	
-	'work_sailfish' => array(
+	'work_flip' => array(
 
 		'type' => array(
 			'_none_'       => array(),
@@ -54,32 +54,7 @@ $fields = array(
 				'services'
 			),
 		),
-	),
-	'work' => array(
-
-		'type' => array(
-			'_none_'       => array(),
-			// '_any_value_'  => array(),
-			// '<select>'  => array(),
-			'Video'      => array(
-				'__separator004__',
-				'main_image',
-				'__separator002__',
-				'subhead',
-				'video_embed',
-				'excerpt',
-				'description'
-			),
-			'Web'      => array(
-				'__separator004__',
-				'main_image',
-				'__separator002__',
-				'subhead',
-				'excerpt',
-				'description'
-			),
-		),
-	),	
+	)
 );
 
 $devmode = false;

@@ -15,7 +15,7 @@ return array (
   '_perPageDefault' => '25',
   '_previewPage' => '',
   '_requiredPlugins' => '',
-  '_tableName' => 'work_sailfish',
+  '_tableName' => 'work_flip',
   'listPageFields' => 'dragSortOrder, name, type, status',
   'listPageOrder' => 'dragSortOrder DESC',
   'listPageSearchFields' => '_all_',

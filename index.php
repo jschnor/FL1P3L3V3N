@@ -8,30 +8,30 @@ function clean($string) {
    return preg_replace('/[^A-Za-z0-9\-]/', '', $string); // Removes special chars.
 }
 
-// load record from 'home_sailfish'
-list($home_sailfishRecords, $home_sailfishMetaData) = getRecords(array(
-  'tableName'   => 'home_sailfish',
+// load record from 'home_flip'
+list($home_flipRecords, $home_flipMetaData) = getRecords(array(
+  'tableName'   => 'home_flip',
   'loadUploads' => true,
   'allowSearch' => false,
   'limit'       => '1'
 ));
-$home_sailfishRecord = @$home_sailfishRecords[0]; // get first record
-if (!$home_sailfishRecord) { dieWith404("Record not found!"); } // show error message if no record found
+$home_flipRecord = @$home_flipRecords[0]; // get first record
+if (!$home_flipRecord) { dieWith404("Record not found!"); } // show error message if no record found
 
-// load record from 'about_sailfish'
-list($about_sailfishRecords, $about_sailfishMetaData) = getRecords(array(
-  'tableName'   => 'about_sailfish',
+// load record from 'about_flip'
+list($about_flipRecords, $about_flipMetaData) = getRecords(array(
+  'tableName'   => 'about_flip',
   'where'       => '', // load first record
   'loadUploads' => true,
   'allowSearch' => false,
   'limit'       => '1',
 ));
-$about_sailfishRecord = @$about_sailfishRecords[0]; // get first record
-if (!$about_sailfishRecord) { dieWith404("Record not found!"); } // show error message if no record found
+$about_flipRecord = @$about_flipRecords[0]; // get first record
+if (!$about_flipRecord) { dieWith404("Record not found!"); } // show error message if no record found
 
-// load records from 'team_sailfish'
-list($team_sailfishRecords, $team_sailfishMetaData) = getRecords(array(
-  'tableName'   => 'team_sailfish',
+// load records from 'team_flip'
+list($team_flipRecords, $team_flipMetaData) = getRecords(array(
+  'tableName'   => 'team_flip',
   'loadUploads' => true,
   'allowSearch' => false,
 ));
@@ -43,9 +43,9 @@ list($believeRecords, $believeMetaData) = getRecords(array(
   'allowSearch' => false
 ));
 
-// load records from 'work_sailfish'
-list($work_sailfishRecords, $work_sailfishMetaData) = getRecords(array(
-  'tableName'   => 'work_sailfish',
+// load records from 'work_flip'
+list($work_flipRecords, $work_flipMetaData) = getRecords(array(
+  'tableName'   => 'work_flip',
   'loadUploads' => true,
   'allowSearch' => false
 ));
@@ -85,7 +85,7 @@ function saveJSON($portfolio){
   // print_r(json_encode($data));
 }
 
-saveJSON($work_sailfishRecords);
+saveJSON($work_flipRecords);
 
 /*echo '<pre>';
 print_r();
@@ -166,9 +166,9 @@ echo '</pre>';*/
           <div class="row">
             <div class="large-4 medium-5 small-12 columns">
               <div class="panel">
-                <h2 class="subheader"><?php echo $about_sailfishRecord['header']; ?></h2>
-                <h5 class="subheader"><?php echo $about_sailfishRecord['subheader']; ?></h5>
-                <?php echo $about_sailfishRecord['content']; ?>
+                <h2 class="subheader"><?php echo $about_flipRecord['header']; ?></h2>
+                <h5 class="subheader"><?php echo $about_flipRecord['subheader']; ?></h5>
+                <?php echo $about_flipRecord['content']; ?>
               </div>
             </div>
 
@@ -192,8 +192,8 @@ echo '</pre>';*/
                     <h3 class="subheader">Fliprofile</h3>
                     <?php
                     // pick a random team profile to show
-                    $rand_key = array_rand($team_sailfishRecords);
-                    $profile = $team_sailfishRecords[$rand_key];
+                    $rand_key = array_rand($team_flipRecords);
+                    $profile = $team_flipRecords[$rand_key];
                     ?>
 
                     <div class="row">
@@ -242,7 +242,7 @@ echo '</pre>';*/
             <?php
             // output first three featured work items
             $int = 1;
-            foreach ($work_sailfishRecords as $key=>$array){
+            foreach ($work_flipRecords as $key=>$array){
               if ($array['type'] == 'Featured' && $int <= 3){
                 ?>
                 <div id="<?php echo clean(strtolower($array['name'])).'-'.$key; ?>" class="medium-4 columns left-off-canvas-toggle">
@@ -268,7 +268,7 @@ echo '</pre>';*/
             <h2>Additional work we're proud of</h2>
             <?php
             // output additional work
-            foreach ($work_sailfishRecords as $key=>$array){
+            foreach ($work_flipRecords as $key=>$array){
               if ($array['type'] != 'Featured'){
                 ?>
                 <div id="<?php echo clean(strtolower($array['name'])).'-'.$key; ?>" class="medium-3 columns left-off-canvas-toggle">
@@ -357,7 +357,7 @@ echo '</pre>';*/
     // prepare array of background videos
     var bigvideo_videos = [
       <?php
-      foreach ($home_sailfishRecord['videos'] as $array){
+      foreach ($home_flipRecord['videos'] as $array){
         echo "'{$array['urlPath']}',\n";
       }
       ?>
