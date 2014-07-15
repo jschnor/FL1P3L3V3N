@@ -1,5 +1,6 @@
 
 <?php
+$val = file_exists('includes/loadrecords.inc.php');
 include('includes/loadrecords.inc.php');
 
 function clean($string) {

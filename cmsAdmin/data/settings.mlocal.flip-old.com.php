@@ -34,7 +34,7 @@ return array (
   'cookiePrefix' => '209b8_',
   'cssTheme' => 'flipeleven.css',
   'dateFormat' => '',
-  'dateRegistered' => 1404598885,
+  'dateRegistered' => 1405446380,
   'demoMode' => '0',
   'footerHTML' => 'view website at <a href="http://flipeleven.com">flipeleven.com</a>',
   'headerImageUrl' => '/cmsAdmin/3rdParty/SimplaAdmin/images/flipeleven_logo.png',
