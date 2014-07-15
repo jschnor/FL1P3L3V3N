@@ -88,9 +88,8 @@ return array (
     'listType' => 'pulldown',
     'optionsType' => 'text',
     'optionsText' => '0|Blog Category
-1|Sailfish Work
-2|Flipeleven Work
-3|Service Category',
+1|Work
+2|Service Category',
   ),
 );
 ?>
