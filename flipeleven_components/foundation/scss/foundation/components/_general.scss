@@ -1,0 +1,78 @@
+@mixin smooth-font($font-smoothing-attribute) {
+	-webkit-font-smoothing: $font-smoothing-attribute;
+}
+
+@mixin text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin opacity($opacity) {
+  opacity: $opacity;
+  $opacity-ie: $opacity * 100;
+  filter: alpha(opacity=$opacity-ie); //IE8
+}
+
+@mixin transparent($color, $alpha) {
+  $rgba: rgba($color, $alpha);
+  $ie-hex-str: ie-hex-str($rgba);
+  background-color: transparent;
+  background-color: $rgba;
+  filter:progid:DXImageTransform.Microsoft.gradient(startColorstr=#{$ie-hex-str},endColorstr=#{$ie-hex-str});
+  zoom: 1;
+}
+
+@mixin gradient($top, $bottom){
+    background: $top; /* Old browsers */
+    background: -moz-linear-gradient(top,  $top 0%, $bottom 100%); /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,$top), color-stop(100%,$bottom)); /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top,  $top 0%,$bottom 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top,  $top 0%,$bottom 100%); /* Opera 11.10+ */
+    background: -ms-linear-gradient(top,  $top 0%,$bottom 100%); /* IE10+ */
+    background: linear-gradient(to bottom,  $top 0%,$bottom 100%); /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#000000',GradientType=0 ); /* IE6-9 */
+}
+
+@mixin transparent-gradient-fadeout($color1, $alpha1, $loc1, $color2, $alpha2, $loc2) {
+	$rgba1: rgba($color1, $alpha1);
+	$rgba2: rgba($color2, $alpha2);
+	$ie-hex-str1: ie-hex-str($rgba1);
+	$ie-hex-str2: ie-hex-str($rgba2);
+  background: -moz-linear-gradient(top, $rgba1 $loc1, $rgba2 $loc2); /* FF3.6+ */
+  background: -webkit-gradient(linear, left top, left bottom, color-stop($loc1, $rgba1), color-stop($loc2, $rgba2)); /* Chrome,Safari4+ */
+  background: -webkit-linear-gradient(top, $rgba1 $loc1, $rgba2 $loc2); /* Chrome10+,Safari5.1+ */
+  background: -o-linear-gradient(top, $rgba1 $loc1,$rgba2 $loc2); /* Opera 11.10+ */
+  background: -ms-linear-gradient(top, $rgba1 $loc1, $rgba2 $loc2); /* IE10+ */
+  background: linear-gradient(to bottom, $rgba1 $loc1,$rgba2 $loc2); /* W3C */
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr=#{$ie-hex-str1}, endColorstr=#{$ie-hex-str2},GradientType=0 ); /* IE6-9 */
+}
+@mixin transparent-gradient-fadeinout($c1, $a1, $l1, $c2, $a2, $l2, $c3, $a3, $l3, $c4, $a4, $l4, $c5, $a5, $l5) {
+  $rgba1: rgba($c1, $a1);
+  $rgba2: rgba($c2, $a2);
+  $rgba3: rgba($c3, $a3);
+  $rgba4: rgba($c4, $a4);
+  $rgba5: rgba($c5, $a5);
+  $ie-hex-str1: ie-hex-str($rgba1);
+  $ie-hex-str2: ie-hex-str($rgba2);
+  $ie-hex-str3: ie-hex-str($rgba3);
+  $ie-hex-str4: ie-hex-str($rgba4);
+  $ie-hex-str5: ie-hex-str($rgba5);
+  background: -moz-linear-gradient(top,  $rgba1 $l1, $rgba2 $l2, $rgba3 $l3, $rgba4 $l4, $rgba5 $l5); /* FF3.6+ */
+  background: -webkit-gradient(linear, left top, left bottom, color-stop($l1,$rgba1), color-stop($l2,$rgba2), color-stop($l3,$rgba3), color-stop($l4,$rgba4), color-stop($l5,$rgba5)); /* Chrome,Safari4+ */
+  background: -webkit-linear-gradient(top, $rgba1 $l1,$rgba2 $l2,$rgba3 $l3,$rgba4 $l4,$rgba5 $l5); /* Chrome10+,Safari5.1+ */
+  background: -o-linear-gradient(top, $rgba1 $l1,$rgba2 $l2,$rgba3 $l3,$rgba4 $l4,$rgba5 $l5); /* Opera 11.10+ */
+  background: -ms-linear-gradient(top, $rgba1 $l1,$rgba2 $l2,$rgba3 $l3,$rgba4 $l4,$rgba5 $l5); /* IE10+ */
+  background: linear-gradient(to bottom, $rgba1 $l1,$rgba2 $l2,$rgba3 $l3,$rgba4 $l4,$rgba5 $l5); /* W3C */
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr=#{$ie-hex-str1}, endColorstr=#{$ie-hex-str2},GradientType=0 ); /* IE6-9 */
+}
+
+$screen: "only screen";
+
+// $landscape: "#{$screen} and (orientation: landscape)";
+// $portrait: "#{$screen} and (orientation: portrait)";
+$small-range-topbar: (0em, 46em);
+$small-only-topbar: "#{$screen} and (max-width: #{upper-bound($small-range-topbar)})";
+
+$small-range-footer: (0em, 54em);
+$small-only-footer: "#{$screen} and (max-width: #{upper-bound($small-range-footer)})";

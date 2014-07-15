@@ -1,0 +1,27 @@
+h3 a           { color: #000; }
+h3 a:hover     { color: #57a000; }
+
+a              { color: #57a000; }
+
+.button {
+                background: #459300 url('../images/bg-button-green.gif') top left repeat-x !important;
+                border-color: #459300 !important;
+
+                }
+
+#sidebar #main-nav li a.nav-top-item {
+                background: transparent url('../images/bg-menu-item-green.gif') right center no-repeat;
+                }
+
+ul.content-box-tabs li a:hover {
+                color: #57a000;
+                }
+
+.pagination a.current {
+                background: #469400 url('../images/bg-button-green.gif') top left repeat-x !important;
+                border-color: #459300 !important;
+                }
+
+.action-button span:hover {
+				color: #57a000;
+                }

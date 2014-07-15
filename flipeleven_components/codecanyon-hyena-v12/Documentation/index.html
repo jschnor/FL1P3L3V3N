@@ -1,0 +1,879 @@
+<!doctype html>  
+<!--[if IE 6 ]><html lang="en-us" class="ie6"> <![endif]-->
+<!--[if IE 7 ]><html lang="en-us" class="ie7"> <![endif]-->
+<!--[if IE 8 ]><html lang="en-us" class="ie8"> <![endif]-->
+<!--[if (gt IE 7)|!(IE)]><!-->
+<html lang="en-us"><!--<![endif]-->
+<head><meta charset="utf-8">
+	<title>Hyena - A Lightweight All-In-One Animation Plugin</title>
+	<meta name="description" content="Intro Sentence">
+	<meta name="author" content="Crusader12">
+	<meta name="copyright" content="Crusader12">
+	<meta name="date" content="2013-01-20T00:00:00+01:00">
+	<link rel="stylesheet" href="css/documenter_style.css" media="all">
+	<script src="js/jquery.1.6.4.js"></script>
+	<script src="js/jquery.scrollTo-1.4.2-min.js"></script>
+	<script src="js/jquery.easing.js"></script>
+	<script>document.createElement('section');var duration=500,easing='swing';</script>
+	<script src="js/script.js"></script>
+	<style>
+		html{background-color:#FFFFFF;color:#383838;}
+		::-moz-selection{background:#444444;color:#DDDDDD;}
+		::selection{background:#444444;color:#DDDDDD;}
+		a{color:#02ba76;}
+		hr{border-top:1px solid #EBEBEB;border-bottom:1px solid #FFFFFF;}
+		#documenter_sidebar, #documenter_sidebar ol a{background-color:#FFFFFF;color:#222222;}
+		#documenter_sidebar {background-color:#373737;}
+		#documenter_sidebar ol{border-top:1px solid #f0f0f0;}
+		#documenter_sidebar ol a{border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;color:#444444;}
+		#documenter_sidebar ol a:hover{background:#f0f0f0;border-top:1px solid #f0f0f0;}
+		#documenter_sidebar ol a.current{background:#f0f0f0;border-top:1px solid #f0f0f0;}
+		#documenter_copyright{display:block !important;visibility:visible !important;}
+	</style>
+</head><body>
+	<div id="documenter_sidebar">
+		<a href="#documenter_cover" id="documenter_logo"></a>
+
+		<div class="sidebartoggle" id="section1" style="margin-top:40px;">Getting Started</div>
+	       	<div class="sidebarcontainer">         
+			<ol id="documenter_nav">
+				<li><a class="current" href="#documenter_cover">Introduction</a></li>
+				<li><a href="#Support">Support</a></li>   
+  				<li><a href="#standard_installation">Standard Installation</a></li>
+				<li><a href="#wordpress_installation">WordPress Installation</a></li>
+				<li><a href="#recap">Installation Recap</a></li>
+            </ol></div>
+
+		<div class="sidebartoggle" id="section2">Options</div>
+	       	<div class="sidebarcontainer">                
+			<ol id="documenter_nav">
+   				<li><a href="#calling">Calling Hyena</a></li>                            
+   				<li><a href="#passing">Passing in Settings</a></li>                            
+   				<li><a href="#options">Hyena Options</a></li>                            
+			</ol></div>            
+
+		<div class="sidebartoggle" id="section4">Reference</div>
+	       	<div class="sidebarcontainer">         
+			<ol id="documenter_nav">
+				<li><a href="#settings">Settings</a></li>
+
+            </ol></div>
+
+
+		<div id="documenter_copyright">Copyright Crusader12 2014</div>
+	</div>
+
+	<div id="documenter_content">
+
+<section id="documenter_cover">
+	<h1>Hyena <span style="font-size:26px;">v</span>1.2</h1>
+    <h2><em>Animated GIF Players without any Coding Experience</em></h2>
+    <hr>
+    
+    <ul style="margin-bottom:10px;margin-left:15px;">
+    <li style="font-size:12px;">First Release: February, 2014</li>
+    <li style="font-size:12px;">Author: Crusader12</li>
+    <li style="font-size:12px;">Contact: <a href="http://codecanyon.net/user/Crusader12">CodeCanyon</a></li>
+    </ul>
+    <br>
+
+    <p>Thank you for purchasing Hyena. You don't need to know JavaScript or jQuery to use Hyena. The documentation will guide you from start to finish. You are probably excited and ready to being, but relax - it may be confusing if you don't read the complete documentation.</p><br>
+    <p>I've done my best to write this documentation at a beginner level, taking into consideration that English may not be your first language. For this reason, parts of the documentation may seem repetitive.
+    <span class="step">Licensing</span>
+	Please make sure you have purchased the appropriate License for Hyena. Envato Licenses are single-use and allow you to use Hyena with 1 client or 1 website. Each additional website you plan to use Hyena with requires its own license. 
+    If you plan on including Hyena in a Template/Theme for sale, please purchase the Extended License. I grant permission for usage in Templates/Themes only with the Extended License and only under the following conditions:</p>
+    <ul class="bullets">
+        <li>You provide a link back to the Hyena Item Page or my Profile Page</li>
+        <li>Support is only provided for Theme/Template construction - not to your customers</li>
+    </ul>
+  <p><strong class="special">Read this documentation in it's entirety before using Hyena.</strong></p>
+  
+  
+  <p>Also, make sure to check out Hyena v1.8 for the most customizable (and easy) Lightbox out there.</p>  
+  <a href="http://codecanyon.net/item/Hyena-v18/6782557?WT.ac=portfolio&WT.seg_1=portfolio&WT.z_author=Crusader12?ref=Crusader12"><img src="images/Hyena.jpg"/></a>
+  <p>Showcase makes Image Mapping and Hotspotting a Breeze.</p>
+  <a href="http://codecanyon.net/item/showcase-v12/2612404?WT.ac=item_more_thumb&WT.seg_1=item_more_thumb&WT.z_author=Crusader12?ref=Crusader12"><img src="images/showcase.jpg"/></a>
+</section>
+    
+    
+    
+    
+    
+<section id="Support">
+<h3>Support Information</h3><hr class="notop">
+<p>Support through CodeCanyon is not mandated. However, I stand behind my products and will provide as timely support as possible. I do reserve the right to withhold support for the following reasons:</p>
+	<ul class="bullets">
+    	<li>Purchased the incorrect License</li>
+		<li>Existing bugs on your website</li>
+		<li>Custom CSS styling</li>
+        <li>Customization outside the scope of the purpose of the plugin</li>
+        <li>If you have not completely read the documentation</li>
+        <li>If you are demanding or rude</li>
+        <li>Extreme customization scenarios</li>
+        <li>If I suspect you have pirated Hyena or another Envato item</li>
+    </ul>
+<p>The Hyena Regular License includes basic Installation Support. <br>
+
+<span class="step">Where to Look First</span>
+Before requesting support, please make sure that you have read the Documentation entirely. I have worked very hard to make sure this documentation covers everything clearly, and will update portions of it that are reported as confusing. I have also included a Troubleshooting Section at the end. The Frequently Asked Questions section <em>(now located under the Support Tab on the Hyena Item Page)</em> will also be updated often.
+
+<span class="step">Updates</span>
+Depending upon feedback and ratings <em>(not sales)</em>, some exciting and unique features are planned. From time to time, I'll be extending the plugin as a way of saying thanks. To keep Hyena up to date, make sure you are currently receiving emails when Envato items are updated: <em>In your Dashboard -> My Settings -> Email Settings</em>.<br><br>
+   
+<h3 style="min-width:800px;width:800px;color:#222222;line-height:40px;" class="special">Please take a moment to rate and share it with your friends. Ratings are very important, and will determine how quickly the plugin is updated and how much time I am able to devote to it. <a href="http://www.codecanyon.net" target="_blank">Rate Now</a>.</h3></p>
+<p>Please take a few seconds to rate Hyena by logging in to your Envato account. Hover over your name in the upper right corner and select Downloads. This brings up all items you've purchased through Envato. You'll see Hyena and the rating stars to the right of it. If you have any feature requests or ideas, I would be happy to hear them.</p>
+</section>
+
+
+
+
+
+
+
+<section id="standard_installation">
+<h3>Standard Installation</h3><hr class="notop">
+<p>This section is for standard HTML websites. For WordPress/CMS installations, see <a href="#wordpress_installation">WordPress Installation</a>. Hyena has a few required files. Installation is only a matter of uploading the following files to your server and linking them on your page.
+<ul class="bullets">
+   	<li>jQuery</li>
+    <li>Hyena Plugin File (JavaScript)</li>
+    <li>Hyena CSS File</li>
+</ul>
+<p><strong class="step">Step 1:</strong>
+Upload the Hyena Folder to your site's root folder. This is typically where your index.html file resides.
+<br>
+<br>
+<span class="step">Step 2:</span>
+Link the Hyena CSS file in the &lt;HEAD&gt; section after your stylesheet. You can copy the following:
+<strong class="code">&lt;link rel="stylesheet"  href="Hyena/jquery-Hyena-1.2.min.css" type="text/css" media="all" /&gt;</strong>
+<strong>It's recommended to place this after your other CSS Links, to avoid overwriting Hyena styles.</strong>
+<br>
+<br>
+<span class="step">Step 3:</span>
+If your website does not have jQuery installed, link the jQuery file in the &lt;HEAD&gt; section of your page.<br>
+<strong class="code">&lt;script type="text/javascript" src="Hyena/js/jquery-1.9.1.min.js"&gt;&lt;/script&gt;</strong>
+To check if jQuery is already intalled on your site, look in the &lt;HEAD&gt; section of your page for a &lt;SCRIPT&gt; tag with 
+'jquery-x.x.x.xxx.js' in the src attribute <em>(Where x would indicate a version number).</em> jQuery is a JavaScript library that provides a set of tools which Hyena uses. Since parts of Hyena rely on these components, <strong>it's important that jQuery is loaded before the Hyena Javascript file</strong>. It's optimal to place jQuery before all other &lt;SCRIPT&gt; links.
+<br>
+<br>
+<strong class="step">Step 4:</strong>
+Link the Hyena JavaScript Plugin File.
+<strong class="code">&lt;script type="text/javascript" src="Hyena/jquery-Hyena-1.2.min.js"&gt;&lt;/script&gt;</strong>
+<strong>Hyena should be loaded after jQuery.</strong>
+<br>
+<br>
+<strong class="step">Step 5:</strong>
+Last, confirm that all files have been correctly linked. Open Firefox <em>(Firefox is recommended for this step)</em>. Navigate to your website. View the source code by pressing CTRL-U (CMD-U on Mac). A window will open revealing the source code. At the top - inside the &lt;HEAD&gt; section of the page, you'll see all of the links you've added. When linked correctly, clicking the link should navigate to the file contents. If the file contents don't appear, the browser can't find the file at the path you specified.
+<br>
+<br>
+<strong class="step">Complete Code:</strong>
+Below is the correct loading order. You can also refer to the included demos for more examples.
+<div class="code">
+	&lt;HEAD&gt;<br>
+    <span style="margin-left:20px;">...</span><br>
+	<span style="margin-left:40px;">&lt;link rel="stylesheet"  href="Hyena/Hyena-1.2.min.css" type="text/css" media="all" /&gt;</span><br>
+   	<span style="margin-left:40px;">&lt;script type="text/javascript" src="Hyena/jquery-1.9.1.min.js"&gt;&lt;/script&gt;</span><br>
+	<span style="margin-left:40px;">&lt;script type="text/javascript" src="Hyena/jquery-Hyena-1.2.min.js"&gt;&lt;/script&gt;</span><br>
+    <span style="margin-left:20px;">...</span><br>
+	&lt;/HEAD&gt;</div><br><br>
+</section>
+
+
+
+
+<section id="wordpress_installation">
+<h3>WordPress Installation</h3><hr class="notop">
+<p>This section is for WordPress websites. Installation has been broken down into small, detailed steps. Installation involves uploading these files to your server and linking to them on your page.
+<ul class="bullets">
+   	<li>jQuery</li>
+	<li>Hyena Plugin File (JavaScript)</li>
+    <li>Hyena CSS File</li>
+</ul>
+
+<p><span class="step">Step 1:</span>
+Upload the Hyena Folder to your WordPress Theme Folder. 
+<br>
+<br>
+<span class="step">Step 2:</span>
+Login to the back-end of WordPress and navigate to Appearance -> Editor. Click the header.php in the right sidebar to open your header file which contains the &lt;HEAD&gt; section. Locate the &lt;LINK&gt; tag to your main style.css file and insert the following directly after. 
+<strong class="code">&lt;link rel="stylesheet"  href="&lt;?php bloginfo('template_directory'); ?&gt;/Hyena/Hyena-1.2.min.css" type="text/css" media="all" /&gt;</strong>
+<strong>It's recommended to place this after your other CSS Links, to avoid overwriting Hyena styles.</strong>
+<br>
+<br>
+<strong class="step">Step 3:</strong>
+WordPress comes with jQuery installed, however you should check to see if it's enabled. Navigate to your website front-end and view the source code (CTRL-U / CMD-U on Mac). Run a search for "jquery". If you find a SCRIPT tag linking to jQuery then you don't need to include the jQuery file that came with Hyena. Most of the time jQuery will be enabled and you're probably already using other jQuery plugins in your theme. However, in the rare case it is disabled, please email me directly for instructions.
+<br><strong>Some Themes may choose to link JavaScript files in the footer.php</strong>
+
+<br><br>
+<strong class="step">Step 4:</strong>
+Link the Hyena JavaScript Plugin File at the end of the &lt;HEAD&gt; section.
+
+<strong class="code">&lt;script type="text/javascript" src="&lt;?php bloginfo('template_directory'); ?&gt;/Hyena/jquery-Hyena-1.2.min.js"&gt;&lt;/script&gt;</strong>
+<br>
+<br>
+<strong class="step">Step 5:</strong>Last, confirm that all files have been correctly linked. Open Firefox (Firefox is recommended for this step). Navigate to your website. View the source code by pressing CTRL-U (CMD-U on Mac). A window will open revealing the source code. At the top - inside the &lt;HEAD&gt; section of the page, you'll see all of the links you've added. When linked correctly, clicking the link should navigate to the file contents. If the file contents don't appear, the browser can't find the file at the path you specified. 
+<br>
+<br>
+<strong class="step">Complete Code:</strong>
+Below is the correct loading order for the required files. You can also refer to the included demos.
+<div class="code">
+	&lt;HEAD&gt;<br>
+    ...<br>
+	<span style="margin-left:20px;">&lt;link rel="stylesheet"  href="&lt;?php bloginfo('template_directory'); ?&gt;/Hyena/Hyena-1.2.min.css" type="text/css" media="all" /&gt;</span><br>
+   	<span style="margin-left:20px;">&lt;script type="text/javascript" src="&lt;?php bloginfo('template_directory'); ?&gt;/Hyena/jquery-1.9.1.min.js"&gt;&lt;/script&gt;</span><br>
+	<span style="margin-left:20px;">&lt;script type="text/javascript" src="&lt;?php bloginfo('template_directory'); ?&gt;/Hyena/jquery-Hyena-1.2.min.js"&gt;&lt;/script&gt;</span><br>
+    ...<br>
+	&lt;HEAD&gt;</div><br><br><br></p>
+<p>The <strong>&lt;?php bloginfo('template_directory'); ?&gt;</strong> points to the root directory of the active Theme. You can alternatively use absolute paths, but this is the recommended method.</p>    
+</section>
+
+
+
+
+
+<section id="recap">
+<h3>Installation Recap</h3><hr class="notop">
+<p>Hyena installs like any other jQuery plugin. Just upload the Hyena folder to the root folder of your website <em>(or your WordPress Theme Folder)</em>. Make sure that your website has jQuery installed - if it doesn't, load the version included with Hyena. Make sure that the loading order is correct as detailed in the Installation section.<br><br>
+Hyena is now installed and ready for use.</p></section>
+
+
+<section id="containers">
+<h3>Containers</h3><hr class="notop">
+<p style="float:left;width:480px;margin-right:50px;">Before we dive into making different effects, it helps to understand what Hyena is doing. Hyena is based around the simple idea that nearly every website animation effect can be achieved with 2-3 simple HTML containers. This approach can actually be more efficient and lightweight than writing custom code specific to each effect. When you call Hyena on an element, it builds those animation containers around that element. 
+To the right is a diagram of what elements are made and how they interact with each other. Understanding this diagram will help when setting up your effects.</p>
+<img src="images/containers.png" style="margin-top:5px;"/>
+
+<p><span class="step">Container</span>
+Your element is wrapped inside of the Hyena Container <em>(outlined in black)</em>.
+
+<span class="step">Background</span>
+The Background element <em>(shown in gray)</em> is placed inside of the Hyena Container.
+This example shows the Background positioned like a Caption.
+The position of the Background Container is relative to the Container and a Coordinate System is used to position the Background.
+Basically, 0,0 will position the Background at the top-left corner of the Container.<br>
+<strong>Later you will learn that the "coords" setting controls the movement of this container.</strong>
+
+<span class="step">Text Container</span>
+The Text Container <em>(shown in Blue)</em> is positioned inside of the Background Container and can also be animated independently. <br>
+
+<strong>Later you will learn that the "text_coords" setting controls the movement of this container.</strong>
+<span class="special">Effects use a different combination of the above containers</span>
+
+</p>
+</section>
+
+
+
+<section id="linksandtext">
+<h3>HTML Setup</h3><hr class="notop">
+<p>
+The power of Hyena revolves around the fact that you build your HTML and CSS the way you are already used to. The majority of
+examples in the documentation and the tutorials are used on images, but you can use any HTML Element you want.
+<span class="code">&lt;img src="path/to/image.png" /&gt;</span>
+There isn't anything special about the above code - just a simple image tag. In order for us to add a Hyena Caption 
+to this image, we have to be able to target it, so we give it a class:
+<span class="code">&lt;img src="path/to/image.png" <span style="background-color:#0FF;">class="Hyena_Caption"</span> /&gt;</span>
+Now that this image has a class of <strong>"Hyena_Caption"</strong>, we have a way of finding it on the page. 
+This is important, and will be used in the next section. <br>
+<span class="special">You can apply the same class to multiple elements.</span>
+
+<span class="step">Text</span>
+Text is added by using the ALT attribute:
+<span class="code">&lt;img src="path/to/image.jpg" class="Hyena_Caption" <span style="background-color:#0FF;">alt="My Caption Text Here"</span>/&gt;</span>
+
+<span class="step">Links</span>
+Links are added using the REL attribute:
+<span class="code">&lt;img src="path/to/image.jpg" class="Hyena_Caption" <span style="background-color:#0FF;">rel="http://www.codecanyon.net"</span>/&gt;</span>
+You can further control linking using the <strong>link_control</strong> setting. This setting has 2 values.
+<span class="code">"link_control" : "true,_blank"</span>
+The first value allows for BIG linking. BIG linking expands the coverage of your link from the Hyena
+Background Container to the main Container. For example, with Big Linking disabled, the link on a Caption would
+be around the Caption itself. With Big Link enabled, the link would wrap the entire image <em>(or element)</em>. The second
+option allows you to control how the link is opened. To open the link in a new tab use "_blank", otherwise use "_self".
+
+<span class="step">Positioning the Element</span>
+Hyena will automatically build all of the Containers covered in the previous section - around your element(s). However, 
+if you want to position your element, use a wrapper and apply all of the positioning CSS to the wrapper instead of the element
+itself. For example, if you want to add a 20px margin to the top of your thumbnail
+image:
+<span class="code">
+	&lt;div style="margin-top:20px;"&gt;<br>
+	<span style="margin-left:40px;">&lt;img src="path/to/image.png" /&gt;</span><br>
+	&lt;/div&gt;    
+</span>
+
+</p></section>
+
+
+
+
+
+<section id="plugincall">
+<h3>Calling Hyena</h3><hr class="notop">
+<p>
+<span class="step">Plugin Call</span>
+Once the HTML is setup, a simple bit of JavaScript calls Hyena into action. This can be placed anywhere on your page, however it is recommended to place all of your Hyena Plugin Calls inside a single &lt;script&gt; tag at the end of your &lt;HEAD&gt;:
+<span class="code">
+	&lt;script&gt;<br>
+   	<span style="margin-left:10px;">$(window).load(function(){</span><br>
+		<span style="margin-left:30px;">$('.Hyena_Caption').Hyena();</span><br>
+	<span style="margin-left:10px;">});</span><br>
+	&lt;/script&gt;
+</span>    
+   
+The above code reads easily. First, we setup an event:
+
+<span class="code">$('window').load(function(){ ... });</span>
+This events runs some code when the page has finished loading. The code we are running is:
+<span class="code">$('.Hyena_Caption').Hyena();</span>
+When the window loads, the browser searches the page for any HTML elements that have the class of <strong>"Hyena_Caption"</strong>.
+ Hyena is called on all elements found with that class. Lastly, we need to add some settings to tell Hyena what we want 
+ it to do with the found element(s). Passing in settings is quite easy - and we will cover all settings in depth shortly. For now
+ we just want the basic settings to turn this into a Caption:
+<span class="code">
+	&lt;script&gt;<br>
+   	<span style="margin-left:10px;">$(window).load(function(){</span><br>
+		<span style="margin-left:30px;">$('.Hyena_Caption').Hyena({</span><br>
+        <span style="margin-left:50px;">"mode" : "caption",</span><br>
+		<span style="margin-left:50px;">"coords" : "0,0||0,0||0,0",</span><br>
+        <span style="margin-left:50px;">"text_coords" : "0,0||0,0||0,0"</span><br> 
+		<span style="margin-left:30px;">});</span><br>
+	<span style="margin-left:10px;">});</span><br>
+	&lt;/script&gt;
+</span>   
+
+
+<span class="special">Do not place a comma after the last setting in the Hyena Call</span>	
+
+
+At this point we are only focused on calling Hyena - not setting up a working Caption. 
+You should only be concerned with:
+<ul class="bullets">
+<li>Understanding how to target HTML Elements</li>
+<li>Calling Hyena on those Elements</li>
+<li>Passing in the customization Settings</li>
+<li>Do not place a comma after the last setting</li>
+</ul>
+
+
+<p><span class="step">WordPress Considerations</span>
+If you're using WordPress, everything is done exactly the same... except for one minor thing: <br>
+the <strong>$</strong> becomes <strong>jQuery</strong>:
+<span class="code">
+	&lt;script&gt;<br>
+   	<span style="margin-left:10px;">jQuery(window).load(function(){</span><br>
+		<span style="margin-left:30px;">jQuery('.Hyena_Caption').Hyena({</span><br>
+        <span style="margin-left:50px;">"mode" : "caption",</span><br>
+		<span style="margin-left:50px;">"coords" : "0,0||0,0||0,0",</span><br>
+        <span style="margin-left:50px;">"text_coords" : "0,0||0,0||0,0"</span><br> 
+		<span style="margin-left:30px;">});</span><br>
+	<span style="margin-left:10px;">});</span><br>
+	&lt;/script&gt;
+</span>  
+
+
+<span class="step">Common Mistake #1: Class vs ID</span>
+There a many ways to call Hyena on a single element or multiple elements.
+Version 1.2 has seen some considerable updates - including a new tiered customization level system - which 
+is covered in the next section. Basically, you can customize a group of elements in the plugin call, then drill down and
+customize the individual elements even more. To take full advantage of this system it is important to understand the differences between 
+IDs and Classes.<br>
+<br>
+IDs are used for only 1 element on a page. They are unique. If you are setting up a Hyena effect on 1 element only, 
+use an ID. IDs provide the best performance.<br>
+<span class="warning">Do not use IDs more than once per page.</span>
+<br>
+Classes are used for targeting many elements at once.<br>
+
+<span class="step">Common Mistake #2: Multiple Hyena Calls</span>
+You can load as many Hyena calls as you need, however it is best to use a bit of strategy and break them up based on effect type:
+<span class="code">
+	&lt;script&gt;<br>
+   	<span style="margin-left:10px;">$(window).load(function(){</span><br>
+		<span style="margin-left:30px;">$('.Hyena_Caption').Hyena({ ... });</span><br>
+		<span style="margin-left:30px;">$('.Hyena_Tooltip').Hyena({ ... });</span><br>
+		<span style="margin-left:30px;">$('.Hyena_Panel').Hyena({ ... });</span><br>
+		<span style="margin-left:30px;">$('.Hyena_Lightbox').Hyena({ ... });</span><br>
+	<span style="margin-left:10px;">});</span><br>
+	&lt;/script&gt;
+</span> 
+Note that all calls are inside a single &lt;SCRIPT&gt; tag and within the same $(window).load() event. 
+</p></section>
+
+
+
+
+<section id="movement">
+<h3>Configuring Movement</h3><hr class="notop">
+<p>
+<span class="step">Background Container Movement</span>
+Configuring Background Container movement is done with one setting:
+<span class="code">"coords" : "StartX,StartY || EndX,EndY || ReturnX,ReturnY"</span>
+The values you enter in this setting are percentages using a 0,0 Coordinate System. 
+0,0 represents the top-left corner of the element, while 100,100 represents the bottom-right corner.
+The "coords" setting controls the animation path for the Hyena Background Container. 
+For Captions, these are the blue boxes that pop up.<br><br>
+To have the blue Caption box come in from the bottom and return to the bottom:
+<span class="code">"coords" : "0,100 || 0,75 || 0,100"</span>
+To make the Caption box come in the right and return to the right:
+<span class="code">"coords" : "100,0 || 0,0 || 100,0"</span>
+
+<span class="step">Text Container Movement</span>
+Controlling the animation for the Text is done exactly the same way, using the "text_coords" setting:
+<span class="code">"text_coords" : "StartX,StartY || EndX,EndY || ReturnX,ReturnY"</span>
+To have the Caption Text come in from the top and return to the top:
+<span class="code">"coords" : "0,-50 || 0,10 || 0,-50"</span>
+To make the Caption Text come in the left and return to the right:
+<span class="code">"coords" : "-50,0 || 10,0 || 100,0"</span>
+</p></section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section id="styling">
+<h3>Styling Hyena Effects</h3><hr class="notop">
+<p>Styling Hyena animations is done by dynamically assigning classes to the Hyena 
+Background Container and the Hyena Text Container.<br><br>
+
+To add a class to the main Container, use:
+<span class="code">"container_class" : "className"</span>
+
+To add a class to the Background, use:
+<span class="code">"bg_class" : "className"</span>
+
+To add a class to the Text, use:
+<span class="code">"text_class" : "className"</span>
+
+To make a Caption Background black:
+<span class="code">"bg_class" : "captionBackground"<br><br>
+
+.captionBackground { background-color:#000000; }</span>
+
+<span class="step">Making it Responsive</span>
+The Background Container class is where you define the dimensions for most of your effects.
+The examples that came in the download assign classes to the Hyena effects.
+Making Hyena effects responsive is done using your existing media queries in your theme / template.
+For example, if you create a Caption effect, and apply the dimensions using:
+<span class="code">"bg_class" : "captionBackground"<br><br>
+
+.captionBackground { width:200px; height:50px; background-color:#000000; }</span>
+
+The above code applies the .captionBackground class to the Caption Effect's Background Container. In that 
+class you have defined the dimensions for the Caption Background Container. This is the blue component in the
+demo Caption effects. If the image dimensions change for a tablet size, you may also need to update the Caption 
+Background container dimensions to match. Locate the appropriate media query and use the same class - with
+any required modifications:
+<span class="code">@media only screen and (min-device-width : 768px) and (max-device-width : 1024px){<br>
+<span style="margin-left:40px;">.captionBackground { width:Xpx; height:Ypx; background-color:#000000; }</span><br>
+}</span>
+
+</p></section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section id="levels">
+<h3>Customization Levels</h3><hr class="notop">
+<p>At this point you have seen how to initialize Hyena on multiple elements using classes.<br><br>
+
+The following example creates 4 thumbnails:
+<span class="code">
+	<span style="margin-left:20px;">&lt;img src="path/to/image1.png" class="Hyena_Caption" alt="Caption 1"/&gt;</span><br>
+	<span style="margin-left:20px;">&lt;img src="path/to/image2.png" class="Hyena_Caption" alt="Caption 2"/&gt;</span><br>
+	<span style="margin-left:20px;">&lt;img src="path/to/image3.png" class="Hyena_Caption" alt="Caption 3"/&gt;</span><br>
+	<span style="margin-left:20px;">&lt;img src="path/to/image4.png" class="Hyena_Caption" alt="Caption 4"/&gt;</span>
+</span>
+
+Next, we convert all of these into Captions using a single Hyena Call:
+<span class="code">
+	<span style="margin-left:20px;">&lt;script type="text/javascript"&gt;</span><br>
+		<span style="margin-left:40px;">$(window).load(function(){</span><br>
+        	<span style="margin-left:60px;">$('.Hyena_Caption').Hyena({</span><br>		
+				<span style="margin-left:80px;">"coords" : "0,100||0,75||0,100",</span><br>
+				<span style="margin-left:80px;">"text_coords" : "0,50||0,5||0,50",</span><br>
+				<span style="margin-left:80px;">"bg_class" : "captionBackground",</span><br>
+				<span style="margin-left:80px;">"text_class" : "captionText"</span><br>
+			<span style="margin-left:60px;">});</span><br>
+		<span style="margin-left:40px;">});</span><br>
+	<span style="margin-left:20px;">&lt;/script&gt;</span>
+</span>
+
+
+You should be familiar with what is going on above. The Call is running Hyena on all elements with
+<strong>class="Hyena_Caption"</strong>. The <strong>"coords"</strong> setting tells Hyena that the Background Container will be 
+moving in from the bottom of the element. The <strong>"text_coords"</strong> setting tells Hyena how to animate the text. 
+Lastly, the <strong>"bg_class"</strong> and <strong>"text_class"</strong> settings apply classes to the Background and Text Containers, respectively.
+<br><br>
+All of the images receive the <strong>captionBackground</strong> class on the Hyena Background Container and
+the <strong>captionText</strong> class on the Hyena Text Container. However, we can customize this further - at
+the individual element level - using the data-Hyena attribute.
+
+<span class="step">data-Hyena</span>
+We can isolate a single thumbnail image, and customize the animation effect a bit more using the data-Hyena attribute:
+<span class="code">
+	<span style="margin-left:20px;">&lt;img src="path/to/image1.png" class="Hyena_Caption" alt="Caption 1"</span><br>
+	<span style="margin-left:40px;">data-Hyena='{ "bg_class" : "specialCaption" }'</span><br>
+	<span style="margin-left:20px;">/&gt;</span><br>
+</span>
+Now the Background Container for the first Caption will receive the <strong>specialCaption</strong> class, rather than the <strong>captionBackground</strong> class.
+All settings placed in the data-Hyena attribute will override settings in the main plugin call. This pattern effectively allows
+you to configure a large group of items quickly <em>(in the main Plugin Call)</em>, then "clean up" customization with a couple settings here and there - cutting down 
+on the number of settings required.
+<br><br>
+The <strong>Examples/caption_multiple.html</strong> uses the data-Hyena attribute to change the color of the Caption Backgrounds.
+
+<span class="special">All Hyena settings can be used in the main Plugin Call and in the data-Hyena attribute.</span>
+</p></section>
+
+
+
+
+
+
+
+
+<section id="targetcontainers">
+<h3>Target Containers</h3><hr class="notop">
+<p>Target Containers are only used for certain effects such as Sliding Panels and Lightboxes. Basically, when an
+animation occurs somewhere other than where the user interacts - a Target Container is used. For Sliding Panels, this
+is the main Container for the Sliding Panel. For Lightboxes - the Target Container is the Lightbox itself.
+
+<span class="code">"target_container" : "className"</span>
+The Target Container setting is used for one purpose. It provides a way for you to assign a class to the Target Container.
+Say you wanted to add a Border to the bottom of your Sliding Panel. Using the target_container setting, allows you to assign
+a class to the Sliding Panel container, then quickly add a border to it. 
+<span class="code">"target_container" : "slidingPanel1"<br><br>
+.slidingPanel1 { border-bottom:5px solid #000000; }</span>
+<span class="special">Refer to the Sliding Panel examples for uses of Target Containers.</span>
+</p></section>
+
+
+
+
+
+
+
+
+
+
+<section id="htmlmode">
+<h3>Injecting HTML</h3><hr class="notop">
+<p>For more advanced cutomization scenarios, you can write your own HTML and inject it into any Hyena animation you like.
+Here's a bit of code you have just written on your page:
+<span class="code">
+	<span style="margin-left:20px;">&lt;div id="myDIV"&gt;</span><br>
+		<span style="margin-left:40px;">&lt;h1&gt;My Awesome HTML&lt;/h1&gt;</span><br>
+       	<span style="margin-left:40px;">&lt;p&gt;This is some text.&lt;/p&gt;</span><br>		
+	<span style="margin-left:20px;">&lt;/div&gt;</span>
+</span>
+
+
+Now, we can setup a Sliding Panel that opens when we click an image.
+<span class="code">
+	<span style="margin-left:20px;">&lt;img src="path/to/image.png" class="Hyena_Panel"/&gt;</span><br><br>
+	<span style="margin-left:20px;">...</span><br>
+	<span style="margin-left:20px;">&lt;script type="text/javascript"&gt;</span><br>
+		<span style="margin-left:40px;">$(window).load(function(){</span><br>
+        	<span style="margin-left:60px;">$('.Hyena_Panel').Hyena({</span><br>		
+				<span style="margin-left:80px;">"coords" : "0,-50||0,0||0,-50",</span><br>
+				<span style="margin-left:80px;">"text_coords" : "0,0||0,0||0,0",</span><br>
+				<span style="margin-left:80px;">"bg_class" : "slidingPanelBackground",</span><br>
+				<span style="margin-left:80px;">"target_container" : "slidingPanel",</span><br>                
+				<span style="margin-left:80px;">"html_mode" : "#myDIV",</span><br>                
+				<span style="margin-left:80px;">"on_click" : true,</span><br>  
+                <span style="margin-left:80px;">"mode" : "panel"</span><br>                                
+			<span style="margin-left:60px;">});</span><br>
+		<span style="margin-left:40px;">});</span><br>
+	<span style="margin-left:20px;">&lt;/script&gt;</span>
+</span>
+
+
+In the above code, we have setup a image with <strong>class="Hyena_Panel"</strong>. Then inside the Hyena plugin call
+we setup the animation coordinates to slide the panel down from the top of the screen. We assign the <strong>"slidingPanelBackground"</strong>
+class to the Background Container. The main Sliding Panel Container (Target Container) receives the class <strong>"slidingPanel"</strong>.
+We set <strong>"on_click"</strong> to true to fire the panel when clicking on the thumbnail, and we set the animation mode to <strong>"panel"</strong>.<br><br>
+Finally, you'll notice that we have taken the <strong>#myDIV</strong> block of code that we wrote earlier and injected it into the animation effect using
+the <strong>"html_mode"</strong> setting.
+
+
+<span class="step">Animating Inside Your HTML</span>
+After you have injected your block of HTML, you also configure it to allow Hyena to animate your block of HTML.
+Basically, what we do is trick Hyena into thinking that the block of HTML you just injected into the animation is actually
+the Hyena Text. This is being done in the last Sliding Panel example on the demo page.
+
+<span class="code">
+	<span style="margin-left:20px;">&lt;div id="myDIV"&gt;</span><br>
+    	<span style="margin-left:40px;">&lt;p class="hv_text"&gt;</span><br>
+		<span style="margin-left:60px;">&lt;h1&gt;My Awesome HTML&lt;/h1&gt;</span><br>
+       	<span style="margin-left:60px;">&lt;p&gt;This is some text.&lt;/p&gt;</span><br>		
+    	<span style="margin-left:40px;">&lt;/p&gt;</span><br>
+	<span style="margin-left:20px;">&lt;/div&gt;</span>
+</span>
+By adding the <strong>class="hv_text"</strong>, Hyena will treat your animation container like Hyena text - allowing you to 
+configure the animation path for your block of HTML just like you would with Text - using the <strong>"text_coords"</strong> setting. The hv_text must be used on a &lt;p&gt; tag.
+
+<span class="step">Special Links</span>
+When injecting HTML, you can add a link using the hv_link class:
+<span class="code">
+	<span style="margin-left:20px;">&lt;div id="myDIV"&gt;</span><br>
+    	<span style="margin-left:40px;">&lt;p class="hv_text"&gt;</span><br>
+		<span style="margin-left:60px;">&lt;h1&gt;My Awesome HTML&lt;/h1&gt;</span><br>
+       	<span style="margin-left:60px;">&lt;p&gt;This is some text.&lt;/p&gt;</span><br>		
+    	<span style="margin-left:40px;">&lt;/p&gt;</span><br>
+        <span style="margin-left:40px;">&lt;a class="hv_link"&gt; href="http://www.codecanyon.net"&gt;&lt;/a&gt;</span><br>
+	<span style="margin-left:20px;">&lt;/div&gt;</span>
+</span>
+
+
+
+<span class="step">Closing Target Containers</span>
+There are a couple quick classes you can apply to elements inside your block of injected HTML that Hyena will recognize.<br><br>
+
+Add the following class to any element to convert it into a button to close a Lightbox:
+<span class="code">class="close_lightbox"</span>
+Add the following class to any element to convert it into a button to close an Alert:
+<span class="code">class="close_alert"</span>
+Add the following class to any element to convert it into a button to close a Sliding Panel:
+<span class="code">class="close_panel"</span>
+
+
+
+
+</p></section>
+
+
+
+
+
+
+
+<section id="calling">
+<h3>Calling Hyena</h3><hr class="notop">
+<p>To use Hyena on your Animated GIF, just add <em>class="hyena"</em>
+<span class="code">&lt;img src="my/funny/GIF.gif" class="hyena"/&gt;</span>
+<p>Now that you have set up the class on at least one image - it's time to call Hyena. Navigate to your &lt;HEAD&gt; section <em>(Located in Appearance -> Editor -> header.php file in WordPress)</em> and enter the following right before the closing &lt;/HEAD&gt; tag.
+
+<div class="code">
+<span>&lt;script type="text/javascript"&gt;</span><br>
+<span style="margin-left:20px;">$(window).ready(function(){</span><br>
+<span style="margin-left:40px;">$('img.hyena').Hyena({ ... });</span><br>
+<span style="margin-left:20px;">});</span><br>
+<span>&lt;/script&gt;</span>
+</div></p>
+<span class="warning">WordPress Users: Replace every instance of <strong>$</strong> with <strong>jQuery</strong></span>
+
+<p>Let's break this down a bit. First, we're setting up an event:<br>
+<span class="code">$(window).ready(function(){ ... });</span><br>
+Next, when the browser is ready, we're calling Hyena:<br>
+<span class="code">$('img.hyena').Hyena({ ... });</span>
+In the HTML section, you added a class to your images. Inside <strong>$('.hyena').Hyena({ ... });</strong> the <strong>. . .</strong> is where optional Hyena settings go.
+The <strong>$('img.hyena')</strong> is called the selector. It is exactly the same as the class name of your image(s).
+</p></section>
+
+
+
+
+<section id="passing">
+<h3>Passing in Settings</h3><hr class="notop">
+<p>So far, the plugin call is setup and you have assigned the "hyena" class to all GIFs that you want to have controls. Hyena has now
+selected all of your GIFs with <em>class="hyena"</em> and loaded the default Hyena settings. You can now customize all of these images inside the
+plugin call (discussed on the previous page) using settings.
+
+<span class="step">Loading a Skin</span>
+You can load Skins for all of the GIFs using the <strong>player_style</strong> setting. Hyena comes with 6 Skins.
+<div class="code">
+<span>&lt;script type="text/javascript"&gt;</span><br>
+<span style="margin-left:20px;">$(window).ready(function(){</span><br>
+<span style="margin-left:40px;">$('img.hyena').Hyena({</span><br>
+<span style="margin-left:60px;">"player_style" : 2</span><br>
+<span style="margin-left:40px;">});</span><br>
+<span style="margin-left:20px;">});</span><br>
+<span>&lt;/script&gt;</span>
+</div>
+
+
+<p><span class="step">Individual Customization</span>
+Hyena allows you to pass in settings globally - to affect all Hyena Animated GIFs <em>(as shown above)</em> as well as individually. 
+For example, you can use the <strong>player_style</strong> setting in the plugin call to load Skin 2 <em>(as shown above)</em>. This 
+loads Skin 2 for all GIFs. You can then find a single GIF and load Skin 3 using the <strong>player_style</strong> setting directly on it.<br>
+<span class="code">&lt;img src="my/funny/GIF.gif" class="hyena" data-hyena='{ "player_style" : 3 }' /&gt;</span>
+Adding settings in the <strong>data-hyena</strong> attribute is exactly the same as adding settings in the plugin call.
+<span class="special">Never place a comma after the last setting</span>
+</p></section>
+
+
+
+
+
+
+
+<section id="options">
+<h3>Hyena Options</h3><hr class="notop">
+<p>
+<span class="step">Controls / Buttons</span>
+By default, player controls are enabled. You can disable player controls using:
+
+<span class="code">"controls" : false</span>
+When the controls are disabled, Animated GIFs become playable when clicked. Button graphics
+are typically loaded based on the Skin (player_style) that is loaded. However, this
+can be overriden using:
+
+<span class="code">"control_style" : 3</span>
+
+To hide the Player Control when the page loads, use:
+<span class="code">"show_button" : false</span>
+
+You can also control the size of the player controls as a size percentage of the animated
+GIF, using:
+<span class="code">"button_size" : "20%"</span>
+
+To set the Fade In/Out opacities of the player controls, use:
+<span class="code">"control_opacity" : "0,0.5"</span>
+
+The speed of the player control fade animation can be set using <em>(in milliseconds)</em>:
+<span class="code">"fade_speed" : "250,250"</span>
+
+When the Animated GIF initially loads, they will fade in. You can control the speed using:
+<span class="code">"player_fade_speed" : 350</span>
+
+<span class="step">Events</span>
+When controls are disabled, the Animated GIF interaction defaults to click. 
+Hyena GIFs can also be activated on hover using:
+
+<span class="code">"on_hover" : true</span>
+
+You can set Hyena Animated GIFs to Play and Stop with Timers <em>(in milliseconds)</em>, using:
+
+<span class="code">"on_timer" : "stopTime,playTime"</span>
+
+For example, if you wanted the GIF to Play for 5 seconds then Stop for 3 seconds:
+
+<span class="code">"on_timer" : "3000,5000"</span>
+</p></section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section id="settings">
+<h3>Hyena Settings</h3><hr class="notop">
+<p>This displays all Hyena settings and defaults. Each setting links to the appropriate section.<br>
+
+
+
+<div class="settingsholder">
+	<div class="settingrow">
+	<div class="setting_name"><strong>Setting Name</strong></div>
+    <div class="setting_default"><strong>Default Value</strong></div>
+    <div class="setting_description"><strong>Description</strong></div>
+    </div><div class="clear"></div>     
+      
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"controls"</a></div>
+    <div class="setting_default"><span class="def1 def">true</span></div>
+    <div class="setting_description">Enables / Disables GIF Player Controls </div>
+    </div><div class="clear"></div>   
+    
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"show_button"</a></div>
+    <div class="setting_default"><span class="def1 def">true</span></div>
+    <div class="setting_description">Enables / Disables GIF Player Button Visibility at Page Load</div>
+    </div><div class="clear"></div>           
+        
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"on_hover"</a></div>
+    <div class="setting_default"><span class="def1 def">false</span></div>
+    <div class="setting_description">Enables / Disabled Animated GIF Hover Activation</div>
+    </div><div class="clear"></div>    
+    
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"on_timer"</a></div>
+    <div class="setting_default"><span class="def1 def">'0,0'</span></div>
+    <div class="setting_description">Control the interval the GIF plays</div>
+    </div><div class="clear"></div>            
+    
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"button_size"</a></div>
+    <div class="setting_default"><span class="def1 def">"20%"</span></div>
+    <div class="setting_description">Sets the Size of the GIF Player Buttons as a Percentage of the GIF</div>
+    </div><div class="clear"></div>  
+
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"control_style"</a></div>
+    <div class="setting_default"><span class="def1 def">1</span></div>
+    <div class="setting_description">Sets Graphics for the Control Buttons</div>
+    </div><div class="clear"></div>                
+
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"control_opacity"</a></div>
+    <div class="setting_default"><span class="def1 def">"0,0.5"</span></div>
+    <div class="setting_description">Sets the Fade In/Out Opacities for the GIF Player Buttons</div>
+    </div><div class="clear"></div>                
+
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"fade_speed"</a></div>
+    <div class="setting_default"><span class="def1 def">"250,200"</span></div>
+    <div class="setting_description">Sets the Fade Speed Opacity for the GIF Player Buttons</div>
+    </div><div class="clear"></div>  
+    
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"player_style"</a></div>
+    <div class="setting_default"><span class="def1 def">1</span></div>
+    <div class="setting_description">Sets the GIF Player Skin (1-6)</div>
+    </div><div class="clear"></div>      
+
+    <div class="settingrow">
+	<div class="setting_name"><a href="#options">"player_fade_speed"</a></div>
+    <div class="setting_default"><span class="def1 def">350</span></div>
+    <div class="setting_description">Controls the initial GIF Fade In Speed</div>
+    </div><div class="clear"></div>      
+</div>    
+</p></section>
+
+
+
+
+
+
+
+
+</div></body></html>

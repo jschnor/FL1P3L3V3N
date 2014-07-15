@@ -1,0 +1,60 @@
+From: http://themeforest.net/wiki/support/legal-terms/licensing-terms/
+As of: Nov 24th, 2009
+
+Extended License
+
+The Extended License grants you, the Purchaser, a non-exclusive, non-
+transferrable right to make use of the Product you acquire.
+
+Your use of the Product, under the Extended License, is subject to the following
+conditions:
+
+(a) You may use the Product alone or you may incorporate the Product into
+another work you are creating.
+
+(b) Unless you have our prior written consent, you must not directly or
+indirectly license, sub-license, sell or resell the Product or offer to do any
+of these things unless the Product is incorporated into a work you have created.
+All of these things are referred to as Resale.
+
+(c) You may reproduce the Product:
+in a printed format or;
+on a website or;
+in an electronic document such as a PowerPoint presentation or an ebook or;
+as part of software you create or;
+in a video production or;
+in a music track;
+
+(d) Your use of the Product is limited to a single application.
+
+(e) You may use the Product in a work which you are creating for your own
+purposes or for your client who has asked you to create it.
+
+(f) You may incorporate the Product in a work which is created for Resale by you
+or your client (provided that only the complete work is offered for sale and the
+terms of sale (i) require those that acquire the work to only use the Product
+for their own personal use or in a work they are creating for a client (ii)
+prohibit resale of the Product as a stand-alone item).
+
+(g) You may display the Product, and make the Product available for use by an
+unlimited number of your clients, in conjunction with a web site service that
+you host on behalf of your clients. When using the Product through a web site
+service, you may make unlimited copies of the Product but you must procure that
+your clients do not reproduce or use the Product in another application.
+
+(h) If the Product is used or incorporated in a work there is no restriction on
+the number of copies of that work that can be reproduced and distributed.
+
+(i) Notwithstanding the restriction on Resale, if you acquire the Product on
+behalf of your client you may recoup from your client the cost of acquiring the
+Product.
+
+For example: you may incorporate the Product, such as a music file, in a sound
+mixing software program that you or your client distributes commercially. An
+unlimited number of copies of the software program may be made and sold but the
+Product cannot be incorporated in more than one software program or other work.
+Additionally, buyers of the software program must not offer the Product (that is
+the music file) for sale, such as on a site like AudioJungle.
+
+(Previously referred to as: Single Use Conditional Resale Permitted Licence
+["Conditional Resale"] and Web Service Licence ["Web Services"])

@@ -1,0 +1,52 @@
+/* -----------------------------------------------------------------------------------
+   *** README *** If you want to make changes to this file save it as wysiwyg_custom.css
+   and it will get loaded instead of this file and won't get overwritten when you upgrade.
+   This file is loaded by /lib/wysiwyg.php using the 'content_css' option.
+
+   TinyMCE specific rules - These rules affect how content is displayed in the wysiwyg
+   editor itself.  They will be ignored by your live site because they specify a class
+   name that is only used in the wysiwyg (.mceContentBody).
+
+   Note: If you have the 'styleselect' button enabled in /lib/wysiwyg.php and haven't
+   specified a class list with 'theme_advanced_styles' then the list of classes in this
+   file will be display as a dropdown allowing the user to select them to style their
+   content.
+
+   Reference: http://wiki.moxiecode.com/index.php/TinyMCE:Configuration/content_css
+   Reference: http://wiki.moxiecode.com/index.php/TinyMCE:Control_reference
+   ----------------------------------------------------------------------------------- */
+
+body.mceContentBody {
+  background:#FFFFFF;
+}
+
+body.mceContentBody, .mceContentBody td, .mceContentBody pre {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #000;
+}
+
+.mceContentBody blockquote {
+	border: 1px dashed #666;
+        margin: 5px 5px 0 15px;
+	padding:5px 20px;
+        font-style:italic;
+        background-color: #EEE;
+
+  /* uncomment for right aligned blockquote/pullquote
+	width: 250px;
+        float: right;
+  */
+
+}
+
+/* -----------------------------------------------------------------------------------
+   Site specific CSS - If you want to load this stylesheet for both the wysiwyg and
+   your website, such as if you are using 'styleselect' and you don't want to enter
+   your classes in two files, you can enter your website CSS below:
+   ----------------------------------------------------------------------------------- */
+
+/* add classes here to have them appear in your 'styleselect' pulldown */
+.exampleClass { color: red; font-size: 28px; }
+
+.set-classes-in-lib-wysiwyg-css {}

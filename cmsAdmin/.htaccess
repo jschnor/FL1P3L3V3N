@@ -1,0 +1,40 @@
+# *** IMPORTANT ******************************************************************************
+# If you make any changes to this file save a backup copy as .htaccess.backup so you
+# have a backup in case your changes get overwritten next time you upgrade.
+
+# --------------------------------------------------------------------------------------------
+# PHP Settings
+# Note: This doesn't work on all servers, but on many it will reset PHP and Apache settings
+#       ... to standard values and turn off well-intended features that would otherwise
+#       ... cause errors.
+# Docs: http://httpd.apache.org/docs/2.0/mod/core.html#ifmodule
+# Docs: http://php.net/manual/en/configuration.changes.php
+# Docs: http://www.php.net/manual/en/ini.php
+# --------------------------------------------------------------------------------------------
+
+# disable mod_security (some of the admin menus allow you to define SQL which mod_security detects and then denied access to)
+<IfModule mod_security.c>
+  SecFilterEngine Off
+  SecFilterScanPOST Off
+</IfModule>
+
+# disable mod_gzip for cms admin folder (tinymce gzips javascript and sometimes things get double encoded causing errors)
+<IfModule mod_gzip.c>
+  mod_gzip_on No
+</IfModule>
+
+# Fix issue where some servers send wrong content-type and FireFox won't load stylesheets
+<ifModule mod_mime.c>
+  AddType text/css .css
+</ifModule>
+
+# turn off deprecated PHP features and increase max upload size allowed
+<IfModule mod_php5.c>
+  php_flag magic_quotes_gpc Off
+  php_flag register_globals Off
+  php_value upload_max_filesize 100M
+  php_value post_max_size 100M
+  php_value zlib.output_compression Off
+</IfModule>
+
+# Note: We don't have a way to detect or set these values for PHP running as CGI or FastCGI, unless htscanner is used: http://pecl.php.net/package/htscanner
