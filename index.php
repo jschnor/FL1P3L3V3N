@@ -91,6 +91,9 @@ saveJSON($work_flipRecords);
 print_r($_REQUEST);
 echo '</pre>';*/
 
+// autoload composer packages
+require 'vendor/autoload.php';
+
 // load content based on request
 $request = '';
 if (isset($_REQUEST['q'])){
