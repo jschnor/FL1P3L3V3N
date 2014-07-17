@@ -10,7 +10,7 @@ if (!@$GLOBALS['WEBSITE_MEMBERSHIP_PLUGIN']) { die("You must activate the Websit
 $errorsAndAlerts = "";
 if (!$CURRENT_USER) { websiteLogin_redirectToLogin(); }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && @$_POST['save']) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && @$_POST['generate']) {
 }
 
 ?><!doctype html>
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && @$_POST['save']) {
     </div>
     <?php } ?>
 
-    <input type="hidden" name="action" value="login" />
+    <input type="hidden" name="generate" value="true" />
 
     <p class="form-group">
       <label for="username">Email or Username</label>
