@@ -663,7 +663,7 @@ h5 {
     }
   }
 }
-#contact {
+#contact, #flip_login {
   background-color: $white;
   h2 {
     // font-family: $geo-bold;
@@ -725,6 +725,23 @@ h5 {
     margin-bottom: 8px; 
   }
 }
+
+#flip_login {
+  padding: rem-calc(20);
+
+  .errors {
+    margin-bottom: 1em;
+    color: #cc0000;
+  }
+}
+
+@media #{$medium-up}{
+  #flip_login {
+    width: 50%;
+    margin: 5% auto 0 auto;
+  }
+}
+
 //======================================
 // FOOTER
 //======================================
