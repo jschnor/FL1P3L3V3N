@@ -101,11 +101,13 @@ if (isset($_REQUEST['q'])){
 }
 switch ($request){
   case 'login':
+  case 'login/':
   include('login.php');
   break;
 
   case 'sell-sheet':
-  include('sell-sheet-form.php');
+  case 'sell-sheet/':
+  include('sellsheets/sell-sheet-form.php');
   break;
 
   default:

@@ -742,6 +742,22 @@ h5 {
   }
 }
 
+
+//======================================
+// SELL SHEET FORM
+//======================================
+form#sell_sheet {
+  margin: rem-calc(30) rem-calc(40);
+}
+
+@media #{$medium-up}{
+  form#sell_sheet {
+    margin: rem-calc(40) 0 rem-calc(40) rem-calc(60);
+    @include grid-column($columns: 8);
+  }
+}
+
+
 //======================================
 // FOOTER
 //======================================
