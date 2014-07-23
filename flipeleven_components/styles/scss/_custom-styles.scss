@@ -748,6 +748,17 @@ h5 {
 //======================================
 form#sell_sheet {
   margin: rem-calc(30) rem-calc(40);
+
+  textarea {
+    height: 8rem;
+  }
+
+  .note {
+    font-size: rem-calc(11);
+    display: block;
+    margin-top: -0.75rem;
+    font-style: italic;
+  }
 }
 
 @media #{$medium-up}{
