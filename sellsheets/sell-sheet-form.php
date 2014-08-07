@@ -10,30 +10,6 @@ if (!@$GLOBALS['WEBSITE_MEMBERSHIP_PLUGIN']) { die("You must activate the Websit
 $errorsAndAlerts = "";
 if (!$CURRENT_USER) { websiteLogin_redirectToLogin(); }
 
-// Process form submission
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && @$_POST['generate']) {
-
-
-	// check for uploaded client logo
-	if ($_FILES["logo_upload"]["error"] === 0) {
-		// save client logo to logos folder
-		$filename = $_FILES["logo_upload"]["name"];
-		$temp_loc = $_FILES["logo_upload"]["tmp_name"];
-
-		// get file extension and rename for uniqueness
-		$split = explode('.', $filename);
-		$ext = array_pop($split);
-		$now = time();
-		$filename = implode('.', $split).$now.'.'.$ext;
-
-		$client_logo_path = $_SERVER['DOCUMENT_ROOT'].'sellsheets/client-logos/'.$filename;
-		move_uploaded_file($temp_loc, $client_logo_path);
-	}
-
-	// load PDF generator
-	require_once('sell-sheet-generate.php');
-}
-
 ?><!doctype html>
 <html class="no-js" lang="en">
 
@@ -46,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && @$_POST['generate']) {
 </head>
 
 <body>
-	<form action="" method="post" id="sell_sheet" enctype="multipart/form-data">
+	<form action="generate" method="post" id="sell_sheet" enctype="multipart/form-data">
 		<h1>Generate Sell Sheet</h1>
 
 		<?php if (@$errorsAndAlerts){ ?>

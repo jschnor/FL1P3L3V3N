@@ -7,6 +7,28 @@
  * @since 2014/07/23
  */
 
+// Process form submission
+if ($_SERVER['REQUEST_METHOD'] != 'POST' || !$_POST['generate']) {
+	header("Location: /sell-sheet");
+	exit();
+}
+
+// check for uploaded client logo
+if ($_FILES["logo_upload"]["error"] === 0) {
+	// save client logo to logos folder
+	$filename = $_FILES["logo_upload"]["name"];
+	$temp_loc = $_FILES["logo_upload"]["tmp_name"];
+
+	// get file extension and rename for uniqueness
+	$split = explode('.', $filename);
+	$ext = array_pop($split);
+	$now = time();
+	$filename = implode('.', $split).$now.'.'.$ext;
+
+	$client_logo_path = $_SERVER['DOCUMENT_ROOT'].'sellsheets/client-logos/'.$filename;
+	move_uploaded_file($temp_loc, $client_logo_path);
+}
+
 // include TCPDF and its settings
 require_once($_SERVER['DOCUMENT_ROOT'] . 'sellsheets/tcpdf_include.php');
 
@@ -116,12 +138,14 @@ $pdf->writeHTMLCell(2.25, 0, PDF_MARGIN_LEFT, (0.75 + $img_h + 0.125), $contact,
 
 
 // Client Logo
-// get dimensions of logo image and calculate scaling
-$imgsize = getimagesize($client_logo_path);
-$img_w = mm2in(px2mm($imgsize[0]));
-$img_h = mm2in(px2mm($imgsize[1]));
-$img_x = PDF_MARGIN_LEFT + 2.25;
-$pdf->Image($client_logo_path, $img_x, 0.75, $img_w, $img_h);
+if (isset($client_logo_path)){
+	// get dimensions of logo image and calculate scaling
+	$imgsize = getimagesize($client_logo_path);
+	$img_w = mm2in(px2mm($imgsize[0]));
+	$img_h = mm2in(px2mm($imgsize[1]));
+	$img_x = PDF_MARGIN_LEFT + 2.25;
+	$pdf->Image($client_logo_path, $img_x, 0.75, $img_w, $img_h);
+}
 
 $y = $pdf->GetY();
 

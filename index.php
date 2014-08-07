@@ -110,6 +110,11 @@ switch ($request){
   include('sellsheets/sell-sheet-form.php');
   break;
 
+  case 'generate':
+  case 'generate/':
+  include('sellsheets/sell-sheet-generate.php');
+  break;
+
   default:
   // home page
   include('home.php');
