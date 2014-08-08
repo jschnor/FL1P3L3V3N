@@ -9,7 +9,7 @@ Class(function PageContainer() {
     var e               = true;
     var _scrollspeed    = 15;
     var _pageMargin     = 200;
-    var _buffer         = Stage.height;
+    var _buffer         = Stage.height + _pageMargin;
     var a               = new Vector2(); // container vector
     var n               = new Vector2(); // user scroll vector;
     var _pageHeight;
@@ -156,6 +156,7 @@ Class(function PageContainer() {
         //     // n.x is amount the element will move
         //     n.y -= userScrollAmount * 2;
         // }
+        console.log('PageContainer :: _pageHeight: ' + _pageHeight)
 
         if (Math.abs(n.y - a.y) < 1000) {
             // n.x is amount the element will move
@@ -167,9 +168,9 @@ Class(function PageContainer() {
 
             // _pageHeight == undefined ? _pageHeight = Stage.height : '';
 
-            if (n.y < -(_pageHeight - Stage.height + _buffer)){
+            if (n.y < -(_pageHeight - Stage.height*2 + _buffer)){
 
-                n.y = -(_pageHeight - Stage.height + _buffer);
+                n.y = -(_pageHeight - Stage.height*2 + _buffer);
 
                 
             }

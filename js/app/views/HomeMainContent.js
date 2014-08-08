@@ -222,6 +222,7 @@ Class(function HomeMainContent(container, margin) {
         // '<h4>Q: </h4><h5>' + _dat_team[0].question + '</h5>' +
         // '<h4>A: </h4><h5>' + _dat_team[0].answer + '</h5>'
 
+
         _self.delayedCall(function() {
             
             _pageHeight = (parseInt(_abot.div.style.top, 10) + Math.max(_col1.div.offsetHeight, _col2.div.offsetHeight, _col3.div.offsetHeight) + 50);
@@ -307,7 +308,11 @@ Class(function HomeMainContent(container, margin) {
             border: '1px solid red'
         });
         
-        _container.setPageHeight(_pageHeight);
+        _pageHeight = (parseInt(_abot.div.style.top, 10) + Math.max(_col1.div.offsetHeight, _col2.div.offsetHeight, _col3.div.offsetHeight) + 50);
+        _container.setPageHeight(_pageHeight - Stage.height);
+        console.log('Stage: '+Stage.height);
+        console.log('Page: '+_pageHeight);
+        // console.log(_pageHeight);
         // console.log(CSS.textSize(_col1).height);
         // console.log('col1 height: ' + CSS.textSize(_col1).height);
         // console.log('col1 height: ' + (CSS.textSize(_col1).height + 124));
