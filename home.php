@@ -28,7 +28,7 @@
           <div id="main-nav" class="contain-to-grid sticky">
             <nav class="top-bar" data-topbar>
               <ul class="title-area">
-                <li class="name"><a href="/"><img src="/assets/images/flipeleven_logo.jpg" alt="Flipeleven Logo"></a></li>
+                <li class="name"><a href="/"><img src="/assets/images/common/logo.png" alt="Flipeleven Logo"></a></li>
                 <li class="toggle-topbar menu-icon">
                   <a href="#"><span>Menu</span></a>
                 </li>
