@@ -8,7 +8,7 @@ Required System Plugin: True
 */
 
 // UPDATE THESE VALUES
-$GLOBALS['WEBSITE_LOGIN_LOGIN_FORM_URL']  = '/user-login.php';                 // url to login form
+$GLOBALS['WEBSITE_LOGIN_LOGIN_FORM_URL']  = '/login';                          // url to login form
 $GLOBALS['WEBSITE_LOGIN_SIGNUP_URL']      = '/user-signup.php';                // signup url linked to from the login page
 $GLOBALS['WEBSITE_LOGIN_REMINDER_URL']    = '/user-password-request.php';      // password reminder url linked to from the login page
 $GLOBALS['WEBSITE_LOGIN_RESET_URL']       = '/user-password-reset.php';        // password reminder url linked to from the login page
@@ -16,7 +16,7 @@ $GLOBALS['WEBSITE_LOGIN_PROFILE_URL']     = '/user-profile.php';               /
 $GLOBALS['WEBSITE_LOGIN_REQUIRED_FIELDS'] = array('agree_tos','agree_legal');  // if user is logged in and any of these fields exist and are blank (or zero) they will be redirected to the profile url with ?missing_fields=1 set
 
 // After login, user gets redirected to the last page they were on (if defined), the url below, or to /
-$GLOBALS['WEBSITE_LOGIN_POST_LOGIN_URL']  = '/';
+$GLOBALS['WEBSITE_LOGIN_POST_LOGIN_URL']  = '/sell-sheet';
 
 // After logoff, user gets redirected to the last page they were on (if defined), the url below, or to /
 $GLOBALS['WEBSITE_LOGIN_POST_LOGOFF_URL'] = '/';
@@ -167,7 +167,7 @@ function _websiteLogin_login() {
   $_REQUEST['password'] = '';
 
   // redirect on success
-  $postLoginUrl = coalesce( getPrefixedCookie('lastUrl'), @$GLOBALS['WEBSITE_LOGIN_POST_LOGIN_URL'], '/' );
+  $postLoginUrl = coalesce(@$GLOBALS['WEBSITE_LOGIN_POST_LOGIN_URL'], '/' );
   removePrefixedCookie('lastUrl');
 
   doAction('wsm_loginSuccess');
@@ -181,10 +181,11 @@ function _websiteLogin_logoff() {
 
   // get logoff url
   $currentPageUrl = (@$_REQUEST['action'] == 'logoff') ? thisPageUrl(array('action' => null)) : thisPageUrl(); // remove action=logoff to prevent redirect loops
-  $logoffUrl = coalesce(@$_SERVER['HTTP_REFERER'], $GLOBALS['WEBSITE_LOGIN_POST_LOGOFF_URL'],  $currentPageUrl, '/');
+  $logoffUrl = coalesce(@$GLOBALS['WEBSITE_LOGIN_POST_LOGOFF_URL'], '/');
 
   // logoff and redirect
   user_logoff($logoffUrl);
+  echo "LOGGED OUT";
   exit;
 }
 

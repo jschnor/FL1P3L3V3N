@@ -663,7 +663,7 @@ h5 {
     }
   }
 }
-#contact {
+#contact, #flip_login {
   background-color: $white;
   h2 {
     // font-family: $geo-bold;
@@ -725,6 +725,50 @@ h5 {
     margin-bottom: 8px; 
   }
 }
+
+#flip_login {
+  padding: rem-calc(20);
+
+  .errors {
+    margin-bottom: 1em;
+    color: #cc0000;
+  }
+}
+
+@media #{$medium-up}{
+  #flip_login {
+    width: 50%;
+    margin: 5% auto 0 auto;
+  }
+}
+
+
+//======================================
+// SELL SHEET FORM
+//======================================
+form#sell_sheet {
+  margin: rem-calc(30) rem-calc(40);
+
+  textarea {
+    height: 8rem;
+  }
+
+  .note {
+    font-size: rem-calc(11);
+    display: block;
+    margin-top: -0.75rem;
+    font-style: italic;
+  }
+}
+
+@media #{$medium-up}{
+  form#sell_sheet {
+    margin: rem-calc(40) 0 rem-calc(40) rem-calc(60);
+    @include grid-column($columns: 8);
+  }
+}
+
+
 //======================================
 // FOOTER
 //======================================

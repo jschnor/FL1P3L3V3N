@@ -2,574 +2,93 @@ module.exports = function(grunt) {
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
 
-     img: {
-          replace: {
-               src: 'cmsAdmin/uploads'
-          }
-     },
-     uglify: {
-          // doAll: {
-          //      options: {
-          //           banner: '/* -------------------- \n' +
-          //           ' ___ _ _ ___  \n' +
-          //           '| __/ / | _ \ \n' +
-          //           '| _|| | |  _/ \n' +
-          //           '|_| |_|_|_|   \n' +
-          //           'http://f11p.com\n' +
-          //           '------------------------- \n' +
-          //           '<%= grunt.template.today("yyyy-mm-dd HH:mm:ss") %>\n' +
-          //           '------------------------- */ \n\n'
-          //           //    mangle: {
-          //           //         except: [ // mangle is true for all else besides the specified exceptions
-                             
-          //           //         ]
-          //           //         },
-          //           //    preserveComments: 'some'
-          //           // },
-          //           // files: 'js/main.min.js': [ // concatenation, uglification (mangle) with exceptions, block comments preserved, minification and a banner
-          //           //     // 'src/input-a.js',
-          //           //     // 'src/input-b.js',
-          //           //     // 'src/input-c.js',
-          //           //     // 'src/input-d.js',
-          //           //     // 'src/input-e.js',
-          //           //     // 'src/input-f.js'
-          //           // ]
-          //      }
-          // },
-          concatenateOnly: {
-               options: {
-                    banner: '/* -------------------- \n' +
-                    ' ___ _ _ ___  \n' +
-                    '| __/ / | _ \ \n' +
-                    '| _|| | |  _/ \n' +
-                    '|_| |_|_|_|   \n' +
-                    'http://f11p.com\n' +
-                    '------------------------- \n' +
-                    '<%= grunt.template.today("yyyy-mm-dd HH:mm:ss") %>\n' +
-                    '------------------------- */ \n\n',
-                    compress: false,
-                    mangle: false,
-                    preserveComments: 'none'
-               },
-               files: {// only concatenation
-                    'js/main.min.js': [
+    sass: {
+      options: {
+        includePaths: ['bower_components/foundation/scss', 'flipeleven_components/foundation/scss', 'flipeleven_components/styles/scss']
+      },
+      dist: {
+        options: {
+          outputStyle: 'compressed'
+        },
+        files: {
+          'css/app.css': 'scss/app.scss',
+        }        
+      }
+    },
 
-                         'js/app/flip/global.js',
-                         'js/app/flip/FlipObject.js',
-                         'js/app/flip/FlipObject.Flip.js',
-                         'js/app/flip/Flip.ready.js',
-                         'js/app/flip/MVC/MVC.js',
-                         'js/app/flip/MVC/Model.js',
-                         'js/app/flip/MVC/View.js',
-                         'js/app/flip/MVC/Controller.js',
-                         'js/app/flip/MVC/Component.js',
-                         'js/app/flip/Utils.js',
-                         'js/app/flip/Flip.Extentions.js',
-                         'js/app/flip/CSS.js',
-                         'js/app/flip/Device.js',
-                         'js/app/flip/Storage.js',
-                         'js/app/flip/DynamicObject.js',
-                         'js/app/flip/Components/ObjectPool.js',
-                         'js/app/flip/LinkedList.js',
-                         'js/app/flip/Events/FlipEvents.js',
-                         'js/app/flip/Events/Events.js',
-                         'js/app/flip/PushState/PushState.js',
-                         'js/app/flip/PushState/StateDispatcher.js',
-                         'js/app/flip/Components/AssetLoader.js',
-                         'js/app/flip/Render.js',
-                         'js/app/flip/Components/Thread.js',
-                         'js/app/flip/XHR.js',
-                         'js/app/flip/Components/Color.js',
-                         'js/app/flip/Matrix2.js',
-                         'js/app/flip/Matrix4.js',
-                         'js/app/flip/Vector2.js',
-                         'js/app/flip/Vector3.js',
-                         'js/app/flip/Events/Mobile.js',
-                         'js/app/flip/D3.js',
-                         'js/app/flip/CSSAnimation.js',
-                         'js/app/flip/Components/Canvas.js',
-                         'js/app/flip/Components/CanvasTexture.js',
-                         'js/app/flip/Components/CanvasGraphics.js',
-                         'js/app/flip/Components/CanvasObject.js',
-                         'js/app/flip/Components/CanvasValues.js',
-                         'js/app/flip/Components/CSSShader.js',
-                         'js/app/flip/Components/GLShader.js',
-                         'js/app/flip/TweenManager.js',
-                         'js/app/flip/MathTween.js',
-                         'js/app/flip/MathEasing.js',
-                         'js/app/flip/TweenManager.Easing.js',
-                         'js/app/flip/CSSTween.js',
-                         'js/app/flip/Flip.Extentions2.js',
-                         'js/app/flip/Flip.Extentions3.js',
-                         'js/app/flip/Mouse.js',
-                         'js/app/flip/Flip.Extentions4.js',
-                         'js/app/flip/Flip.Extentions5.js',
-                         'js/app/flip/Swipe.js',
-                         'js/app/flip/Flip.Extentions6.js',
-                         'js/app/flip/Accelerometer.js',
-                         'js/app/flip/Components/Video.js',
-                         'js/app/flip/Viewport3D.js',
-                         'js/app/flip/GATracker.js',
-                         'js/app/flip/Config.js',
-                         'js/app/flip/FEEvents.js',
-                         'js/app/flip/Utilities/ScrollUtil.js',
-                         'js/app/flip/FEDevice.js',
-                         'js/app/flip/Utilities/MathUtil.js',
-                         'js/app/flip/Utilities/VideoUtil.js',
-                         'js/app/flip/Components/PerformanceTest.js',
-                         'js/app/Data.js',
-
-                         // 'js/app/models/SiteModel.js',
-                         'js/app/models/StateModel.js',
-                         // 'js/app/models/PagesModel.js',
-                         // 'js/app/models/PageModel.js',
-                         'js/app/models/HomeModel.js',
-                         'js/app/models/AboutModel.js',
-                         'js/app/models/BelieveModel.js',
-                         'js/app/models/TeamModel.js',
-                         // 'js/app/models/AboutContentModel.js',
-                         'js/app/models/WorkModel.js',
-                         // 'js/app/models/ReelModel.js',
-                         // 'js/app/models/ContentModel.js',
-                         'js/app/models/CategoryModel.js',
-
-                         'js/app/controllers/Loader.js',
-                         'js/app/controllers/TopBar.js',
-                         // 'js/app/controllers/TopBarContent.js',
-
-                         // 'js/app/controllers/Sidebar.js',
-                         // 'js/app/controllers/SidebarContent.js',
-                         // 'js/app/controllers/Work.js',
-                         'js/app/controllers/Home.js',
-                         // 'js/app/controllers/About.js',
-                         // 'js/app/controllers/AboutContent.js',
-                         // 'js/app/controllers/Reels.js',
-                         // 'js/app/controllers/Content.js',
-                         // 'js/app/controllers/Contact.js',
-                         // 'js/app/controllers/ContactContent.js',
-                         'js/app/controllers/Container.js',
-
-                         'js/app/views/Cover.js',
-                         'js/app/views/Transition.js',
-                         'js/app/views/WorkList.js',
-                         'js/app/views/WorkListItem.js',
-                         // 'js/app/views/WorkListItemText.js',
-                         // 'js/app/views/WorkListItemPlay.js',
-                         // 'js/app/views/WorkDetail.js',
-                         // 'js/app/views/CloseButton.js',
-                         // 'js/app/views/WorkDetailSection.js',
-                         // 'js/app/views/WorkDetailSidebar.js',
-                         // 'js/app/views/WorkDetailPlay.js',
-                         'js/app/views/LoaderView.js',
-                         // 'js/app/views/SidebarView.js',
-                         // 'js/app/views/SidebarContentView.js',
-                         // 'js/app/views/SidebarNav.js',
-                         // 'js/app/views/SidebarContentNav.js',
-                         // 'js/app/views/SidebarSubNav.js',
-                         // 'js/app/views/SidebarNavItem.js',
-                         // 'js/app/views/SidebarNavItemTxt.js',
-                         // 'js/app/views/SidebarContentNavItem.js',
-                         // 'js/app/views/SidebarContentNavItemTxt.js',
-                         // 'js/app/views/SidebarSubNavItem.js',
-                         // 'js/app/views/Sidebar2CContent.js',
-                         // 'js/app/views/SocialNav.js',
-                         // 'js/app/views/TopBarView.js',
-                         'js/app/views/TopBarNav.js',
-                         'js/app/views/TopBarNavItem.js',
-                         'js/app/views/TopBarLogo.js',
-                         // 'js/app/views/TopBarLocation.js',
-
-                         'js/app/views/FullscreenBackground.js',
-                         'js/app/views/PageContainer.js',
-                         'js/app/views/HomePage.js',
-                         'js/app/views/HomeMainContent.js',
-                         'js/app/views/HomeFeatured.js',
-                         // 'js/app/views/SidebarIcon.js',
-                         // 'js/app/views/SidebarIconContent.js',
-                         // 'js/app/views/SearchIcon.js',
-                         // 'js/app/views/SearchArea.js',
-                         // 'js/app/views/Tag.js',
-
-                         // 'js/app/views/VideoOverlay.js',
-                         // 'js/app/views/VideoOverlayClose.js',
-
-                         // 'js/app/views/AboutList.js',
-                         // 'js/app/views/AboutCulture.js',
-                         // 'js/app/views/AboutCultureContent.js',
-                         // 'js/app/views/AboutCultureBG.js',
-                         // 'js/app/views/AboutTeam.js',
-                         // 'js/app/views/AboutTeamBG.js',
-                         // 'js/app/views/AboutClients.js',
-                         // 'js/app/views/AboutClientsBG.js',
-                         // 'js/app/views/TeamMember.js',
-                         // 'js/app/views/TeamMemberInfo.js',
-                         // 'js/app/views/ClientLogo.js',
-                         // 'js/app/views/ContactView.js',
-                         // 'js/app/views/ScrollArrows.js',
-                         // 'js/app/views/NavArrows.js',
-
-                         // 'js/app/app.js',
-                         'js/app/Main.js'
-                    ]
-               }
-          }
-     },
-
-    concat: {
+    uglify: {
       js: {
         files: { 
           'js/main.js': [
-          'js/app/flip/global.js',
-          'js/app/flip/FlipObject.js',
-          'js/app/flip/FlipObject.Flip.js',
-          'js/app/flip/Flip.ready.js',
-          'js/app/flip/MVC/MVC.js',
-          'js/app/flip/MVC/Model.js',
-          'js/app/flip/MVC/View.js',
-          'js/app/flip/MVC/Controller.js',
-          'js/app/flip/MVC/Component.js',
-          'js/app/flip/Utils.js',
-          'js/app/flip/Flip.Extentions.js',
-          'js/app/flip/CSS.js',
-          'js/app/flip/Device.js',
-          'js/app/flip/Storage.js',
-          'js/app/flip/DynamicObject.js',
-          'js/app/flip/Components/ObjectPool.js',
-          'js/app/flip/LinkedList.js',
-          'js/app/flip/Events/FlipEvents.js',
-          'js/app/flip/Events/Events.js',
-          'js/app/flip/PushState/PushState.js',
-          'js/app/flip/PushState/StateDispatcher.js',
-          'js/app/flip/Components/AssetLoader.js',
-          'js/app/flip/Render.js',
-          'js/app/flip/Components/Thread.js',
-          'js/app/flip/XHR.js',
-          'js/app/flip/Components/Color.js',
-          'js/app/flip/Matrix2.js',
-          'js/app/flip/Matrix4.js',
-          'js/app/flip/Vector2.js',
-          'js/app/flip/Vector3.js',
-          'js/app/flip/Events/Mobile.js',
-          'js/app/flip/D3.js',
-          'js/app/flip/CSSAnimation.js',
-          'js/app/flip/Components/Canvas.js',
-          'js/app/flip/Components/CanvasTexture.js',
-          'js/app/flip/Components/CanvasGraphics.js',
-          'js/app/flip/Components/CanvasObject.js',
-          'js/app/flip/Components/CanvasValues.js',
-          'js/app/flip/Components/CSSShader.js',
-          'js/app/flip/Components/GLShader.js',
-          'js/app/flip/TweenManager.js',
-          'js/app/flip/MathTween.js',
-          'js/app/flip/MathEasing.js',
-          'js/app/flip/TweenManager.Easing.js',
-          'js/app/flip/CSSTween.js',
-          'js/app/flip/Flip.Extentions2.js',
-          'js/app/flip/Flip.Extentions3.js',
-          'js/app/flip/Mouse.js',
-          'js/app/flip/Flip.Extentions4.js',
-          'js/app/flip/Flip.Extentions5.js',
-          'js/app/flip/Swipe.js',
-          'js/app/flip/Flip.Extentions6.js',
-          'js/app/flip/Accelerometer.js',
-          'js/app/flip/Components/Video.js',
-          'js/app/flip/Viewport3D.js',
-          'js/app/flip/GATracker.js',
-          'js/app/flip/Config.js',
-          'js/app/flip/FEEvents.js',
-          'js/app/flip/Utilities/ScrollUtil.js',
-          'js/app/flip/FEDevice.js',
-          'js/app/flip/Utilities/MathUtil.js',
-          'js/app/flip/Utilities/VideoUtil.js',
-          'js/app/flip/Components/PerformanceTest.js',
+          'bower_components/jquery/jquery.min.js',
+          'bower_components/jquery-ui/ui/jquery-ui.js',
+          // 'bower_components/foundation/js/foundation.min.js',
+          'bower_components/foundation/js/foundation/foundation.js',
+          'bower_components/foundation/js/foundation/foundation.orbit.js',
+          'bower_components/foundation/js/foundation/foundation.topbar.js',
+          'bower_components/foundation/js/foundation/foundation.offcanvas.js',
+          // 'flipeleven_components/foundation/js/offcanvas.js',
+          'bower_components/foundation/js/foundation/foundation.reveal.js',
+          'bower_components/video.js/video.js',
+          'bower_components/BigVideo.js/lib/bigvideo.js',
+          'js/app.js'
+          // 'flipeleven_components/codecanyon-hyena-v12/Hyena/jquery-Hyena-1.2.js'
+          // 'flipeleven_components/froogaloop/froogaloop.js',
+          //'bin/public/js/IMPORTANT/**/*.js',
+          //'bin/public/js/something.js',
+          //'bin/public/js/else.js',
+          //'bin/public/js/unimportant/*.js',
+          // you can even exclude stuff
+          //'bin/public/js/do-not-minify/**/*.js'
+          ],
+          'js/modernizr.js': [
+          'bower_components/modernizr/modernizr.js'
+          //'bin/public/js/IMPORTANT/**/*.js',
+          //'bin/public/js/something.js',
+          //'bin/public/js/else.js',
+          //'bin/public/js/unimportant/*.js',
 
-          'js/app/Data.js',
-
-          // 'js/app/models/SiteModel.js',
-          'js/app/models/StateModel.js',
-          // 'js/app/models/PagesModel.js',
-          // 'js/app/models/PageModel.js',
-          'js/app/models/HomeModel.js',
-          'js/app/models/AboutModel.js',
-          'js/app/models/BelieveModel.js',
-          'js/app/models/TeamModel.js',
-          // 'js/app/models/AboutContentModel.js',
-          'js/app/models/WorkModel.js',
-          // 'js/app/models/ReelModel.js',
-          // 'js/app/models/ContentModel.js',
-          'js/app/models/CategoryModel.js',
-          
-          'js/app/controllers/Loader.js',
-          'js/app/controllers/TopBar.js',
-          // 'js/app/controllers/TopBarContent.js',
-
-          // 'js/app/controllers/Sidebar.js',
-          // 'js/app/controllers/SidebarContent.js',
-          // 'js/app/controllers/Work.js',
-          'js/app/controllers/Home.js',
-          // 'js/app/controllers/About.js',
-          // 'js/app/controllers/AboutContent.js',
-          // 'js/app/controllers/Reels.js',
-          // 'js/app/controllers/Content.js',
-          // 'js/app/controllers/Contact.js',
-          // 'js/app/controllers/ContactContent.js',
-          'js/app/controllers/Container.js',
-
-          'js/app/views/Cover.js',
-          'js/app/views/Transition.js',
-          'js/app/views/WorkList.js',
-          'js/app/views/WorkListItem.js',
-          // 'js/app/views/WorkListItemText.js',
-          // 'js/app/views/WorkListItemPlay.js',
-          // 'js/app/views/WorkDetail.js',
-          // 'js/app/views/CloseButton.js',
-          // 'js/app/views/WorkDetailSection.js',
-          // 'js/app/views/WorkDetailSidebar.js',
-          // 'js/app/views/WorkDetailPlay.js',
-          'js/app/views/LoaderView.js',
-          // 'js/app/views/SidebarView.js',
-          // 'js/app/views/SidebarContentView.js',
-          // 'js/app/views/SidebarNav.js',
-          // 'js/app/views/SidebarContentNav.js',
-          // 'js/app/views/SidebarSubNav.js',
-          // 'js/app/views/SidebarNavItem.js',
-          // 'js/app/views/SidebarNavItemTxt.js',
-          // 'js/app/views/SidebarContentNavItem.js',
-          // 'js/app/views/SidebarContentNavItemTxt.js',
-          // 'js/app/views/SidebarSubNavItem.js',
-          // 'js/app/views/Sidebar2CContent.js',
-          // 'js/app/views/SocialNav.js',
-          // 'js/app/views/TopBarView.js',
-          'js/app/views/TopBarNav.js',
-          'js/app/views/TopBarNavItem.js',
-          'js/app/views/TopBarLogo.js',
-          // 'js/app/views/TopBarLocation.js',
-
-          'js/app/views/FullscreenBackground.js',
-          'js/app/views/PageContainer.js',
-          'js/app/views/HomePage.js',
-          'js/app/views/HomeMainContent.js',
-          'js/app/views/HomeFeatured.js',
-          // 'js/app/views/SidebarIcon.js',
-          // 'js/app/views/SidebarIconContent.js',
-          // 'js/app/views/SearchIcon.js',
-          // 'js/app/views/SearchArea.js',
-          // 'js/app/views/Tag.js',
-
-          // 'js/app/views/VideoOverlay.js',
-          // 'js/app/views/VideoOverlayClose.js',
-
-          // 'js/app/views/AboutList.js',
-          // 'js/app/views/AboutCulture.js',
-          // 'js/app/views/AboutCultureContent.js',
-          // 'js/app/views/AboutCultureBG.js',
-          // 'js/app/views/AboutTeam.js',
-          // 'js/app/views/AboutTeamBG.js',
-          // 'js/app/views/AboutClients.js',
-          // 'js/app/views/AboutClientsBG.js',
-          // 'js/app/views/TeamMember.js',
-          // 'js/app/views/TeamMemberInfo.js',
-          // 'js/app/views/ClientLogo.js',
-          // 'js/app/views/ContactView.js',
-          // 'js/app/views/ScrollArrows.js',
-          // 'js/app/views/NavArrows.js',
-          // 'js/app/views/HomeDetail.js',
-
-
-
-
-          // 'js/app/app.js',
-          'js/app/Main.js'
+          // you can even exclude stuff
+          //'bin/public/js/do-not-minify/**/*.js'
           ]
         }
       }
     },
 
     watch: {
-      grunt: { 
-        files: ['Gruntfile.js'],
-        // tasks: ['concat', 'uglify:concatenateOnly', 'uglify:doAll']
-        tasks: ['concat', 'uglify:concatenateOnly']
+      grunt: { files: ['Gruntfile.js'] },
+
+      sass: {
+        files: ['scss/**/*.scss', 'bower_components/foundation/scss/**', 'flipeleven_components/foundation/scss/**', 'flipeleven_components/styles/scss/**'],
+        tasks: ['sass']
       },
 
       scripts: {
         files: [
-          'js/app/flip/global.js',
-          'js/app/flip/FlipObject.js',
-          'js/app/flip/FlipObject.Flip.js',
-          'js/app/flip/Flip.ready.js',
-          'js/app/flip/MVC/MVC.js',
-          'js/app/flip/MVC/Model.js',
-          'js/app/flip/MVC/View.js',
-          'js/app/flip/MVC/Controller.js',
-          'js/app/flip/MVC/Component.js',
-          'js/app/flip/Utils.js',
-          'js/app/flip/Flip.Extentions.js',
-          'js/app/flip/CSS.js',
-          'js/app/flip/Device.js',
-          'js/app/flip/Storage.js',
-          'js/app/flip/DynamicObject.js',
-          'js/app/flip/Components/ObjectPool.js',
-          'js/app/flip/LinkedList.js',
-          'js/app/flip/Events/FlipEvents.js',
-          'js/app/flip/Events/Events.js',
-          'js/app/flip/PushState/PushState.js',
-          'js/app/flip/PushState/StateDispatcher.js',
-          'js/app/flip/Components/AssetLoader.js',
-          'js/app/flip/Render.js',
-          'js/app/flip/Components/Thread.js',
-          'js/app/flip/XHR.js',
-          'js/app/flip/Components/Color.js',
-          'js/app/flip/Matrix2.js',
-          'js/app/flip/Matrix4.js',
-          'js/app/flip/Vector2.js',
-          'js/app/flip/Vector3.js',
-          'js/app/flip/Events/Mobile.js',
-          'js/app/flip/D3.js',
-          'js/app/flip/CSSAnimation.js',
-          'js/app/flip/Components/Canvas.js',
-          'js/app/flip/Components/CanvasTexture.js',
-          'js/app/flip/Components/CanvasGraphics.js',
-          'js/app/flip/Components/CanvasObject.js',
-          'js/app/flip/Components/CanvasValues.js',
-          'js/app/flip/Components/CSSShader.js',
-          'js/app/flip/Components/GLShader.js',
-          'js/app/flip/TweenManager.js',
-          'js/app/flip/MathTween.js',
-          'js/app/flip/MathEasing.js',
-          'js/app/flip/TweenManager.Easing.js',
-          'js/app/flip/CSSTween.js',
-          'js/app/flip/Flip.Extentions2.js',
-          'js/app/flip/Flip.Extentions3.js',
-          'js/app/flip/Mouse.js',
-          'js/app/flip/Flip.Extentions4.js',
-          'js/app/flip/Flip.Extentions5.js',
-          'js/app/flip/Swipe.js',
-          'js/app/flip/Flip.Extentions6.js',
-          'js/app/flip/Accelerometer.js',
-          'js/app/flip/Components/Video.js',
-          'js/app/flip/Viewport3D.js',
-          'js/app/flip/GATracker.js',
-          'js/app/flip/Config.js',
-          'js/app/flip/FEEvents.js',
-          'js/app/flip/Utilities/ScrollUtil.js',
-          'js/app/flip/FEDevice.js',
-          'js/app/flip/Utilities/MathUtil.js',
-          'js/app/flip/Utilities/VideoUtil.js',
-          'js/app/flip/Components/PerformanceTest.js',
-          'js/app/Data.js',
-          
-          // 'js/app/models/SiteModel.js',
-          'js/app/models/StateModel.js',
-          // 'js/app/models/PagesModel.js',
-          'js/app/models/HomeModel.js',
-          'js/app/models/AboutModel.js',
-          'js/app/models/BelieveModel.js',
-          'js/app/models/TeamModel.js',
-          // 'js/app/models/AboutContentModel.js',
-          // 'js/app/models/PageModel.js',
-          // 'js/app/models/ReelModel.js',
-          // 'js/app/models/ContentModel.js',
-          'js/app/models/WorkModel.js',
-          'js/app/models/CategoryModel.js',
-          
-          'js/app/controllers/Loader.js',
-          'js/app/controllers/TopBar.js',
-          // 'js/app/controllers/TopBarContent.js',
-
-          // 'js/app/controllers/Sidebar.js',
-          // 'js/app/controllers/SidebarContent.js',
-          // 'js/app/controllers/Work.js',
-          'js/app/controllers/Home.js',
-          // 'js/app/controllers/About.js',
-          // 'js/app/controllers/AboutContent.js',
-          // 'js/app/controllers/Reels.js',
-          // 'js/app/controllers/Content.js',
-          // 'js/app/controllers/Contact.js',
-          // 'js/app/controllers/ContactContent.js',
-          'js/app/controllers/Container.js',
-
-          'js/app/views/Cover.js',
-          'js/app/views/Transition.js',
-          'js/app/views/WorkList.js',
-          'js/app/views/WorkListItem.js',
-          // 'js/app/views/WorkListItemText.js',
-          // 'js/app/views/WorkListItemPlay.js',
-          // 'js/app/views/WorkDetail.js',
-          // 'js/app/views/CloseButton.js',
-          // 'js/app/views/WorkDetailSection.js',
-          // 'js/app/views/WorkDetailSidebar.js',
-          // 'js/app/views/WorkDetailPlay.js',
-          'js/app/views/LoaderView.js',
-          // 'js/app/views/SidebarView.js',
-          // 'js/app/views/SidebarContentView.js',
-          // 'js/app/views/SidebarNav.js',
-          // 'js/app/views/SidebarContentNav.js',
-          // 'js/app/views/SidebarSubNav.js',
-          // 'js/app/views/SidebarNavItem.js',
-          // 'js/app/views/SidebarNavItemTxt.js',
-          // 'js/app/views/SidebarContentNavItem.js',
-          // 'js/app/views/SidebarContentNavItemTxt.js',
-          // 'js/app/views/SidebarSubNavItem.js',
-          // 'js/app/views/Sidebar2CContent.js',
-          // 'js/app/views/SocialNav.js',
-          // 'js/app/views/TopBarView.js',
-          'js/app/views/TopBarNav.js',
-          'js/app/views/TopBarNavItem.js',
-          'js/app/views/TopBarLogo.js',
-          // 'js/app/views/TopBarLocation.js',
-          
-          'js/app/views/FullscreenBackground.js',
-          'js/app/views/PageContainer.js',
-          'js/app/views/HomePage.js',
-          'js/app/views/HomeMainContent.js',
-          'js/app/views/HomeFeatured.js',
-          // 'js/app/views/SidebarIcon.js',
-          // 'js/app/views/SidebarIconContent.js',
-          // 'js/app/views/SearchIcon.js',
-          // 'js/app/views/SearchArea.js',
-          // 'js/app/views/Tag.js',
-
-          // 'js/app/views/VideoOverlay.js',
-          // 'js/app/views/VideoOverlayClose.js',
-
-          // 'js/app/views/AboutList.js',
-          // 'js/app/views/AboutCulture.js',
-          // 'js/app/views/AboutCultureContent.js',
-          // 'js/app/views/AboutCultureBG.js',
-          // 'js/app/views/AboutTeam.js',
-          // 'js/app/views/AboutTeamBG.js',
-          // 'js/app/views/AboutClients.js',
-          // 'js/app/views/AboutClientsBG.js',
-          // 'js/app/views/TeamMember.js',
-          // 'js/app/views/TeamMemberInfo.js',
-          // 'js/app/views/ClientLogo.js',
-          // 'js/app/views/ContactView.js',
-          // 'js/app/views/ScrollArrows.js',
-          // 'js/app/views/NavArrows.js',
-
-          // 'js/app/app.js',
-          'js/app/Main.js'
-          ],
-        tasks: ['concat']
-        // tasks: ['uglify:concatenateOnly', 'uglify:doAll']
-        // tasks: ['concat', 'uglify:concatenateOnly']
-      }
+                'bower_components/jquery/jquery.min.js',
+                'bower_components/jquery-ui/ui/jquery-ui.js',
+                // 'bower_components/foundation/js/foundation.min.js',
+                'bower_components/foundation/js/foundation/foundation.js',
+                'bower_components/foundation/js/foundation/foundation.orbit.js',
+                'bower_components/foundation/js/foundation/foundation.topbar.js',
+                'bower_components/foundation/js/foundation/foundation.offcanvas.js',
+                // 'flipeleven_components/foundation/js/offcanvas.js',
+                'bower_components/foundation/js/foundation/foundation.reveal.js',
+                'bower_components/video.js/video.js',
+                'bower_components/BigVideo.js/lib/bigvideo.js',
+                'js/app.js'
+                ],
+        tasks: ['uglify']
+      },
 
     }
   });
 
-  // grunt.loadNpmTasks('grunt-sass');
+  grunt.loadNpmTasks('grunt-sass');
   grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-contrib-uglify');
-  grunt.loadNpmTasks('grunt-contrib-concat');
-  grunt.loadNpmTasks('grunt-img');
 
-  // grunt.registerTask('build', ['concat', 'uglify:concatenateOnly', 'uglify:doAll']);
-  grunt.registerTask('build', ['concat', 'uglify:concatenateOnly']);
-  // grunt.registerTask('build', ['uglify:concatenateOnly']);
-  // grunt.registerTask('build', ['uglify:doAll']);
-
+  grunt.registerTask('build', ['sass']);
   grunt.registerTask('default', ['build', 'watch']);
-  
-};
+  grunt.registerTask('build', ['uglify:js']);
+}

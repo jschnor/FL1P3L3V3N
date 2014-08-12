@@ -1,0 +1,16 @@
+{
+    "name": "flipeleven/sailfish",
+    "description": "\"Original Flipeleven website repurposed for use as efficiency project site.\"",
+    "require": {
+        "tecnick.com/tcpdf": "dev-master"
+    },
+    "require-dev": {
+    },
+    "authors": [
+        {
+            "name": "Matt Engel",
+            "email": "matt@flipeleven.com"
+        }
+    ],
+    "minimum-stability": "dev"
+}
