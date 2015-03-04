@@ -20514,22 +20514,24 @@ Static(function Config() {
 
     // paths to various asset folders
     this.ASSETS = {
-        path: '/assets',
-        images: '/assets/images',
-        videos: '/assets/videos',
-        fonts: '/assets/fonts'
+        path: '/assets/',
+        images: '/assets/images/',
+        videos: '/assets/videos/',
+        fonts: '/assets/fonts/'
     };
 
     // font, weights, and letter spacings
     this.FONTS = {
-        name: 'Arial',
-        normal: 'normal',
-        bold: 'bold',
-        spacing: {
-            // spacings are a multiple of font size
-            titles: 0.768,
-            subtitles: 0.2,
-            normal: 0
+        default: {
+            name: 'Arial',
+            normal: 'normal',
+            bold: 'bold',
+            spacing: {
+                // spacings are a multiple of font size
+                titles: 0.768,
+                subtitles: 0.2,
+                normal: 0
+            }
         }
     };
 
@@ -20545,6 +20547,10 @@ Static(function Config() {
     // array of assets to pass to the preloader
     this.PRELOAD = [
         // _self.ASSETS.images + 'image.png',
+        _self.ASSETS.images + 'test1.png',
+        _self.ASSETS.images + 'test2.png',
+        _self.ASSETS.images + 'test3.jpg',
+        _self.ASSETS.images + 'test4.jpg'
     ];
 
     // array of preloaded assets, stored here and retrieved when needed
@@ -20557,6 +20563,7 @@ Static(function Config() {
         all: false,
         bitobject: false,
         state: false,
+        loader: false,
         markup: false,
         scroll: false,
         touch: false
@@ -20615,48 +20622,7 @@ Static(function Data() {
     });
 
     function _setData(){
-
         _self.STATE = new StateModel();
-
-        _self.LOADER = {
-            text: "Don't change reality.<br />Take it.",
-            subtitle: ""
-            // text: "A devious curtain falls <br /> over our city. Welcome to the Milwaukee <br /> you have never seen before.",
-            // subtitle: "An original series in progress, brought to you by writer T. C. DeWitt along with Flipeleven Original Productions."
-        };
-
-        _self.HOME = [
-            // content
-            {
-                type: "normal",
-                title: "Mirror Me",
-                subtitle: "Identity theft at the highest level",
-                text: "The sci-fi drama MIRROR ME follows Jason Thompson, an honorable police officer who is replaced by a sinister variant of himself from a corrupt parallel universe. Jason must portray his dark self while preserving his soul if he is to escape the shadowy inversion of the world he yearns for. As both Jasons face their new realities and as Good Jason claws his way back to home, we witness how a man's situation can alter who he is at his core.",
-                bg: Device.mobile.phone ? Config.ASSETS.bgs + "/city-good-sm.jpg" : Config.ASSETS.bgs + "/city-good.jpg",
-                tex: Device.mobile.phone ? Config.ASSETS.bgs + "/texture-good-sm.png" : Config.ASSETS.bgs + "/texture-good.png",
-                fg: Device.mobile.phone ? Config.ASSETS.bgs + "/chike-good-sm.png" : Config.ASSETS.bgs + "/chike-good.png"
-            },
-
-            {
-                type: "normal",
-                title: "The Project",
-                subtitle: "Economic Development",
-                text: "MIRROR ME is designed to generate awareness of Milwaukee's film talent while bringing film revenue into the city. The Mirror Me pilot will draw on the talented labor found in Milwaukee. It will then be marketed to on-line media distributors such as Amazon and Netflix to generate awareness of Milwaukee talent and to produce funds for future work.",
-                bg: Device.mobile.phone ? Config.ASSETS.bgs + "/city-bad-sm.jpg" : Config.ASSETS.bgs + "/city-bad.jpg",
-                tex: Device.mobile.phone ? Config.ASSETS.bgs + "/texture-bad-sm.png" : Config.ASSETS.bgs + "/texture-bad.png",
-                fg: Device.mobile.phone ? Config.ASSETS.bgs + "/chike-bad-sm.png" : Config.ASSETS.bgs + "/chike-bad.png"
-            },
-
-            {
-                type: "contact",
-                title: "The Portal",
-                subtitle: "Time to meet yourself through the portal.",
-                text: "The last step in this process is raising the proper funds.  Only if done right will MIRROR ME serve as an ambassador from Milwaukee's film industry. This pilot will cost $200,000 to make properly; however, through months of passionate dedication, with labor and gear working at cost, and with a group of talented volunteers, we are willing to make that $200,000 pilot for only $60,000. Submit your email to donate or get involved today!",
-                bg: Device.mobile.phone ? Config.ASSETS.bgs + "/city-bright-sm.jpg" : Config.ASSETS.bgs + "/city-bright.jpg",
-                tex: Device.mobile.phone ? Config.ASSETS.bgs + "/texture-bright-sm.png" : Config.ASSETS.bgs + "/texture-bright.png",
-                fg: Device.mobile.phone ? Config.ASSETS.bgs + "/city-bright-blur-sm.jpg" : Config.ASSETS.bgs + "/city-bright-blur.jpg"
-            },
-        ];
     }
 });
 function HomeModel(_data) {
@@ -20787,216 +20753,111 @@ function HomeModel(_data) {
 };
 Singleton(function Container() {
 
-    Inherit(this, $id);
+	Inherit(this, $id);
 
-    var _self = this,
-        _elem = _self.element,
-        _loader,
-        _bgcount = 0,
-        _intro,
-        _overlay,
-        _fullbg,
-        _cover,
-        _borders,
-        _pageclass;
-    
-    Global.CONTAINER = this;
+	var _self = this,
+		_elem = _self.element,
+		_loader,
+		_pageclass;
+	
+	Global.CONTAINER = this;
 
-    (function() {
-        _init();
-        _preloadSite();
-    })();
+	(function() {
+		_init();
+		_events();
+		_preloadSite();
+	})();
 
-    function _init() {
-        _elem.size(Stage.width, Stage.height).bg(Config.COLORS.black).setProps({
-            perspective: 2000
-        });
-        
-        Stage.add(_elem);
+	function _init() {
+		_elem.size(Stage.width, Stage.height).bg(Config.COLORS.black);
+		Stage.add(_elem);
+	}
 
-        _overlay = _elem.create('.overlay');
-        _overlay.size(Stage.width, Stage.height).setProps({
-            opacity: 1
-        }).bg(Config.COLORS.black).setZ(150);
+	function _events(){
+		Evt.resize(_onResize);
+	}
 
-        Evt.resize(_onResize);
-    }
+	function _preloadSite() {
+		_loader = _self.initClass(Loader, _onLoadComplete);
+	}
 
-    function _addIntro(){
-        _intro = _self.initClass(Intro, _removeOverlay);
-    }
+	function _onLoadComplete() {
+		if (Config.DEBUG.loader){ console.log('LOADER CALLBACK'); }
 
-    function _preloadSite() {
-        Evt.subscribe(_elem, Evt.BG_LOADED, _onBgLoaded);
-        _loader = _self.initClass(Loader, _onLoadComplete);
-    }
+		// attempt to rescale the stage when mobile chrome is visible
+		// on initial load only
+		// seems hackish ¯\_(ツ)_/¯
+		if (Device.mobile.phone){
+			window.scrollTo( 0, 1 );
+			var scrollTop = 1;
 
-    function _onLoadComplete() {
-        // console.log('LOADER CALLBACK');
+			setTimeout(function(){
+				window.scrollTo( 0, scrollTop === 1 ? 0 : 1 );
+			}, 50);
+		}
 
-        // attempt to rescale the stage when mobile chrome is visible
-        // on initial load only
-        // seems hackish
-        if (Device.mobile.phone){
-            window.scrollTo( 0, 1 );
-            var scrollTop = 1;
+		// set page state
+		// _pageState();
+	}
 
-            setTimeout(function(){
-                window.scrollTo( 0, scrollTop === 1 ? 0 : 1 );
-            }, 50);
-        }
+	function _onResize() {
+		_elem.size(Stage.width, Stage.height);
+		// Transition.instance().resize();
+	}
 
-        // add cover to hide website under some circumstances
-        _addCover();
+	// SETS GLOBAL PAGES AND INITIALIZES
+	// THAT PAGE NAME AS A CLASS
+	/*function _pageState(pagename) {
 
-        // add full background
-        _fullbg = _self.initClass(FullBackground);
+		var _pagename = pagename;
 
-        // set page state
-        _pageState();
-    }
+		if (!_pagename) {
+			_pagename = Data.STATE.page;
+		}
 
-    function _onBgLoaded(bgindex){
-        _bgcount++;
+		var className;
 
-        // see if all background have been loaded
-        if (_bgcount == Data.HOME.length){
-            // wait for browser to render images
-            _self.delayedCall(function(){
-                // assume all backgrounds loaded
-                // _addIntro();
-                _removeOverlay();
-            }, 1200);
-        }
-    }
+		// CURRENTLY, CLASSNAMES AND DATA STATE PAGE NAMES HAVE TO BE
+		// THE SAME FOR PROPER ROUTING, SO:
+		// _pagename/Global.PAGE must be the same as Data.STATE.page
+		// ==========================================================
+		// console.log(Data.STATE.page);
+		
+		switch (Data.STATE.page) {
+			case 'home':
+			default:
+				className = Home;
+				break;
+		}
 
-    function _onResize() {
-        _elem.size(Stage.width, Stage.height);
-        _overlay.size(Stage.width, Stage.height);
+		Global.PAGE = _pagename;
+		_pageclass  = _self.initClass(className, null);
+		
+		_elem.add(_pageclass);
+	}*/
+	
 
-        // Transition.instance().resize();
-    }
+	// THIS RUNS EVERY TIME THE PAGE STATE RUNS
+	this.checkBrowserBack = function() {
+		if (Global.PAGE.toLowerCase() != Data.STATE.page.toLowerCase() && _pageclass) {
+			if(_pageclass.hasAnimateOut === true) {
+				_pageclass.animateOut(function() {
+					_pageclass = _pageclass.destroy();
+					_pageState(Data.STATE.page);
+				});
+			} else {
+				_pageState(Data.STATE.page);
+			}
+		}
+	};
 
-    function _addCover(){
-        _cover = _self.initClass(Cover);
-    }
-
-    // SETS GLOBAL PAGES AND INITIALIZES
-    // THAT PAGE NAME AS A CLASS
-    function _pageState(pagename) {
-
-        var _pagename = pagename;
-
-        if (!_pagename) {
-            _pagename = Data.STATE.page;
-        }
-
-        var className;
-
-
-        
-        // CURRENTLY, CLASSNAMES AND DATA STATE PAGE NAMES HAVE TO BE
-        // THE SAME FOR PROPER ROUTING, SO:
-        // _pagename/Global.PAGE must be the same as Data.STATE.page
-        // ==========================================================
-        // console.log(Data.STATE.page);
-        
-        switch (Data.STATE.page) {
-            case 'home':
-            default:
-                className = Home;
-                break;
-        }
-
-        Global.PAGE         = _pagename;
-        _pageclass          = _self.initClass(className, null);
-        
-        _elem.add(_pageclass);
-
-        // give home class time to load everything, then fade in intro message
-        // _self.delayedCall(function(){
-            // _loader.animateIn(_removeOverlay); // this callback is actually run on the loader's _animateOut.
-        // }, 1250);
-    }
-
-    function _removeOverlay(){
-        _overlay.tween({
-            opacity: 0
-        }, 1, Config.EASING.out, null, function(){
-            _overlay.setProps({
-                display: 'none'
-            });
-
-            // add borders
-            _borders = _self.initClass(Borders);
-
-            Global.HOME.bindScroll();
-        });
-    }
-    
-    function _onNavSelect(obj) {
-
-        // CHECK TO SEE IF WE'RE ALREADY ON THIS PAGE
-        if (History.getState().data.page == obj.page) {
-            return;
-        }
-        var _title = obj.page == '/' ? 'Home' : Utils.capFirstLetter(obj.page);
-        
-        if(_pageclass.hasAnimateOut === true) {
-
-            _pageclass.animateOut(function() {
-
-                // if transitions are needed between pages -- next four lines
-                Transition.instance().animateIn(function() {
-
-                    _self.delayedCall(function() {
-
-                        _pageclass = _pageclass.destroy();
-                        
-                        Data.STATE.setState(obj.page, 'F11P | Flipeleven | '+_title);
-                        _pageState(Data.STATE.page);
-
-                        
-
-                    // }, Device.browser.firefox ? 1200 : 600);
-                    }, 600);
-
-                    _self.delayedCall(function() {
-                        Transition.instance().animateOut();
-                    }, 800);
-
-                });
-            });
-        } else {
-            // if transitions are needed between pages
-            Transition.instance().animateIn(function() {
-
-                Data.STATE.setState(obj.page, 'F11P | Flipeleven | '+_title);
-                _pageState(Data.STATE.page);
-
-            });
-        }
-    }
-    
-
-    // THIS RUNS EVERY TIME THE PAGE STATE RUNS
-    this.checkBrowserBack = function() {
-
-        if (Global.PAGE.toLowerCase() != Data.STATE.page.toLowerCase() && _pageclass) {
-            
-            if(_pageclass.hasAnimateOut === true) {
-                _pageclass.animateOut(function() {
-
-                    _pageclass = _pageclass.destroy();
-                    _pageState(Data.STATE.page);
-                });
-            } else {
-                
-                _pageState(Data.STATE.page);
-            }
-        }
-    };
 });
+/**
+ * Main Site Preloader
+ * uses PreloadJS
+ * see http://www.createjs.com/PreloadJS for demos and usage
+ */
+
 function Loader(callback) {
 	 
 	Inherit(this, $id);
@@ -21006,10 +20867,6 @@ function Loader(callback) {
 		_preload,
 		_loader,
 		_loaderBar,
-		_loaderView,
-		_loaderMark,
-		_loaderText,
-		_loaderDot,
 		_sizes = {},
 		_images = Config.PRELOAD,
 		_hidden;
@@ -21022,12 +20879,10 @@ function Loader(callback) {
 	})();
 
 	function _init() {
-		// console.log('RUN LOADER');
-
 		_elem.setZ(200);
 
+		// used for temporarily storing stuff that we are loading
 		_hidden = _elem.create(".hidden");
-
 		_hidden.css({
 			opacity: 0
 		});
@@ -21056,37 +20911,7 @@ function Loader(callback) {
 		});
 
 		_loaderBar = _loader.create('.loaderbar');
-		_loaderBar.bg(Config.ASSETS.images+'timeline.png').setProps({
-			backgroundSize: '100% 100%'
-		});
-
-		_loaderView = _loader.create('.view');
-		_loaderView.setProps({
-        	x: 0,
-        	y: 0
-        });
-
-		_loaderText = _loaderView.create('.loader-text');
-		_loaderText.setProps({
-			fontFamily: Config.FONTS.headings.name,
-			color: Config.COLORS.white,
-			textAlign: 'center',
-			backgroundSize: '100% 100%'
-		}).bg(Config.ASSETS.images+'tag-bg.png').setZ(20);
-
-		_loaderMark = _loaderView.create('.mark');
-		_loaderMark.bg(Config.ASSETS.images+'timeline-mark.png').setProps({
-			backgroundSize: '100% 100%'
-		}).setZ(10);
-
-		_loaderDot = _loaderView.create('.dot');
-		_loaderDot.bg(Config.COLORS.red).css({
-			borderRadius: '50%'
-		}).setZ(30);
-		_loaderDot.innerDot = _loaderDot.create('.innerdot');
-		_loaderDot.innerDot.bg(Config.COLORS.yellow).css({
-			borderRadius: '50%'
-		});
+		_loaderBar.bg(Config.COLORS.white);
 	}
 
 	function _animateIn(){
@@ -21099,22 +20924,31 @@ function Loader(callback) {
 
 	// load all assets
 	function _loadAll() {
-		while (_images.length > 0) {
-			var item = _images.shift();
-			_preload.loadFile(item);
+		if (_images.length > 0){
+			// load each asset
+			while (_images.length > 0) {
+				var item = _images.shift();
+				_preload.loadFile(item);
+			}
+		}else{
+			// no assets to load
+			_animateOut();
 		}
 	}
 
 	// Overall progress handler
 	function _handleOverallProgress(event) {
-		// console.log('overall progress: ' + _preload.progress);
+		if (Config.DEBUG.loader){ console.log('overall progress: ' + _preload.progress); }
 
-		_loaderView.tween({
-			x: (_sizes.loaderwidth - _sizes.tagwidth)*_preload.progress
+		// adjust the length of the loader bar as assets are loaded
+		_loaderBar.tween({
+			width: _sizes.loaderwidth*_preload.progress
 		}, 0.25, Config.EASING.out);
 
-		_loaderText.text((Math.round(_preload.progress * 100)) + '%');
+		// you can use the progress value to show text
+		// _loaderText.text((Math.round(_preload.progress * 100)) + '%');
 
+		// when finished loading, remove the loader
 		if (_preload.progress == 1){
 			_animateOut();
 		}
@@ -21135,10 +20969,15 @@ function Loader(callback) {
     }
 
 	function _renderFonts() {
-		var _fonts = [Config.FONTS.headings.name, Config.FONTS.body.name];
-		for (var i = 0; i < _fonts.length; i++) {
-			var _render = _hidden.create(".a");
-			_render.text("a").fontStyle(_fonts[i], 12, "#000");
+		for (var type in Config.FONTS){
+			if (Config.FONTS.hasOwnProperty(type)){
+				var render = _hidden.create('.a');
+				render.text('a').setProps({
+					fontFamily: Config.FONTS[type].name,
+					fontSize: '12px',
+					color: Config.COLORS.black
+				});
+			}
 		}
 	}
 
@@ -21146,10 +20985,12 @@ function Loader(callback) {
 		_elem.tween({
 			opacity: 0
 		}, 1, Config.EASING.in, null, function(){
+			// try to run the callback function
 			if (typeof callback == 'function'){
 				callback();
 			}
 
+			// remove the loader
 			_self.delayedCall(function(){
 				_self.__destroy();
 			}, 500);
@@ -21161,56 +21002,22 @@ function Loader(callback) {
 	}
 
 	function _setSize(){
-		_elem.size(Stage.innerW, Stage.innerH).setProps({
-            top: Global.HEADER.height
-        });
+		_elem.size(Stage.width, Stage.height);
 
-        _sizes.loaderwidth = Stage.innerW * (1747/2020);
-        _sizes.loaderheight = Stage.innerH * (177/1500);
-        _sizes.barheight = _sizes.loaderwidth * (6/1747);
+		// set size values
+        _sizes.loaderwidth = Stage.width * (1920/1920);
+        _sizes.loaderheight = Stage.height * (1080/1080);
+        _sizes.barheight = _sizes.loaderwidth * (30/1080);
 
         _loader.size(_sizes.loaderwidth, _sizes.loaderheight).setProps({
-        	left: (Stage.innerW - _sizes.loaderwidth)/2,
-        	top: (Stage.innerH - _sizes.loaderheight)/2
+        	left: (Stage.width - _sizes.loaderwidth)/2,
+        	top: (Stage.height - _sizes.loaderheight)/2
         });
 
-        _loaderBar.size(_sizes.loaderwidth, _sizes.barheight).setProps({
+        _loaderBar.setProps({
         	left: 0,
-        	top: _sizes.loaderheight * (28/177)
-        });
-
-        _sizes.tagwidth = _sizes.loaderwidth * (270/1747);
-        _sizes.tagheight = _sizes.tagwidth * (53/270);
-
-        _loaderView.size(_sizes.tagwidth, _sizes.loaderheight);
-
-        _loaderText.size(_sizes.tagwidth, _sizes.tagheight).setProps({
-        	left: 0,
-        	bottom: 0,
-        	lineHeight: _sizes.tagheight + 'px',
-        	fontSize: (_sizes.tagheight * 0.66) + 'px',
-        	fontWeight: Config.FONTS.headings.bold
-        });
-
-        _sizes.markheight = _sizes.loaderheight * (136/177);
-        _sizes.markwidth = _sizes.markheight * (3/136);
-
-        _loaderMark.size(_sizes.markwidth, _sizes.markheight).setProps({
-        	left: '50%',
-        	top: 5
-        });
-
-        _sizes.dot = _sizes.loaderheight * (55/177);
-        _sizes.innerdot = _sizes.dot * (20/55);
-
-        _loaderDot.size(_sizes.dot, _sizes.dot).setProps({
-        	left: (_sizes.tagwidth - _sizes.dot)/2,
-        	top: _sizes.loaderheight * (3/177)
-        });
-
-        _loaderDot.innerDot.size(_sizes.innerdot, _sizes.innerdot).setProps({
-        	left: (_sizes.dot - _sizes.innerdot)/2,
-        	top: (_sizes.dot - _sizes.innerdot)/2
+        	top: (_sizes.loaderheight - _sizes.barheight)/2,
+        	height: _sizes.barheight
         });
 	}
 } 

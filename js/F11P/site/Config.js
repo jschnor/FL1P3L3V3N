@@ -20,22 +20,24 @@ Static(function Config() {
 
     // paths to various asset folders
     this.ASSETS = {
-        path: '/assets',
-        images: '/assets/images',
-        videos: '/assets/videos',
-        fonts: '/assets/fonts'
+        path: '/assets/',
+        images: '/assets/images/',
+        videos: '/assets/videos/',
+        fonts: '/assets/fonts/'
     };
 
     // font, weights, and letter spacings
     this.FONTS = {
-        name: 'Arial',
-        normal: 'normal',
-        bold: 'bold',
-        spacing: {
-            // spacings are a multiple of font size
-            titles: 0.768,
-            subtitles: 0.2,
-            normal: 0
+        default: {
+            name: 'Arial',
+            normal: 'normal',
+            bold: 'bold',
+            spacing: {
+                // spacings are a multiple of font size
+                titles: 0.768,
+                subtitles: 0.2,
+                normal: 0
+            }
         }
     };
 
@@ -51,6 +53,10 @@ Static(function Config() {
     // array of assets to pass to the preloader
     this.PRELOAD = [
         // _self.ASSETS.images + 'image.png',
+        _self.ASSETS.images + 'test1.png',
+        _self.ASSETS.images + 'test2.png',
+        _self.ASSETS.images + 'test3.jpg',
+        _self.ASSETS.images + 'test4.jpg'
     ];
 
     // array of preloaded assets, stored here and retrieved when needed
@@ -63,6 +69,7 @@ Static(function Config() {
         all: false,
         bitobject: false,
         state: false,
+        loader: false,
         markup: false,
         scroll: false,
         touch: false
