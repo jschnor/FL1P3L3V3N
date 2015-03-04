@@ -40,9 +40,7 @@ var _banner_sml = '/*     _         \n'+
                   'http://f11p.com\n';
 
 
-var _sitename = 'mirror-me';
 var _appfiles = [
-
      'js/F11P/lib/Global.js',
      'js/F11P/lib/Device.js',
      'js/F11P/lib/bit/bit.js',
@@ -53,11 +51,10 @@ var _appfiles = [
      'js/F11P/lib/utilities/ScrollUtil.js',
      'js/F11P/lib/utilities/TouchUtil.js',
      'js/F11P/lib/Render.js',
-     'js/F11P/lib/GreenSock-JS/src/uncompressed/TweenMax.js',
-     'js/F11P/lib/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
-     'js/F11P/lib/preload/preloadjs-0.6.0.min.js',
+     'js/F11P/lib/bower_components/greensock/src/uncompressed/TweenMax.js',
+     'js/F11P/lib/bower_components/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
+     'js/F11P/lib/bower_components/PreloadJS/lib/preloadjs-0.6.0.combined.js',
      'js/F11P/lib/utilities/Utils.js',
-     'js/F11P/lib/Config.js',
      'js/F11P/lib/bit/extensions/Ext_BG.js',
      'js/F11P/lib/bit/extensions/Ext_Center.js',
      'js/F11P/lib/bit/extensions/Ext_CSS.js',
@@ -78,7 +75,7 @@ var _appfiles = [
      'js/F11P/lib/data/Model.js',
      'js/F11P/lib/GATracker.js',
 
-     'js/F11P/'+_sitename+'/**/**/*.js',
+     'js/F11P/site/**/**/*.js',
 ];
 
 // These are built into the framework. These shouldn't have to change much.
@@ -104,7 +101,7 @@ module.exports = function(grunt) {
           outputStyle: 'compressed'
         },
         files: {
-          'css/mirror-me.css': 'scss/mirror-me.scss'
+          'css/app.css': 'scss/app.scss'
         }
       }
     },
@@ -127,7 +124,7 @@ module.exports = function(grunt) {
                     preserveComments: 'none'
                },
                files: {// only concatenation
-                    'js/mirror-me.min.js': _appfiles
+                    'js/app.min.js': _appfiles
                }
           },
     },
@@ -136,7 +133,7 @@ module.exports = function(grunt) {
     concat: {
       js: {
         files: {
-          'js/mirror-me.js': _appfiles
+          'js/app.js': _appfiles
         }
       }
     },

@@ -225,7 +225,7 @@ Static(function TouchUtil() {
                 Evt.removeEvent(elem, 'touchmove', _drag);
                 Evt.removeEvent(elem, 'touchend', _release);
 
-                if (Config.DEBUG.all || Config.DEBUG.scrollutil) {
+                if (Config.DEBUG.all || Config.DEBUG.touch) {
                     console.log('UNBIND :: _elements[i]');
                     console.log(_elements[i]);
                 }

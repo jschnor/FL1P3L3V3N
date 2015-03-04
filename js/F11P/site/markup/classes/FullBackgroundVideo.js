@@ -64,7 +64,7 @@ function FullBackgroundVideo() {
         _video.div.src      = !filename ? Utils.getAsset('Flip11_Reel_103114', 'video') : Utils.getAsset(filename, 'video');
 
         
-        if (Config.DEBUG.all || Config.DEBUG.fullbg) {
+        if (Config.DEBUG.all) {
             console.log(_video.div.src);
             console.log('========================');
         }

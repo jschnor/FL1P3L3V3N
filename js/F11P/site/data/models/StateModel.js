@@ -27,7 +27,7 @@
         _self.category  = split_state[4];
         _self.detail    = split_state[5];
 
-        if (Config.DEBUG.all || Config.DEBUG.statemodel) {
+        if (Config.DEBUG.all || Config.DEBUG.state) {
             console.log('==========================');
             console.log('STATE MODEL :: INIT');
             console.log(split_state);
