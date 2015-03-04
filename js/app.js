@@ -1336,14 +1336,6 @@ Static(function TouchUtil() {
             return;
         }
 
-        // console.log(event.target);
-        // console.log(event.target.nodeName);
-
-        /*if (event.target.nodeName == 'INPUT'){
-            event.target.focus();
-            return;
-        }*/
-
         // find difference on X and Y axes
         // for more versatility and precision, future versions could use a vector (I think it's: start vector, end vector, subtract vectors to get direction + distance)
         var _totalX = _startX - _changeX;
@@ -1413,8 +1405,6 @@ Static(function TouchUtil() {
 
         if (foundparents !== false){
             for (var parent in foundparents){
-                // console.log('callback:');
-                // console.log(foundparents[parent].callback);
                 foundparents[parent].callback(event);
 
                 if (foundparents[parent].bubble === false){
@@ -19134,6 +19124,18 @@ Static(function Utils() {
 
     };
 
+    // get an image from the preloaded set
+    this.getImg = function(path){
+        var imgobj;
+        for (var idx = 0; idx < Config.LOADED.length; idx++){
+            if (Config.LOADED[idx].id == path){
+                imgobj = Config.LOADED[idx].img;
+            }
+        }
+
+        return imgobj;
+    };
+
     this.urlstr = function(string){
         var str = string.replace(/ /g, "-").toLowerCase();
         var _str = str.replace(/:/g, "");
@@ -19191,10 +19193,74 @@ Static(function Utils() {
 
         xhr.open(_method, _url, true);
         xhr.send();
-    }
+    };
+
+    this.COOKIE = {
+        // get the value of a cookie
+        // @param sKey string  the name of the cookie to get
+        get: function (sKey){
+            if (!sKey) { return null; }
+            return decodeURIComponent(document.cookie.replace(new RegExp("(?:(?:^|.*;)\\s*" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=\\s*([^;]*).*$)|^.*$"), "$1")) || null;
+        },
+
+        // set the value of a cookie
+        // @param sKey string  the name of the new cookie
+        // @param sValue string  the value of the new cookie
+        // @param vEnd integer  the maximum age of the cookie in seconds
+        // @param sPath string  the path the cookie is readable from
+        // @param sDomain string  the domain the cookie is readable from
+        // @param bSecure boolean  whether to use https
+        set: function (sKey, sValue, vEnd, sPath, sDomain, bSecure) {
+            if (!sKey || /^(?:expires|max\-age|path|domain|secure)$/i.test(sKey)) { return false; }
+
+            var sExpires = "";
+            if (vEnd) {
+                switch (vEnd.constructor) {
+                    case Number:
+                    sExpires = vEnd === Infinity ? "; expires=Fri, 31 Dec 9999 23:59:59 GMT" : "; max-age=" + vEnd;
+                    break;
+
+                    case String:
+                    sExpires = "; expires=" + vEnd;
+                    break;
+
+                    case Date:
+                    sExpires = "; expires=" + vEnd.toUTCString();
+                    break;
+                }
+            }
+
+            document.cookie = encodeURIComponent(sKey) + "=" + encodeURIComponent(sValue) + sExpires + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "") + (bSecure ? "; secure" : "");
+            return true;
+        },
+
+        // remove/delete a cookie
+        // @param sKey string  the name of the cookie
+        // @param sPath string  the path the cookie is readable from
+        // @param sDomain string  the domain the cookie is readable from
+        remove: function (sKey, sPath, sDomain) {
+            if (!this.exists(sKey)) { return false; }
+
+            document.cookie = encodeURIComponent(sKey) + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT" + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "");
+            return true;
+        },
+
+        // check if a cookie exists
+        // @param sKey string  the name of the cookie
+        exists: function (sKey) {
+            if (!sKey) { return false; }
+            return (new RegExp("(?:^|;\\s*)" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=")).test(document.cookie);
+        },
+
+        // get a list of all set cookies as an array
+        list: function () {
+            var aKeys = document.cookie.replace(/((?:^|\s*;)[^\=]+)(?=;|$)|^\s*|\s*(?:\=[^;]*)?(?:\1|$)/g, "").split(/\s*(?:\=[^;]*)?;\s*/);
+            for (var nLen = aKeys.length, nIdx = 0; nIdx < nLen; nIdx++) { aKeys[nIdx] = decodeURIComponent(aKeys[nIdx]); }
+            return aKeys;
+        }
+    };
 
 });
-// window.Utils = new $utils();
 (function(){
     $.fn.bg = function(background) {
         var _self = this;
@@ -19215,6 +19281,52 @@ Static(function Utils() {
               _self.div.style.backgroundColor = background;
         }
         
+        return _self;
+    };
+
+    // apply an image background
+    // @param object params {
+    // url: string  the URL of the image (required),
+    // preloaded: boolean  whether to use the preloaded asset (default true),
+    // repeat: string  css background-repeat value,
+    // pos: string  css background-position value,
+    // size: string  css background-size value
+    // }
+    $.fn.imgbg = function(params){
+        var _self = this;
+        
+        // check for repeat or set default
+        if (typeof params.repeat != 'string'){
+            params.repeat = 'no-repeat';
+        }
+
+        // check for position or set default
+        if (typeof params.pos != 'string'){
+            params.pos = 'center center';
+        }
+
+        // check for size or set default
+        if (typeof params.size != 'string'){
+            params.size = 'auto';
+        }
+
+        // check if we should retrieve from preloaded
+        if (typeof params.preloaded != 'boolean'){
+            params.preloaded = true;
+        }
+
+        if (params.preloaded === true){
+            var img = Utils.getImg(params.url);
+            params.url = img.div.src;
+        }
+
+        _self.setProps({
+            backgroundImage: 'url("'+params.url+'")',
+            backgroundRepeat: params.repeat,
+            backgroundPosition: params.pos,
+            backgroundSize: params.size
+        });
+
         return _self;
     };
 })();
@@ -20729,7 +20841,7 @@ function HomeModel(_data) {
             _self.detail = null;
         }
 
-        if (_self.page != "home" && _self.page != "intro") {
+        if (_self.page != "home") {
             _self.page = "home";
         }
 

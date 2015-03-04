@@ -43,7 +43,7 @@
             _self.detail = null;
         }
 
-        if (_self.page != "home" && _self.page != "intro") {
+        if (_self.page != "home") {
             _self.page = "home";
         }
 

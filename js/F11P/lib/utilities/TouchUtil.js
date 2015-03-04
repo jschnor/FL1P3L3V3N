@@ -38,14 +38,6 @@ Static(function TouchUtil() {
             return;
         }
 
-        // console.log(event.target);
-        // console.log(event.target.nodeName);
-
-        /*if (event.target.nodeName == 'INPUT'){
-            event.target.focus();
-            return;
-        }*/
-
         // find difference on X and Y axes
         // for more versatility and precision, future versions could use a vector (I think it's: start vector, end vector, subtract vectors to get direction + distance)
         var _totalX = _startX - _changeX;
@@ -115,8 +107,6 @@ Static(function TouchUtil() {
 
         if (foundparents !== false){
             for (var parent in foundparents){
-                // console.log('callback:');
-                // console.log(foundparents[parent].callback);
                 foundparents[parent].callback(event);
 
                 if (foundparents[parent].bubble === false){
