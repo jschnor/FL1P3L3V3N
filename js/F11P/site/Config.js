@@ -61,10 +61,10 @@ Static(function Config() {
     // it's up to you to use these appropriately in the code
     this.DEBUG = {
         all: false,
-        bitobject = false,
-        state = false,
-        markup = false,
-        scroll = false,
-        touch = false
-    }
+        bitobject: false,
+        state: false,
+        markup: false,
+        scroll: false,
+        touch: false
+    };
 });

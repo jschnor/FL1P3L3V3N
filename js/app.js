@@ -1523,7 +1523,7 @@ Static(function TouchUtil() {
                 Evt.removeEvent(elem, 'touchmove', _drag);
                 Evt.removeEvent(elem, 'touchend', _release);
 
-                if (Config.DEBUG.all || Config.DEBUG.scrollutil) {
+                if (Config.DEBUG.all || Config.DEBUG.touch) {
                     console.log('UNBIND :: _elements[i]');
                     console.log(_elements[i]);
                 }
@@ -1607,14 +1607,14 @@ Static(function Render() {
 
 })
 /*!
- * VERSION: 1.13.2
- * DATE: 2014-08-23
- * UPDATES AND DOCS AT: http://www.greensock.com
+ * VERSION: 1.16.0
+ * DATE: 2015-03-01
+ * UPDATES AND DOCS AT: http://greensock.com
  * 
  * Includes all of the following: TweenLite, TweenMax, TimelineLite, TimelineMax, EasePack, CSSPlugin, RoundPropsPlugin, BezierPlugin, AttrPlugin, DirectionalRotationPlugin
  *
- * @license Copyright (c) 2008-2014, GreenSock. All rights reserved.
- * This work is subject to the terms at http://www.greensock.com/terms_of_use.html or for
+ * @license Copyright (c) 2008-2015, GreenSock. All rights reserved.
+ * This work is subject to the terms at http://greensock.com/standard-license or for
  * Club GreenSock members, the software agreement that was issued with your membership.
  * 
  * @author: Jack Doyle, jack@greensock.com
@@ -1649,7 +1649,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			p = TweenMax.prototype = TweenLite.to({}, 0.1, {}),
 			_blankArray = [];
 
-		TweenMax.version = "1.13.2";
+		TweenMax.version = "1.16.0";
 		p.constructor = TweenMax;
 		p.kill()._gc = false;
 		TweenMax.killTweensOf = TweenMax.killDelayedCallsTo = TweenLite.killTweensOf;
@@ -1667,7 +1667,9 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		};
 		
 		p.updateTo = function(vars, resetDuration) {
-			var curRatio = this.ratio, p;
+			var curRatio = this.ratio,
+				immediate = this.vars.immediateRender || vars.immediateRender,
+				p;
 			if (resetDuration && this._startTime < this._timeline._time) {
 				this._startTime = this._timeline._time;
 				this._uncache(false);
@@ -1680,9 +1682,12 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			for (p in vars) {
 				this.vars[p] = vars[p];
 			}
-			if (this._initted) {
+			if (this._initted || immediate) {
 				if (resetDuration) {
 					this._initted = false;
+					if (immediate) {
+						this.render(0, true, true);
+					}
 				} else {
 					if (this._gc) {
 						this._enabled(true, false);
@@ -1695,7 +1700,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 						this.render(0, true, false);
 						this._initted = false;
 						this.render(prevTime, true, false);
-					} else if (this._time > 0) {
+					} else if (this._time > 0 || immediate) {
 						this._initted = false;
 						this._init();
 						var inv = 1 / (1 - curRatio),
@@ -1753,7 +1758,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			} else if (time < 0.0000001) { //to work around occasional floating point math artifacts, round super small values to 0.
 				this._totalTime = this._time = this._cycle = 0;
 				this.ratio = this._ease._calcEnd ? this._ease.getRatio(0) : 0;
-				if (prevTotalTime !== 0 || (duration === 0 && prevRawPrevTime > 0 && prevRawPrevTime !== _tinyNum)) {
+				if (prevTotalTime !== 0 || (duration === 0 && prevRawPrevTime > 0)) {
 					callback = "onReverseComplete";
 					isComplete = this._reversed;
 				}
@@ -1951,14 +1956,20 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					targets = _slice(targets);
 				}
 			}
-			l = targets.length;
-			for (i = 0; i < l; i++) {
+			targets = targets || [];
+			if (stagger < 0) {
+				targets = _slice(targets);
+				targets.reverse();
+				stagger *= -1;
+			}
+			l = targets.length - 1;
+			for (i = 0; i <= l; i++) {
 				copy = {};
 				for (p in vars) {
 					copy[p] = vars[p];
 				}
 				copy.delay = delay;
-				if (i === l - 1 && onCompleteAll) {
+				if (i === l && onCompleteAll) {
 					copy.onComplete = finalComplete;
 				}
 				a[i] = new TweenMax(targets[i], duration, copy);
@@ -2225,6 +2236,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			},
 			_tinyNum = 0.0000000001,
 			TweenLiteInternals = TweenLite._internals,
+			_internals = TimelineLite._internals = {},
 			_isSelector = TweenLiteInternals.isSelector,
 			_isArray = TweenLiteInternals.isArray,
 			_lazyTweens = TweenLiteInternals.lazyTweens,
@@ -2238,15 +2250,31 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				}
 				return copy;
 			},
-			_pauseCallback = function(tween, callback, params, scope) {
-				var time = tween._timeline._totalTime;
+			_pauseCallback = _internals.pauseCallback = function(tween, callback, params, scope) {
+				var tl = tween._timeline,
+					time = tl._totalTime,
+					startTime = tween._startTime,
+					next = tween.ratio ? _tinyNum : 0,
+					prev = tween.ratio ? 0 : _tinyNum,
+					sibling;
 				if (callback || !this._forcingPlayhead) { //if the user calls a method that moves the playhead (like progress() or time()), it should honor that and skip any pauses (although if there's a callback positioned at that pause, it must jump there and make the call to ensure the time is EXACTLY what it is supposed to be, and then proceed to where the playhead is being forced). Otherwise, imagine placing a pause in the middle of a timeline and then doing timeline.progress(0.9) - it would get stuck where the pause is.
-					tween._timeline.pause(tween._startTime);
+					tl.pause(startTime);
+					//now find sibling tweens that are EXACTLY at the same spot on the timeline and adjust the _rawPrevTime so that they fire (or don't fire) correctly on the next render. This is primarily to accommodate zero-duration tweens/callbacks that are positioned right on top of a pause. For example, tl.to(...).call(...).addPause(...).call(...) - notice that there's a call() on each side of the pause, so when it's running forward it should call the first one and then pause, and then when resumed, call the other. Zero-duration tweens use _rawPrevTime to sense momentum figure out if events were suppressed when arriving directly on top of that time.
+					sibling = tween._prev;
+					while (sibling && sibling._startTime === startTime) {
+						sibling._rawPrevTime = prev;
+						sibling = sibling._prev;
+					}
+					sibling = tween._next;
+					while (sibling && sibling._startTime === startTime) {
+						sibling._rawPrevTime = next;
+						sibling = sibling._next;
+					}
 					if (callback) {
-						callback.apply(scope || tween._timeline, params || _blankArray);
+						callback.apply(scope || tl, params || _blankArray);
 					}
 					if (this._forcingPlayhead) {
-						tween._timeline.seek(time);
+						tl.seek(time);
 					}
 				}
 			},
@@ -2259,7 +2287,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			},
 			p = TimelineLite.prototype = new SimpleTimeline();
 
-		TimelineLite.version = "1.13.2";
+		TimelineLite.version = "1.16.0";
 		p.constructor = TimelineLite;
 		p.kill()._gc = p._forcingPlayhead = false;
 
@@ -2305,10 +2333,16 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			if (typeof(targets) === "string") {
 				targets = TweenLite.selector(targets) || targets;
 			}
+			targets = targets || [];
 			if (_isSelector(targets)) { //senses if the targets object is a selector. If it is, we should translate it into an array.
 				targets = _slice(targets);
 			}
 			stagger = stagger || 0;
+			if (stagger < 0) {
+				targets = _slice(targets);
+				targets.reverse();
+				stagger *= -1;
+			}
 			for (i = 0; i < targets.length; i++) {
 				if (vars.startAt) {
 					vars.startAt = _copy(vars.startAt);
@@ -2468,7 +2502,9 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		};
 
 		p.addPause = function(position, callback, params, scope) {
-			return this.call(_pauseCallback, ["{self}", callback, params, scope], this, position);
+			var t = TweenLite.delayedCall(0, _pauseCallback, ["{self}", callback, params, scope], this);
+			t.data = "isPause"; // we use this flag in TweenLite's render() method to identify it as a special case that shouldn't be triggered when the virtual playhead is LEAVING the exact position where the pause is, otherwise timeline.addPause(1).play(1) would end up paused on the very next tick.
+			return this.add(t, position);
 		};
 
 		p.removeLabel = function(label) {
@@ -2562,13 +2598,24 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				}
 				if (time < 0) {
 					this._active = false;
-					if (this._rawPrevTime >= 0 && this._first) { //when going back beyond the start, force a render so that zero-duration tweens that sit at the very beginning render their start values properly. Otherwise, if the parent timeline's playhead lands exactly at this timeline's startTime, and then moves backwards, the zero-duration tweens at the beginning would still be at their end state.
+					if (this._timeline.autoRemoveChildren && this._reversed) { //ensures proper GC if a timeline is resumed after it's finished reversing.
+						internalForce = isComplete = true;
+						callback = "onReverseComplete";
+					} else if (this._rawPrevTime >= 0 && this._first) { //when going back beyond the start, force a render so that zero-duration tweens that sit at the very beginning render their start values properly. Otherwise, if the parent timeline's playhead lands exactly at this timeline's startTime, and then moves backwards, the zero-duration tweens at the beginning would still be at their end state.
 						internalForce = true;
 					}
 					this._rawPrevTime = time;
 				} else {
 					this._rawPrevTime = (this._duration || !suppressEvents || time || this._rawPrevTime === time) ? time : _tinyNum; //when the playhead arrives at EXACTLY time 0 (right on top) of a zero-duration timeline or tween, we need to discern if events are suppressed so that when the playhead moves again (next time), it'll trigger the callback. If events are NOT suppressed, obviously the callback would be triggered in this render. Basically, the callback should fire either when the playhead ARRIVES or LEAVES this exact spot, not both. Imagine doing a timeline.seek(0) and there's a callback that sits at 0. Since events are suppressed on that seek() by default, nothing will fire, but when the playhead moves off of that position, the callback should fire. This behavior is what people intuitively expect. We set the _rawPrevTime to be a precise tiny number to indicate this scenario rather than using another property/variable which would increase memory usage. This technique is less readable, but more efficient.
-
+					if (time === 0 && isComplete) { //if there's a zero-duration tween at the very beginning of a timeline and the playhead lands EXACTLY at time 0, that tween will correctly render its end values, but we need to keep the timeline alive for one more render so that the beginning values render properly as the parent's playhead keeps moving beyond the begining. Imagine obj.x starts at 0 and then we do tl.set(obj, {x:100}).to(obj, 1, {x:200}) and then later we tl.reverse()...the goal is to have obj.x revert to 0. If the playhead happens to land on exactly 0, without this chunk of code, it'd complete the timeline and remove it from the rendering queue (not good).
+						tween = this._first;
+						while (tween && tween._startTime === 0) {
+							if (!tween._duration) {
+								isComplete = false;
+							}
+							tween = tween._next;
+						}
+					}
 					time = 0; //to avoid occasional floating point rounding errors (could cause problems especially with zero-duration tweens at the very beginning of the timeline)
 					if (!this._initted) {
 						internalForce = true;
@@ -2703,6 +2750,10 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				this._enabled(false, true);
 			}
 			return a;
+		};
+
+		p.recent = function() {
+			return this._recent;
 		};
 
 		p._contains = function(tween) {
@@ -2847,6 +2898,20 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			return this;
 		};
 
+		p.paused = function(value) {
+			if (!value) { //if there's a pause directly at the spot from where we're unpausing, skip it.
+				var tween = this._first,
+					time = this._time;
+				while (tween) {
+					if (tween._startTime === time && tween.data === "isPause") {
+						tween._rawPrevTime = time; //remember, _rawPrevTime is how zero-duration tweens/callbacks sense directionality and determine whether or not to fire. If _rawPrevTime is the same as _startTime on the next render, it won't fire.
+					}
+					tween = tween._next;
+				}
+			}
+			return Animation.prototype.paused.apply(this, arguments);
+		};
+
 		p.usesFrames = function() {
 			var tl = this._timeline;
 			while (tl._timeline) {
@@ -2900,7 +2965,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 
 		p.constructor = TimelineMax;
 		p.kill()._gc = false;
-		TimelineMax.version = "1.13.2";
+		TimelineMax.version = "1.16.0";
 
 		p.invalidate = function() {
 			this._yoyo = (this.vars.yoyo === true);
@@ -2932,9 +2997,13 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			return this;
 		};
 
+		p.removePause = function(position) {
+			return this.removeCallback(TimelineLite._internals.pauseCallback, position);
+		};
+
 		p.tweenTo = function(position, vars) {
 			vars = vars || {};
-			var copy = {ease:_easeNone, overwrite:(vars.delay ? 2 : 1), useFrames:this.usesFrames(), immediateRender:false},//note: set overwrite to 1 (true/all) by default unless there's a delay so that we avoid a racing situation that could happen if, for example, an onmousemove creates the same tweenTo() over and over again.
+			var copy = {ease:_easeNone, useFrames:this.usesFrames(), immediateRender:false},
 				duration, p, t;
 			for (p in vars) {
 				copy[p] = vars[p];
@@ -3011,12 +3080,24 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				}
 				if (time < 0) {
 					this._active = false;
-					if (prevRawPrevTime >= 0 && this._first) { //when going back beyond the start, force a render so that zero-duration tweens that sit at the very beginning render their start values properly. Otherwise, if the parent timeline's playhead lands exactly at this timeline's startTime, and then moves backwards, the zero-duration tweens at the beginning would still be at their end state.
+					if (this._timeline.autoRemoveChildren && this._reversed) {
+						internalForce = isComplete = true;
+						callback = "onReverseComplete";
+					} else if (prevRawPrevTime >= 0 && this._first) { //when going back beyond the start, force a render so that zero-duration tweens that sit at the very beginning render their start values properly. Otherwise, if the parent timeline's playhead lands exactly at this timeline's startTime, and then moves backwards, the zero-duration tweens at the beginning would still be at their end state.
 						internalForce = true;
 					}
 					this._rawPrevTime = time;
 				} else {
 					this._rawPrevTime = (dur || !suppressEvents || time || this._rawPrevTime === time) ? time : _tinyNum; //when the playhead arrives at EXACTLY time 0 (right on top) of a zero-duration timeline or tween, we need to discern if events are suppressed so that when the playhead moves again (next time), it'll trigger the callback. If events are NOT suppressed, obviously the callback would be triggered in this render. Basically, the callback should fire either when the playhead ARRIVES or LEAVES this exact spot, not both. Imagine doing a timeline.seek(0) and there's a callback that sits at 0. Since events are suppressed on that seek() by default, nothing will fire, but when the playhead moves off of that position, the callback should fire. This behavior is what people intuitively expect. We set the _rawPrevTime to be a precise tiny number to indicate this scenario rather than using another property/variable which would increase memory usage. This technique is less readable, but more efficient.
+					if (time === 0 && isComplete) { //if there's a zero-duration tween at the very beginning of a timeline and the playhead lands EXACTLY at time 0, that tween will correctly render its end values, but we need to keep the timeline alive for one more render so that the beginning values render properly as the parent's playhead keeps moving beyond the begining. Imagine obj.x starts at 0 and then we do tl.set(obj, {x:100}).to(obj, 1, {x:200}) and then later we tl.reverse()...the goal is to have obj.x revert to 0. If the playhead happens to land on exactly 0, without this chunk of code, it'd complete the timeline and remove it from the rendering queue (not good).
+						tween = this._first;
+						while (tween && tween._startTime === 0) {
+							if (!tween._duration) {
+								isComplete = false;
+							}
+							tween = tween._next;
+						}
+					}
 					time = 0; //to avoid occasional floating point rounding errors (could cause problems especially with zero-duration tweens at the very beginning of the timeline)
 					if (!this._initted) {
 						internalForce = true;
@@ -3338,6 +3419,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			_r2 = [],
 			_r3 = [],
 			_corProps = {},
+			_globals = _gsScope._gsDefine.globals,
 			Segment = function(a, b, c, d) {
 				this.a = a;
 				this.b = b;
@@ -3626,7 +3708,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			BezierPlugin = _gsScope._gsDefine.plugin({
 					propName: "bezier",
 					priority: -1,
-					version: "1.3.3",
+					version: "1.3.4",
 					API: 2,
 					global:true,
 
@@ -3818,7 +3900,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		};
 
 		BezierPlugin._cssRegister = function() {
-			var CSSPlugin = _gsScope._gsDefine.globals.CSSPlugin;
+			var CSSPlugin = _globals.CSSPlugin;
 			if (!CSSPlugin) {
 				return;
 			}
@@ -3925,6 +4007,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				this._overwriteProps.length = 0;
 				this.setRatio = CSSPlugin.prototype.setRatio; //speed optimization (avoid prototype lookup on this "hot" method)
 			},
+			_globals = _gsScope._gsDefine.globals,
 			_hasPriority, //turns true whenever a CSSPropTween instance is created that has a priority other than 0. This helps us discern whether or not we should spend the time organizing the linked list or not after a CSSPlugin's _onInitTween() method is called.
 			_suffixMap, //we set this in _onInitTween() each time as a way to have a persistent variable we can use in other methods like _parse() without having to pass it around as a parameter and we keep _parse() decoupled from a particular CSSPlugin instance
 			_cs, //computed style (we store this in a shared variable to conserve memory and make minification tighter
@@ -3933,7 +4016,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			p = CSSPlugin.prototype = new TweenPlugin("css");
 
 		p.constructor = CSSPlugin;
-		CSSPlugin.version = "1.13.2";
+		CSSPlugin.version = "1.16.0";
 		CSSPlugin.API = 2;
 		CSSPlugin.defaultTransformPerspective = 0;
 		CSSPlugin.defaultSkewType = "compensated";
@@ -3944,7 +4027,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		var _numExp = /(?:\d|\-\d|\.\d|\-\.\d)+/g,
 			_relNumExp = /(?:\d|\-\d|\.\d|\-\.\d|\+=\d|\-=\d|\+=.\d|\-=\.\d)+/g,
 			_valuesExp = /(?:\+=|\-=|\-|\b)[\d\-\.]+[a-zA-Z0-9]*(?:%|\b)/gi, //finds all the values that begin with numbers or += or -= and then a number. Includes suffixes. We use this to split complex values apart like "1px 5px 20px rgb(255,102,51)"
-			_NaNExp = /[^\d\-\.]/g,
+			_NaNExp = /(?![+-]?\d*\.?\d+|[+-]|e[+-]\d+)[^0-9]/g, //also allows scientific notation and doesn't kill the leading -/+ in -= and +=
 			_suffixExp = /(?:\d|\-|\+|=|#|\.)*/g,
 			_opacityExp = /opacity *= *([^)]*)/i,
 			_opacityValExp = /opacity:([^;]*)/i,
@@ -3962,8 +4045,11 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			_RAD2DEG = 180 / Math.PI,
 			_forcePT = {},
 			_doc = document,
-			_tempDiv = _doc.createElement("div"),
-			_tempImg = _doc.createElement("img"),
+			_createElement = function(type) {
+				return _doc.createElementNS ? _doc.createElementNS("http://www.w3.org/1999/xhtml", type) : _doc.createElement(type);
+			},
+			_tempDiv = _createElement("div"),
+			_tempImg = _createElement("img"),
 			_internals = CSSPlugin._internals = {_specialProps:_specialProps}, //provides a hook to a few internal methods that we need to access from inside other plugins
 			_agent = navigator.userAgent,
 			_autoRound,
@@ -3975,19 +4061,18 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			_ieVers,
 			_supportsOpacity = (function() { //we set _isSafari, _ieVers, _isFirefox, and _supportsOpacity all in one function here to reduce file size slightly, especially in the minified version.
 				var i = _agent.indexOf("Android"),
-					d = _doc.createElement("div"), a;
-
+					a = _createElement("a");
 				_isSafari = (_agent.indexOf("Safari") !== -1 && _agent.indexOf("Chrome") === -1 && (i === -1 || Number(_agent.substr(i+8, 1)) > 3));
 				_isSafariLT6 = (_isSafari && (Number(_agent.substr(_agent.indexOf("Version/")+8, 1)) < 6));
 				_isFirefox = (_agent.indexOf("Firefox") !== -1);
-
-				if ((/MSIE ([0-9]{1,}[\.0-9]{0,})/).exec(_agent)) {
+				if ((/MSIE ([0-9]{1,}[\.0-9]{0,})/).exec(_agent) || (/Trident\/.*rv:([0-9]{1,}[\.0-9]{0,})/).exec(_agent)) {
 					_ieVers = parseFloat( RegExp.$1 );
 				}
-
-				d.innerHTML = "<a style='top:1px;opacity:.55;'>a</a>";
-				a = d.getElementsByTagName("a")[0];
-				return a ? /^0.55/.test(a.style.opacity) : false;
+				if (!a) {
+					return false;
+				}
+				a.style.cssText = "top:1px;opacity:.55;";
+				return /^0.55/.test(a.style.opacity);
 			}()),
 			_getIEOpacity = function(v) {
 				return (_opacityExp.test( ((typeof(v) === "string") ? v : (v.currentStyle ? v.currentStyle.filter : v.style.filter) || "") ) ? ( parseFloat( RegExp.$1 ) / 100 ) : 1);
@@ -3997,6 +4082,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					console.log(s);
 				}
 			},
+
 			_prefixCSS = "", //the non-camelCase vendor prefix like "-o-", "-moz-", "-ms-", or "-webkit-"
 			_prefix = "", //camelCase vendor prefix like "O", "ms", "Webkit", or "Moz".
 
@@ -4107,15 +4193,20 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			// @private returns at object containing ALL of the style properties in camelCase and their associated values.
 			_getAllStyles = function(t, cs) {
 				var s = {},
-					i, tr;
+					i, tr, p;
 				if ((cs = cs || _getComputedStyle(t, null))) {
 					if ((i = cs.length)) {
 						while (--i > -1) {
-							s[cs[i].replace(_camelExp, _camelFunc)] = cs.getPropertyValue(cs[i]);
+							p = cs[i];
+							if (p.indexOf("-transform") === -1 || _transformPropCSS === p) { //Some webkit browsers duplicate transform values, one non-prefixed and one prefixed ("transform" and "WebkitTransform"), so we must weed out the extra one here.
+								s[p.replace(_camelExp, _camelFunc)] = cs.getPropertyValue(p);
+							}
 						}
-					} else { //Opera behaves differently - cs.length is always 0, so we must do a for...in loop.
+					} else { //some browsers behave differently - cs.length is always 0, so we must do a for...in loop.
 						for (i in cs) {
-							s[i] = cs[i];
+							if (i.indexOf("Transform") === -1 || _transformProp === i) { //Some webkit browsers duplicate transform values, one non-prefixed and one prefixed ("transform" and "WebkitTransform"), so we must weed out the extra one here.
+								s[i] = cs[i];
+							}
 						}
 					}
 				} else if ((cs = t.currentStyle || t.style)) {
@@ -4200,7 +4291,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					x = (v.indexOf("left") !== -1) ? "0%" : (v.indexOf("right") !== -1) ? "100%" : a[0],
 					y = (v.indexOf("top") !== -1) ? "0%" : (v.indexOf("bottom") !== -1) ? "100%" : a[1];
 				if (y == null) {
-					y = "0";
+					y = (x === "center") ? "50%" : "0";
 				} else if (y === "center") {
 					y = "50%";
 				}
@@ -4235,7 +4326,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			 * @return {number} Parsed value
 			 */
 			_parseVal = function(v, d) {
-				return (v == null) ? d : (typeof(v) === "string" && v.charAt(1) === "=") ? parseInt(v.charAt(0) + "1", 10) * Number(v.substr(2)) + d : parseFloat(v);
+				return (v == null) ? d : (typeof(v) === "string" && v.charAt(1) === "=") ? parseInt(v.charAt(0) + "1", 10) * parseFloat(v.substr(2)) + d : parseFloat(v);
 			},
 
 			/**
@@ -4248,7 +4339,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			 */
 			_parseAngle = function(v, d, p, directionalEnd) {
 				var min = 0.000001,
-					cap, split, dif, result;
+					cap, split, dif, result, isRelative;
 				if (v == null) {
 					result = d;
 				} else if (typeof(v) === "number") {
@@ -4256,7 +4347,8 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				} else {
 					cap = 360;
 					split = v.split("_");
-					dif = Number(split[0].replace(_NaNExp, "")) * ((v.indexOf("rad") === -1) ? 1 : _RAD2DEG) - ((v.charAt(1) === "=") ? 0 : d);
+					isRelative = (v.charAt(1) === "=");
+					dif = (isRelative ? parseInt(v.charAt(0) + "1", 10) * parseFloat(split[0].substr(2)) : parseFloat(split[0])) * ((v.indexOf("rad") === -1) ? 1 : _RAD2DEG) - (isRelative ? 0 : d);
 					if (split.length) {
 						if (directionalEnd) {
 							directionalEnd[p] = d + dif;
@@ -4312,7 +4404,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			 * @param {(string|number)} v The value the should be parsed which could be a string like #9F0 or rgb(255,102,51) or rgba(255,0,0,0.5) or it could be a number like 0xFF00CC or even a named color like red, blue, purple, etc.
 			 * @return {Array.<number>} An array containing red, green, and blue (and optionally alpha) in that order.
 			 */
-			_parseColor = function(v) {
+			_parseColor = CSSPlugin.parseColor = function(v) {
 				var c1, c2, c3, h, s, l;
 				if (!v || v === "") {
 					return _colorLookup.black;
@@ -4836,7 +4928,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				if (!_specialProps[p]) {
 					var pluginName = p.charAt(0).toUpperCase() + p.substr(1) + "Plugin";
 					_registerComplexSpecialProp(p, {parser:function(t, e, p, cssp, pt, plugin, vars) {
-						var pluginClass = (_gsScope.GreenSockGlobals || _gsScope).com.greensock.plugins[pluginName];
+						var pluginClass = _globals.com.greensock.plugins[pluginName];
 						if (!pluginClass) {
 							_log("Error: " + pluginName + " js file not loaded.");
 							return pt;
@@ -4880,8 +4972,11 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 						bi = b.indexOf(kwd);
 						ei = e.indexOf(kwd);
 						if (bi !== ei) {
-							e = (ei === -1) ? ea : ba;
-							e[i] += " " + kwd;
+							if (ei === -1) { //if the keyword isn't in the end value, remove it from the beginning one.
+								ba[i] = ba[i].split(kwd).join("");
+							} else if (bi === -1) { //if the keyword isn't in the beginning, add it.
+								ba[i] += " " + kwd;
+							}
 						}
 					}
 				}
@@ -4948,16 +5043,58 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 
 
 
-
-
 		//transform-related methods and properties
+		CSSPlugin.useSVGTransformAttr = _isSafari; //Safari has some rendering bugs when applying CSS transforms to SVG elements, so default to using the "transform" attribute instead.
 		var _transformProps = ("scaleX,scaleY,scaleZ,x,y,z,skewX,skewY,rotation,rotationX,rotationY,perspective,xPercent,yPercent").split(","),
 			_transformProp = _checkPropPrefix("transform"), //the Javascript (camelCase) transform property, like msTransform, WebkitTransform, MozTransform, or OTransform.
 			_transformPropCSS = _prefixCSS + "transform",
 			_transformOriginProp = _checkPropPrefix("transformOrigin"),
 			_supports3D = (_checkPropPrefix("perspective") !== null),
 			Transform = _internals.Transform = function() {
-				this.skewY = 0;
+				this.perspective = parseFloat(CSSPlugin.defaultTransformPerspective) || 0;
+				this.force3D = (CSSPlugin.defaultForce3D === false || !_supports3D) ? false : CSSPlugin.defaultForce3D || "auto";
+			},
+			_SVGElement = window.SVGElement,
+			_useSVGTransformAttr,
+			//Some browsers (like Firefox and IE) don't honor transform-origin properly in SVG elements, so we need to manually adjust the matrix accordingly. We feature detect here rather than always doing the conversion for certain browsers because they may fix the problem at some point in the future.
+
+			_createSVG = function(type, container, attributes) {
+				var element = _doc.createElementNS("http://www.w3.org/2000/svg", type),
+					reg = /([a-z])([A-Z])/g,
+					p;
+				for (p in attributes) {
+					element.setAttributeNS(null, p.replace(reg, "$1-$2").toLowerCase(), attributes[p]);
+				}
+				container.appendChild(element);
+				return element;
+			},
+			_docElement = _doc.documentElement,
+			_forceSVGTransformAttr = (function() {
+				//IE and Android stock don't support CSS transforms on SVG elements, so we must write them to the "transform" attribute. We populate this variable in the _parseTransform() method, and only if/when we come across an SVG element
+				var force = _ieVers || (/Android/i.test(_agent) && !window.chrome),
+					svg, rect, width;
+				if (_doc.createElementNS && !force) { //IE8 and earlier doesn't support SVG anyway
+					svg = _createSVG("svg", _docElement);
+					rect = _createSVG("rect", svg, {width:100, height:50, x:100});
+					width = rect.getBoundingClientRect().width;
+					rect.style[_transformOriginProp] = "50% 50%";
+					rect.style[_transformProp] = "scaleX(0.5)";
+					force = (width === rect.getBoundingClientRect().width && !(_isFirefox && _supports3D)); //note: Firefox fails the test even though it does support CSS transforms in 3D. Since we can't push 3D stuff into the transform attribute, we force Firefox to pass the test here (as long as it does truly support 3D).
+					_docElement.removeChild(svg);
+				}
+				return force;
+			})(),
+			_parseSVGOrigin = function(e, local, decoratee, absolute) {
+				var bbox, v;
+				if (!absolute || !(v = absolute.split(" ")).length) {
+					bbox = e.getBBox();
+					local = _parsePosition(local).split(" ");
+					v = [(local[0].indexOf("%") !== -1 ? parseFloat(local[0]) / 100 * bbox.width : parseFloat(local[0])) + bbox.x,
+						 (local[1].indexOf("%") !== -1 ? parseFloat(local[1]) / 100 * bbox.height : parseFloat(local[1])) + bbox.y];
+				}
+				decoratee.xOrigin = parseFloat(v[0]);
+				decoratee.yOrigin = parseFloat(v[1]);
+				e.setAttribute("data-svg-origin", v.join(" "));
 			},
 
 			/**
@@ -4976,11 +5113,9 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					invX = (tm.scaleX < 0), //in order to interpret things properly, we need to know if the user applied a negative scaleX previously so that we can adjust the rotation and skewX accordingly. Otherwise, if we always interpret a flipped matrix as affecting scaleY and the user only wants to tween the scaleX on multiple sequential tweens, it would keep the negative scaleY without that being the user's intent.
 					min = 0.00002,
 					rnd = 100000,
-					minAngle = 179.99,
-					minPI = minAngle * _DEG2RAD,
 					zOrigin = _supports3D ? parseFloat(_getStyle(t, _transformOriginProp, cs, false, "0 0 0").split(" ")[2]) || tm.zOrigin  || 0 : 0,
 					defaultTransformPerspective = parseFloat(CSSPlugin.defaultTransformPerspective) || 0,
-					s, m, i, n, dec, scaleX, scaleY, rotation, skewX, difX, difY, difR, difS;
+					isDefault, s, m, i, n, dec, scaleX, scaleY, rotation, skewX;
 				if (_transformProp) {
 					s = _getStyle(t, _transformPropCSS, cs, true);
 				} else if (t.currentStyle) {
@@ -4988,9 +5123,22 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					s = t.currentStyle.filter.match(_ieGetMatrixExp);
 					s = (s && s.length === 4) ? [s[0].substr(4), Number(s[2].substr(4)), Number(s[1].substr(4)), s[3].substr(4), (tm.x || 0), (tm.y || 0)].join(",") : "";
 				}
-				if (!s || s === "none" || s === "matrix(1, 0, 0, 1, 0, 0)") { //if no transforms are applied, just use the defaults to optimize performance (no need to parse).
-					tm = {x:0, y:0, z:0, scaleX:1, scaleY:1, scaleZ:1, skewX:0, perspective:defaultTransformPerspective, rotation:0, rotationX:0, rotationY:0, zOrigin:0};
-				} else {
+				isDefault = (!s || s === "none" || s === "matrix(1, 0, 0, 1, 0, 0)");
+				tm.svg = !!(_SVGElement && typeof(t.getBBox) === "function" && t.getCTM && (!t.parentNode || (t.parentNode.getBBox && t.parentNode.getCTM))); //don't just rely on "instanceof _SVGElement" because if the SVG is embedded via an object tag, it won't work (SVGElement is mapped to a different object)
+				if (tm.svg) {
+					if (isDefault && (t.style[_transformProp] + "").indexOf("matrix") !== -1) { //some browsers (like Chrome 40) don't correctly report transforms that are applied inline on an SVG element (they don't get included in the computed style), so we double-check here and accept matrix values
+						s = t.style[_transformProp];
+						isDefault = false;
+					}
+					_parseSVGOrigin(t, _getStyle(t, _transformOriginProp, _cs, false, "50% 50%") + "", tm, t.getAttribute("data-svg-origin"));
+					_useSVGTransformAttr = CSSPlugin.useSVGTransformAttr || _forceSVGTransformAttr;
+					m = t.getAttribute("transform");
+					if (isDefault && m && m.indexOf("matrix") !== -1) { //just in case there's a "transform" value specified as an attribute instead of CSS style. Only accept a matrix, though.
+						s = m;
+						isDefault = 0;
+					}
+				}
+				if (!isDefault) {
 					//split the matrix values out into an array (m for matrix)
 					m = (s || "").match(/(?:\-|\b)[\d\-\.e]+\b/gi) || [];
 					i = m.length;
@@ -4999,10 +5147,14 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 						m[i] = (dec = n - (n |= 0)) ? ((dec * rnd + (dec < 0 ? -0.5 : 0.5)) | 0) / rnd + n : n; //convert strings to Numbers and round to 5 decimal places to avoid issues with tiny numbers. Roughly 20x faster than Number.toFixed(). We also must make sure to round before dividing so that values like 0.9999999999 become 1 to avoid glitches in browser rendering and interpretation of flipped/rotated 3D matrices. And don't just multiply the number by rnd, floor it, and then divide by rnd because the bitwise operations max out at a 32-bit signed integer, thus it could get clipped at a relatively low value (like 22,000.00000 for example).
 					}
 					if (m.length === 16) {
-
 						//we'll only look at these position-related 6 variables first because if x/y/z all match, it's relatively safe to assume we don't need to re-parse everything which risks losing important rotational information (like rotationX:180 plus rotationY:180 would look the same as rotation:180 - there's no way to know for sure which direction was taken based solely on the matrix3d() values)
-						var a13 = m[8], a23 = m[9], a33 = m[10],
-							a14 = m[12], a24 = m[13], a34 = m[14];
+						var a11 = m[0], a21 = m[1], a31 = m[2], a41 = m[3],
+							a12 = m[4], a22 = m[5], a32 = m[6], a42 = m[7],
+							a13 = m[8], a23 = m[9], a33 = m[10],
+							a14 = m[12], a24 = m[13], a34 = m[14],
+							a43 = m[11],
+							angle = Math.atan2(a32, a33),
+							t1, t2, t3, t4, cos, sin;
 
 						//we manually compensate for non-zero z component of transformOrigin to work around bugs in Safari
 						if (tm.zOrigin) {
@@ -5011,78 +5163,67 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 							a24 = a23*a34-m[13];
 							a34 = a33*a34+tm.zOrigin-m[14];
 						}
+						tm.rotationX = angle * _RAD2DEG;
+						//rotationX
+						if (angle) {
+							cos = Math.cos(-angle);
+							sin = Math.sin(-angle);
+							t1 = a12*cos+a13*sin;
+							t2 = a22*cos+a23*sin;
+							t3 = a32*cos+a33*sin;
+							a13 = a12*-sin+a13*cos;
+							a23 = a22*-sin+a23*cos;
+							a33 = a32*-sin+a33*cos;
+							a43 = a42*-sin+a43*cos;
+							a12 = t1;
+							a22 = t2;
+							a32 = t3;
+						}
+						//rotationY
+						angle = Math.atan2(a13, a33);
+						tm.rotationY = angle * _RAD2DEG;
+						if (angle) {
+							cos = Math.cos(-angle);
+							sin = Math.sin(-angle);
+							t1 = a11*cos-a13*sin;
+							t2 = a21*cos-a23*sin;
+							t3 = a31*cos-a33*sin;
+							a23 = a21*sin+a23*cos;
+							a33 = a31*sin+a33*cos;
+							a43 = a41*sin+a43*cos;
+							a11 = t1;
+							a21 = t2;
+							a31 = t3;
+						}
+						//rotationZ
+						angle = Math.atan2(a21, a11);
+						tm.rotation = angle * _RAD2DEG;
+						if (angle) {
+							cos = Math.cos(-angle);
+							sin = Math.sin(-angle);
+							a11 = a11*cos+a12*sin;
+							t2 = a21*cos+a22*sin;
+							a22 = a21*-sin+a22*cos;
+							a32 = a31*-sin+a32*cos;
+							a21 = t2;
+						}
 
-						//only parse from the matrix if we MUST because not only is it usually unnecessary due to the fact that we store the values in the _gsTransform object, but also because it's impossible to accurately interpret rotationX, rotationY, rotationZ, scaleX, and scaleY if all are applied, so it's much better to rely on what we store. However, we must parse the first time that an object is tweened. We also assume that if the position has changed, the user must have done some styling changes outside of CSSPlugin, thus we force a parse in that scenario.
-						if (!rec || parse || tm.rotationX == null) {
-							var a11 = m[0], a21 = m[1], a31 = m[2], a41 = m[3],
-								a12 = m[4], a22 = m[5], a32 = m[6], a42 = m[7],
-								a43 = m[11],
-								angle = Math.atan2(a32, a33),
-								xFlip = (angle < -minPI || angle > minPI),
-								t1, t2, t3, cos, sin, yFlip, zFlip;
-							tm.rotationX = angle * _RAD2DEG;
-							//rotationX
-							if (angle) {
-								cos = Math.cos(-angle);
-								sin = Math.sin(-angle);
-								t1 = a12*cos+a13*sin;
-								t2 = a22*cos+a23*sin;
-								t3 = a32*cos+a33*sin;
-								a13 = a12*-sin+a13*cos;
-								a23 = a22*-sin+a23*cos;
-								a33 = a32*-sin+a33*cos;
-								a43 = a42*-sin+a43*cos;
-								a12 = t1;
-								a22 = t2;
-								a32 = t3;
-							}
-							//rotationY
-							angle = Math.atan2(a13, a11);
-							tm.rotationY = angle * _RAD2DEG;
-							if (angle) {
-								yFlip = (angle < -minPI || angle > minPI);
-								cos = Math.cos(-angle);
-								sin = Math.sin(-angle);
-								t1 = a11*cos-a13*sin;
-								t2 = a21*cos-a23*sin;
-								t3 = a31*cos-a33*sin;
-								a23 = a21*sin+a23*cos;
-								a33 = a31*sin+a33*cos;
-								a43 = a41*sin+a43*cos;
-								a11 = t1;
-								a21 = t2;
-								a31 = t3;
-							}
-							//rotationZ
-							angle = Math.atan2(a21, a22);
-							tm.rotation = angle * _RAD2DEG;
-							if (angle) {
-								zFlip = (angle < -minPI || angle > minPI);
-								cos = Math.cos(-angle);
-								sin = Math.sin(-angle);
-								a11 = a11*cos+a12*sin;
-								t2 = a21*cos+a22*sin;
-								a22 = a21*-sin+a22*cos;
-								a32 = a31*-sin+a32*cos;
-								a21 = t2;
-							}
+						if (tm.rotationX && Math.abs(tm.rotationX) + Math.abs(tm.rotation) > 359.9) { //when rotationY is set, it will often be parsed as 180 degrees different than it should be, and rotationX and rotation both being 180 (it looks the same), so we adjust for that here.
+							tm.rotationX = tm.rotation = 0;
+							tm.rotationY += 180;
+						}
 
-							if (zFlip && xFlip) {
-								tm.rotation = tm.rotationX = 0;
-							} else if (zFlip && yFlip) {
-								tm.rotation = tm.rotationY = 0;
-							} else if (yFlip && xFlip) {
-								tm.rotationY = tm.rotationX = 0;
-							}
-
-							tm.scaleX = ((Math.sqrt(a11 * a11 + a21 * a21) * rnd + 0.5) | 0) / rnd;
-							tm.scaleY = ((Math.sqrt(a22 * a22 + a23 * a23) * rnd + 0.5) | 0) / rnd;
-							tm.scaleZ = ((Math.sqrt(a32 * a32 + a33 * a33) * rnd + 0.5) | 0) / rnd;
-							tm.skewX = 0;
-							tm.perspective = a43 ? 1 / ((a43 < 0) ? -a43 : a43) : 0;
-							tm.x = a14;
-							tm.y = a24;
-							tm.z = a34;
+						tm.scaleX = ((Math.sqrt(a11 * a11 + a21 * a21) * rnd + 0.5) | 0) / rnd;
+						tm.scaleY = ((Math.sqrt(a22 * a22 + a23 * a23) * rnd + 0.5) | 0) / rnd;
+						tm.scaleZ = ((Math.sqrt(a32 * a32 + a33 * a33) * rnd + 0.5) | 0) / rnd;
+						tm.skewX = 0;
+						tm.perspective = a43 ? 1 / ((a43 < 0) ? -a43 : a43) : 0;
+						tm.x = a14;
+						tm.y = a24;
+						tm.z = a34;
+						if (tm.svg) {
+							tm.x -= tm.xOrigin - (tm.xOrigin * a11 - tm.yOrigin * a12);
+							tm.y -= tm.yOrigin - (tm.yOrigin * a21 - tm.xOrigin * a22);
 						}
 
 					} else if ((!_supports3D || parse || !m.length || tm.x !== m[4] || tm.y !== m[5] || (!tm.rotationX && !tm.rotationY)) && !(tm.x !== undefined && _getStyle(t, "display", cs) === "none")) { //sometimes a 6-element matrix is returned even when we performed 3D transforms, like if rotationX and rotationY are 180. In cases like this, we still need to honor the 3D transforms. If we just rely on the 2D info, it could affect how the data is interpreted, like scaleY might get set to -1 or rotation could get offset by 180 degrees. For example, do a TweenLite.to(element, 1, {css:{rotationX:180, rotationY:180}}) and then later, TweenLite.to(element, 1, {css:{rotationX:0}}) and without this conditional logic in place, it'd jump to a state of being unrotated when the 2nd tween starts. Then again, we need to honor the fact that the user COULD alter the transforms outside of CSSPlugin, like by manually applying new css, so we try to sense that by looking at x and y because if those changed, we know the changes were made outside CSSPlugin and we force a reinterpretation of the matrix values. Also, in Webkit browsers, if the element's "display" is "none", its calculated style value will always return empty, so if we've already recorded the values in the _gsTransform object, we'll just rely on those.
@@ -5097,8 +5238,6 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 						scaleY = Math.sqrt(d * d + c * c);
 						rotation = (a || b) ? Math.atan2(b, a) * _RAD2DEG : tm.rotation || 0; //note: if scaleX is 0, we cannot accurately measure rotation. Same for skewX with a scaleY of 0. Therefore, we default to the previously recorded value (or zero if that doesn't exist).
 						skewX = (c || d) ? Math.atan2(c, d) * _RAD2DEG + rotation : tm.skewX || 0;
-						difX = scaleX - Math.abs(tm.scaleX || 0);
-						difY = scaleY - Math.abs(tm.scaleY || 0);
 						if (Math.abs(skewX) > 90 && Math.abs(skewX) < 270) {
 							if (invX) {
 								scaleX *= -1;
@@ -5109,23 +5248,21 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 								skewX += (skewX <= 0) ? 180 : -180;
 							}
 						}
-						difR = (rotation - tm.rotation) % 180; //note: matching ranges would be very small (+/-0.0001) or very close to 180.
-						difS = (skewX - tm.skewX) % 180;
-						//if there's already a recorded _gsTransform in place for the target, we should leave those values in place unless we know things changed for sure (beyond a super small amount). This gets around ambiguous interpretations, like if scaleX and scaleY are both -1, the matrix would be the same as if the rotation was 180 with normal scaleX/scaleY. If the user tweened to particular values, those must be prioritized to ensure animation is consistent.
-						if (tm.skewX === undefined || difX > min || difX < -min || difY > min || difY < -min || (difR > -minAngle && difR < minAngle && (difR * rnd) | 0 !== 0) || (difS > -minAngle && difS < minAngle && (difS * rnd) | 0 !== 0)) {
-							tm.scaleX = scaleX;
-							tm.scaleY = scaleY;
-							tm.rotation = rotation;
-							tm.skewX = skewX;
-						}
+						tm.scaleX = scaleX;
+						tm.scaleY = scaleY;
+						tm.rotation = rotation;
+						tm.skewX = skewX;
 						if (_supports3D) {
 							tm.rotationX = tm.rotationY = tm.z = 0;
 							tm.perspective = defaultTransformPerspective;
 							tm.scaleZ = 1;
 						}
+						if (tm.svg) {
+							tm.x -= tm.xOrigin - (tm.xOrigin * a - tm.yOrigin * b);
+							tm.y -= tm.yOrigin - (tm.yOrigin * d - tm.xOrigin * c);
+						}
 					}
 					tm.zOrigin = zOrigin;
-
 					//some browsers have a hard time with very small values like 2.4492935982947064e-16 (notice the "e-" towards the end) and would render the object slightly off. So we round to 0 in these cases. The conditional logic here is faster than calling Math.abs(). Also, browsers tend to render a SLIGHTLY rotated object in a fuzzy way, so we need to snap to exactly 0 when appropriate.
 					for (i in tm) {
 						if (tm[i] < min) if (tm[i] > -min) {
@@ -5133,11 +5270,17 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 						}
 					}
 				}
-				//DEBUG: _log("parsed rotation: "+(tm.rotationX)+", "+(tm.rotationY)+", "+(tm.rotation)+", scale: "+tm.scaleX+", "+tm.scaleY+", "+tm.scaleZ+", position: "+tm.x+", "+tm.y+", "+tm.z+", perspective: "+tm.perspective);
+				//DEBUG: _log("parsed rotation of " + t.getAttribute("id")+": "+(tm.rotationX)+", "+(tm.rotationY)+", "+(tm.rotation)+", scale: "+tm.scaleX+", "+tm.scaleY+", "+tm.scaleZ+", position: "+tm.x+", "+tm.y+", "+tm.z+", perspective: "+tm.perspective);
 				if (rec) {
 					t._gsTransform = tm; //record to the object's _gsTransform which we use so that tweens can control individual properties independently (we need all the properties to accurately recompose the matrix in the setRatio() method)
+					if (tm.svg) { //if we're supposed to apply transforms to the SVG element's "transform" attribute, make sure there aren't any CSS transforms applied or they'll override the attribute ones. Also clear the transform attribute if we're using CSS, just to be clean.
+						if (_useSVGTransformAttr && t.style[_transformProp]) {
+							_removeProp(t.style, _transformProp);
+						} else if (!_useSVGTransformAttr && t.getAttribute("transform")) {
+							t.removeAttribute("transform");
+						}
+					}
 				}
-				tm.xPercent = tm.yPercent = 0;
 				return tm;
 			},
 
@@ -5220,6 +5363,14 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				}
 			},
 
+			/* translates a super small decimal to a string WITHOUT scientific notation
+			_safeDecimal = function(n) {
+				var s = (n < 0 ? -n : n) + "",
+					a = s.split("e-");
+				return (n < 0 ? "-0." : "0.") + new Array(parseInt(a[1], 10) || 0).join("0") + a[0].split(".").join("");
+			},
+			*/
+
 			_set3DTransformRatio = _internals.set3DTransformRatio = function(v) {
 				var t = this.data, //refers to the element's _gsTransform object
 					style = this.t.style,
@@ -5231,18 +5382,18 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					y = t.y,
 					z = t.z,
 					perspective = t.perspective,
-					a11, a12, a13, a14,	a21, a22, a23, a24, a31, a32, a33, a34,	a41, a42, a43,
-					zOrigin, rnd, cos, sin, t1, t2, t3, t4;
-				if (v === 1 || v === 0) if (t.force3D === "auto") if (!t.rotationY && !t.rotationX && sz === 1 && !perspective && !z) { //on the final render (which could be 0 for a from tween), if there are no 3D aspects, render in 2D to free up memory and improve performance especially on mobile devices
+					a11, a12, a13, a21, a22, a23, a31, a32, a33, a41, a42, a43,
+					zOrigin, min, cos, sin, t1, t2, transform, comma, zero;
+				if (v === 1 || v === 0 || !t.force3D) if (t.force3D !== true) if (!t.rotationY && !t.rotationX && sz === 1 && !perspective && !z && (this.tween._totalTime === this.tween._totalDuration || !this.tween._totalTime)) { //on the final render (which could be 0 for a from tween), if there are no 3D aspects, render in 2D to free up memory and improve performance especially on mobile devices. Check the tween's totalTime/totalDuration too in order to make sure it doesn't happen between repeats if it's a repeating tween.
 					_set2DTransformRatio.call(this, v);
 					return;
 				}
 				if (_isFirefox) {
-					var n = 0.0001;
-					if (sx < n && sx > -n) { //Firefox has a bug (at least in v25) that causes it to render the transparent part of 32-bit PNG images as black when displayed inside an iframe and the 3D scale is very small and doesn't change sufficiently enough between renders (like if you use a Power4.easeInOut to scale from 0 to 1 where the beginning values only change a tiny amount to begin the tween before accelerating). In this case, we force the scale to be 0.00002 instead which is visually the same but works around the Firefox issue.
+					min = 0.0001;
+					if (sx < min && sx > -min) { //Firefox has a bug (at least in v25) that causes it to render the transparent part of 32-bit PNG images as black when displayed inside an iframe and the 3D scale is very small and doesn't change sufficiently enough between renders (like if you use a Power4.easeInOut to scale from 0 to 1 where the beginning values only change a tiny amount to begin the tween before accelerating). In this case, we force the scale to be 0.00002 instead which is visually the same but works around the Firefox issue.
 						sx = sz = 0.00002;
 					}
-					if (sy < n && sy > -n) {
+					if (sy < min && sy > -min) {
 						sy = sz = 0.00002;
 					}
 					if (perspective && !t.z && !t.rotationX && !t.rotationY) { //Firefox has a bug that causes elements to have an odd super-thin, broken/dotted black border on elements that have a perspective set but aren't utilizing 3D space (no rotationX, rotationY, or z).
@@ -5250,10 +5401,8 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					}
 				}
 				if (angle || t.skewX) {
-					cos = Math.cos(angle);
-					sin = Math.sin(angle);
-					a11 = cos;
-					a21 = sin;
+					cos = a11 = Math.cos(angle);
+					sin = a21 = Math.sin(angle);
 					if (t.skewX) {
 						angle -= t.skewX * _DEG2RAD;
 						cos = Math.cos(angle);
@@ -5268,27 +5417,49 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					a12 = -sin;
 					a22 = cos;
 
-				} else if (!t.rotationY && !t.rotationX && sz === 1 && !perspective) { //if we're only translating and/or 2D scaling, this is faster...
+				} else if (!t.rotationY && !t.rotationX && sz === 1 && !perspective && !t.svg) { //if we're only translating and/or 2D scaling, this is faster...
 					style[_transformProp] = ((t.xPercent || t.yPercent) ? "translate(" + t.xPercent + "%," + t.yPercent + "%) translate3d(" : "translate3d(") + x + "px," + y + "px," + z +"px)" + ((sx !== 1 || sy !== 1) ? " scale(" + sx + "," + sy + ")" : "");
 					return;
 				} else {
 					a11 = a22 = 1;
 					a12 = a21 = 0;
 				}
+				// KEY  INDEX   AFFECTS
+				// a11  0       rotation, rotationY, scaleX
+				// a21  1       rotation, rotationY, scaleX
+				// a31  2       rotationY, scaleX
+				// a41  3       rotationY, scaleX
+				// a12  4       rotation, skewX, rotationX, scaleY
+				// a22  5       rotation, skewX, rotationX, scaleY
+				// a32  6       rotationX, scaleY
+				// a42  7       rotationX, scaleY
+				// a13  8       rotationY, rotationX, scaleZ
+				// a23  9       rotationY, rotationX, scaleZ
+				// a33  10      rotationY, rotationX, scaleZ
+				// a43  11      rotationY, rotationX, perspective, scaleZ
+				// a14  12      x, zOrigin, svgOrigin
+				// a24  13      y, zOrigin, svgOrigin
+				// a34  14      z, zOrigin
+				// a44  15
+				// rotation: Math.atan2(a21, a11)
+				// rotationY: Math.atan2(a13, a33) (or Math.atan2(a13, a11))
+				// rotationX: Math.atan2(a32, a33)
 				a33 = 1;
-				a13 = a14 = a23 = a24 = a31 = a32 = a34 = a41 = a42 = 0;
+				a13 = a23 = a31 = a32 = a41 = a42 = 0;
 				a43 = (perspective) ? -1 / perspective : 0;
 				zOrigin = t.zOrigin;
-				rnd = 100000;
+				min = 0.000001; //threshold below which browsers use scientific notation which won't work.
+				comma = ",";
+				zero = "0";
 				angle = t.rotationY * _DEG2RAD;
 				if (angle) {
 					cos = Math.cos(angle);
 					sin = Math.sin(angle);
-					a31 = a33*-sin;
+					a31 = -sin;
 					a41 = a43*-sin;
 					a13 = a11*sin;
 					a23 = a21*sin;
-					a33 *= cos;
+					a33 = cos;
 					a43 *= cos;
 					a11 *= cos;
 					a21 *= cos;
@@ -5299,16 +5470,14 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					sin = Math.sin(angle);
 					t1 = a12*cos+a13*sin;
 					t2 = a22*cos+a23*sin;
-					t3 = a32*cos+a33*sin;
-					t4 = a42*cos+a43*sin;
+					a32 = a33*sin;
+					a42 = a43*sin;
 					a13 = a12*-sin+a13*cos;
 					a23 = a22*-sin+a23*cos;
-					a33 = a32*-sin+a33*cos;
-					a43 = a42*-sin+a43*cos;
+					a33 = a33*cos;
+					a43 = a43*cos;
 					a12 = t1;
 					a22 = t2;
-					a32 = t3;
-					a42 = t4;
 				}
 				if (sz !== 1) {
 					a13*=sz;
@@ -5328,17 +5497,41 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					a31*=sx;
 					a41*=sx;
 				}
-				if (zOrigin) {
-					a34 -= zOrigin;
-					a14 = a13*a34;
-					a24 = a23*a34;
-					a34 = a33*a34+zOrigin;
+
+				if (zOrigin || t.svg) {
+					if (zOrigin) {
+						x += a13*-zOrigin;
+						y += a23*-zOrigin;
+						z += a33*-zOrigin+zOrigin;
+					}
+					if (t.svg) { //due to bugs in some browsers, we need to manage the transform-origin of SVG manually
+						x += t.xOrigin - (t.xOrigin * a11 + t.yOrigin * a12);
+						y += t.yOrigin - (t.xOrigin * a21 + t.yOrigin * a22);
+					}
+					if (x < min && x > -min) {
+						x = zero;
+					}
+					if (y < min && y > -min) {
+						y = zero;
+					}
+					if (z < min && z > -min) {
+						z = 0; //don't use string because we calculate perspective later and need the number.
+					}
 				}
-				//we round the x, y, and z slightly differently to allow even larger values.
-				a14 = (t1 = (a14 += x) - (a14 |= 0)) ? ((t1 * rnd + (t1 < 0 ? -0.5 : 0.5)) | 0) / rnd + a14 : a14;
-				a24 = (t1 = (a24 += y) - (a24 |= 0)) ? ((t1 * rnd + (t1 < 0 ? -0.5 : 0.5)) | 0) / rnd + a24 : a24;
-				a34 = (t1 = (a34 += z) - (a34 |= 0)) ? ((t1 * rnd + (t1 < 0 ? -0.5 : 0.5)) | 0) / rnd + a34 : a34;
-				style[_transformProp] = ((t.xPercent || t.yPercent) ? "translate(" + t.xPercent + "%," + t.yPercent + "%) matrix3d(" : "matrix3d(") + [ (((a11 * rnd) | 0) / rnd), (((a21 * rnd) | 0) / rnd), (((a31 * rnd) | 0) / rnd), (((a41 * rnd) | 0) / rnd), (((a12 * rnd) | 0) / rnd), (((a22 * rnd) | 0) / rnd), (((a32 * rnd) | 0) / rnd), (((a42 * rnd) | 0) / rnd), (((a13 * rnd) | 0) / rnd), (((a23 * rnd) | 0) / rnd), (((a33 * rnd) | 0) / rnd), (((a43 * rnd) | 0) / rnd), a14, a24, a34, (perspective ? (1 + (-a34 / perspective)) : 1) ].join(",") + ")";
+
+				//optimized way of concatenating all the values into a string. If we do it all in one shot, it's slower because of the way browsers have to create temp strings and the way it affects memory. If we do it piece-by-piece with +=, it's a bit slower too. We found that doing it in these sized chunks works best overall:
+				transform = ((t.xPercent || t.yPercent) ? "translate(" + t.xPercent + "%," + t.yPercent + "%) matrix3d(" : "matrix3d(");
+				transform += ((a11 < min && a11 > -min) ? zero : a11) + comma + ((a21 < min && a21 > -min) ? zero : a21) + comma + ((a31 < min && a31 > -min) ? zero : a31);
+				transform += comma + ((a41 < min && a41 > -min) ? zero : a41) + comma + ((a12 < min && a12 > -min) ? zero : a12) + comma + ((a22 < min && a22 > -min) ? zero : a22);
+				if (t.rotationX || t.rotationY) { //performance optimization (often there's no rotationX or rotationY, so we can skip these calculations)
+					transform += comma + ((a32 < min && a32 > -min) ? zero : a32) + comma + ((a42 < min && a42 > -min) ? zero : a42) + comma + ((a13 < min && a13 > -min) ? zero : a13);
+					transform += comma + ((a23 < min && a23 > -min) ? zero : a23) + comma + ((a33 < min && a33 > -min) ? zero : a33) + comma + ((a43 < min && a43 > -min) ? zero : a43) + comma;
+				} else {
+					transform += ",0,0,0,0,1,0,";
+				}
+				transform += x + comma + y + comma + z + comma + (perspective ? (1 + (-z / perspective)) : 1) + ")";
+
+				style[_transformProp] = transform;
 			},
 
 			_set2DTransformRatio = _internals.set2DTransformRatio = function(v) {
@@ -5347,29 +5540,58 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					style = targ.style,
 					x = t.x,
 					y = t.y,
-					prefix = "",
-					ang, skew, rnd, sx, sy;
-				if (t.rotationX || t.rotationY || t.z || t.force3D === true || (t.force3D === "auto" && v !== 1 && v !== 0)) { //if a 3D tween begins while a 2D one is running, we need to kick the rendering over to the 3D method. For example, imagine a yoyo-ing, infinitely repeating scale tween running, and then the object gets rotated in 3D space with a different tween.
+					ang, skew, rnd, sx, sy, a, b, c, d, matrix, min, t1;
+				if ((t.rotationX || t.rotationY || t.z || t.force3D === true || (t.force3D === "auto" && v !== 1 && v !== 0)) && !(t.svg && _useSVGTransformAttr) && _supports3D) { //if a 3D tween begins while a 2D one is running, we need to kick the rendering over to the 3D method. For example, imagine a yoyo-ing, infinitely repeating scale tween running, and then the object gets rotated in 3D space with a different tween.
 					this.setRatio = _set3DTransformRatio;
 					_set3DTransformRatio.call(this, v);
 					return;
 				}
-
-				if (!t.rotation && !t.skewX) {
-					style[_transformProp] = ((t.xPercent || t.yPercent) ? "translate(" + t.xPercent + "%," + t.yPercent + "%) matrix(" : "matrix(") + t.scaleX + ",0,0," + t.scaleY + "," + x + "," + y + ")";
-				} else {
+				sx = t.scaleX;
+				sy = t.scaleY;
+				if (t.rotation || t.skewX || t.svg) {
 					ang = t.rotation * _DEG2RAD;
-					skew = ang - t.skewX * _DEG2RAD;
+					skew = t.skewX * _DEG2RAD;
 					rnd = 100000;
-					sx = t.scaleX * rnd;
-					sy = t.scaleY * rnd;
-					//some browsers have a hard time with very small values like 2.4492935982947064e-16 (notice the "e-" towards the end) and would render the object slightly off. So we round to 5 decimal places.
-					style[_transformProp] = ((t.xPercent || t.yPercent) ? "translate(" + t.xPercent + "%," + t.yPercent + "%) matrix(" : "matrix(") + (((Math.cos(ang) * sx) | 0) / rnd) + "," + (((Math.sin(ang) * sx) | 0) / rnd) + "," + (((Math.sin(skew) * -sy) | 0) / rnd) + "," + (((Math.cos(skew) * sy) | 0) / rnd) + "," + x + "," + y + ")";
+					a = Math.cos(ang) * sx;
+					b = Math.sin(ang) * sx;
+					c = Math.sin(ang - skew) * -sy;
+					d = Math.cos(ang - skew) * sy;
+					if (skew && t.skewType === "simple") { //by default, we compensate skewing on the other axis to make it look more natural, but you can set the skewType to "simple" to use the uncompensated skewing that CSS does
+						t1 = Math.tan(skew);
+						t1 = Math.sqrt(1 + t1 * t1);
+						c *= t1;
+						d *= t1;
+					}
+					if (t.svg) {
+						x += t.xOrigin - (t.xOrigin * a + t.yOrigin * c);
+						y += t.yOrigin - (t.xOrigin * b + t.yOrigin * d);
+						min = 0.000001;
+						if (x < min) if (x > -min) {
+							x = 0;
+						}
+						if (y < min) if (y > -min) {
+							y = 0;
+						}
+					}
+					matrix = (((a * rnd) | 0) / rnd) + "," + (((b * rnd) | 0) / rnd) + "," + (((c * rnd) | 0) / rnd) + "," + (((d * rnd) | 0) / rnd) + "," + x + "," + y + ")";
+					if (t.svg && _useSVGTransformAttr) {
+						targ.setAttribute("transform", "matrix(" + matrix);
+					} else {
+						//some browsers have a hard time with very small values like 2.4492935982947064e-16 (notice the "e-" towards the end) and would render the object slightly off. So we round to 5 decimal places.
+						style[_transformProp] = ((t.xPercent || t.yPercent) ? "translate(" + t.xPercent + "%," + t.yPercent + "%) matrix(" : "matrix(") + matrix;
+					}
+				} else {
+					style[_transformProp] = ((t.xPercent || t.yPercent) ? "translate(" + t.xPercent + "%," + t.yPercent + "%) matrix(" : "matrix(") + sx + ",0,0," + sy + "," + x + "," + y + ")";
 				}
 			};
 
-		_registerComplexSpecialProp("transform,scale,scaleX,scaleY,scaleZ,x,y,z,rotation,rotationX,rotationY,rotationZ,skewX,skewY,shortRotation,shortRotationX,shortRotationY,shortRotationZ,transformOrigin,transformPerspective,directionalRotation,parseTransform,force3D,skewType,xPercent,yPercent", {parser:function(t, e, p, cssp, pt, plugin, vars) {
-			if (cssp._transform) { return pt; } //only need to parse the transform once, and only if the browser supports it.
+		p = Transform.prototype;
+		p.x = p.y = p.z = p.skewX = p.skewY = p.rotation = p.rotationX = p.rotationY = p.zOrigin = p.xPercent = p.yPercent = 0;
+		p.scaleX = p.scaleY = p.scaleZ = 1;
+
+		_registerComplexSpecialProp("transform,scale,scaleX,scaleY,scaleZ,x,y,z,rotation,rotationX,rotationY,rotationZ,skewX,skewY,shortRotation,shortRotationX,shortRotationY,shortRotationZ,transformOrigin,svgOrigin,transformPerspective,directionalRotation,parseTransform,force3D,skewType,xPercent,yPercent", {parser:function(t, e, p, cssp, pt, plugin, vars) {
+			if (cssp._lastParsedTransform === vars) { return pt; } //only need to parse the transform once, and only if the browser supports it.
+			cssp._lastParsedTransform = vars;
 			var m1 = cssp._transform = _getTransform(t, _cs, true, vars.parseTransform),
 				style = t.style,
 				min = 0.000001,
@@ -5428,7 +5650,6 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					m2.rotation += skewY;
 				}
 			}
-
 			if (_supports3D && v.force3D != null) {
 				m1.force3D = v.force3D;
 				hasChange = true;
@@ -5444,7 +5665,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			while (--i > -1) {
 				p = _transformProps[i];
 				orig = m2[p] - m1[p];
-				if (orig > min || orig < -min || _forcePT[p] != null) {
+				if (orig > min || orig < -min || v[p] != null || _forcePT[p] != null) {
 					hasChange = true;
 					pt = new CSSPropTween(m1, p, m1[p], orig, pt);
 					if (p in endRotations) {
@@ -5457,6 +5678,16 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			}
 
 			orig = v.transformOrigin;
+			if (m1.svg && (orig || v.svgOrigin)) {
+				_parseSVGOrigin(t, _parsePosition(orig), m2, v.svgOrigin);
+				pt = new CSSPropTween(m1, "xOrigin", m1.xOrigin, m2.xOrigin - m1.xOrigin, pt, -1, "transformOrigin");
+				pt.b = m1.xOrigin;
+				pt.e = pt.xs0 = m2.xOrigin;
+				pt = new CSSPropTween(m1, "yOrigin", m1.yOrigin, m2.yOrigin - m1.yOrigin, pt, -1, "transformOrigin");
+				pt.b = m1.yOrigin;
+				pt.e = pt.xs0 = m2.yOrigin;
+				orig = _useSVGTransformAttr ? null : "0px 0px"; //certain browsers (like firefox) completely botch transform-origin, so we must remove it to prevent it from contaminating transforms. We manage it ourselves with xOrigin and yOrigin
+			}
 			if (orig || (_supports3D && has3D && m1.zOrigin)) { //if anything 3D is happening and there's a transformOrigin with a z component that's non-zero, we must ensure that the transformOrigin's z-component is set to 0 so that we can manually do those calculations to get around Safari bugs. Even if the user didn't specifically define a "transformOrigin" in this particular tween (maybe they did it via css directly).
 				if (_transformProp) {
 					hasChange = true;
@@ -5482,9 +5713,8 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					_parsePosition(orig + "", m1);
 				}
 			}
-
 			if (hasChange) {
-				cssp._transformType = (has3D || this._transformType === 3) ? 3 : 2; //quicker than calling cssp._enableTransforms();
+				cssp._transformType = (!(m1.svg && _useSVGTransformAttr) && (has3D || this._transformType === 3)) ? 3 : 2; //quicker than calling cssp._enableTransforms();
 			}
 			return pt;
 		}, prefix:true});
@@ -5559,7 +5789,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				if (src && src !== "none") {
 					ba = bs.split(" ");
 					ea = es.split(" ");
-					_tempImg.setAttribute("src", src); //set the temp <img>'s src to the background-image so that we can measure its width/height
+					_tempImg.setAttribute("src", src); //set the temp IMG's src to the background-image so that we can measure its width/height
 					i = 2;
 					while (--i > -1) {
 						bs = ba[i];
@@ -5613,7 +5843,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		//opacity-related
 		var _setIEOpacityRatio = function(v) {
 				var t = this.t, //refers to the element's style property
-					filters = t.filter || _getStyle(this.data, "filter"),
+					filters = t.filter || _getStyle(this.data, "filter") || "",
 					val = (this.s + this.c * v) | 0,
 					skip;
 				if (val === 100) { //for older versions of IE that need to use a filter to apply opacity, we should remove the filter if opacity hits 1 in order to improve performance, but make sure there isn't a transform (matrix) or gradient in the filters.
@@ -5674,8 +5904,8 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		var _removeProp = function(s, p) {
 				if (p) {
 					if (s.removeProperty) {
-						if (p.substr(0,2) === "ms") { //Microsoft browsers don't conform to the standard of capping the first prefix character, so we adjust so that when we prefix the caps with a dash, it's correct (otherwise it'd be "ms-transform" instead of "-ms-transform" for IE9, for example)
-							p = "M" + p.substr(1);
+						if (p.substr(0,2) === "ms" || p.substr(0,6) === "webkit") { //Microsoft and some Webkit browsers don't conform to the standard of capitalizing the first prefix character, so we adjust so that when we prefix the caps with a dash, it's correct (otherwise it'd be "ms-transform" instead of "-ms-transform" for IE9, for example)
+							p = "-" + p;
 						}
 						s.removeProperty(p.replace(_capsExp, "-$1").toLowerCase());
 					} else { //note: old versions of IE use "removeAttribute()" instead of "removeProperty()"
@@ -5748,7 +5978,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 					s.cssText = "";
 					clearTransform = true;
 				} else {
-					a = this.e.split(",");
+					a = this.e.split(" ").join("").split(",");
 					i = a.length;
 					while (--i > -1) {
 						p = a[i];
@@ -5795,7 +6025,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 
 
 		p = CSSPlugin.prototype;
-		p._firstPT = null;
+		p._firstPT = p._lastParsedTransform = p._transform = null;
 
 		//gets called when the tween renders for the first time. This kicks everything off, recording start/end values, etc.
 		p._onInitTween = function(target, vars, tween) {
@@ -5863,6 +6093,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				this._linkCSSP(tpt, null, pt2);
 				tpt.setRatio = (threeD && _supports3D) ? _set3DTransformRatio : _transformProp ? _set2DTransformRatio : _setIETransformRatio;
 				tpt.data = this._transform || _getTransform(target, _cs, true);
+				tpt.tween = tween;
 				_overwriteProps.pop(); //we don't want to force the overwrite of all "transform" tweens of the target - we only care about individual transform properties like scaleX, rotation, etc. The CSSPropTween constructor automatically adds the property to _overwriteProps which is why we need to pop() here.
 			}
 
@@ -5939,7 +6170,7 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 							esfx = es.replace(_suffixExp, "");
 						} else {
 							en = parseFloat(es);
-							esfx = isStr ? es.substr((en + "").length) || "" : "";
+							esfx = isStr ? es.replace(_suffixExp, "") : "";
 						}
 
 						if (esfx === "") {
@@ -6000,7 +6231,6 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 			var pt = this._firstPT,
 				min = 0.000001,
 				val, str, i;
-
 			//at the end of the tween, we set the values to exactly what we received in order to make sure non-tweening values (like "position" or "float" or whatever) are set and so that if the beginning/ending suffixes (units) didn't match and we normalized to px, the value that the user passed in is used here. We check to see if the tween is at its beginning in case it's a from() tween in which case the ratio will actually go from 1 to 0 over the course of the tween (backwards).
 			if (v === 1 && (this._tween._time === this._tween._duration || this._tween._time === 0)) {
 				while (pt) {
@@ -6074,8 +6304,8 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		 * @param {boolean} threeD if true, it should apply 3D tweens (otherwise, just 2D ones are fine and typically faster)
 		 */
 		p._enableTransforms = function(threeD) {
-			this._transformType = (threeD || this._transformType === 3) ? 3 : 2;
 			this._transform = this._transform || _getTransform(this._target, _cs, true); //ensures that the element has a _gsTransform property with the appropriate values.
+			this._transformType = (!(this._transform.svg && _useSVGTransformAttr) && (threeD || this._transformType === 3)) ? 3 : 2;
 		};
 
 		var lazySet = function(v) {
@@ -6199,12 +6429,12 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 				e = [],
 				targets = [],
 				_reservedProps = TweenLite._internals.reservedProps,
-				i, difs, p;
+				i, difs, p, from;
 			target = tween._targets || tween.target;
 			_getChildStyles(target, b, targets);
-			tween.render(duration, true);
+			tween.render(duration, true, true);
 			_getChildStyles(target, e);
-			tween.render(0, true);
+			tween.render(0, true, true);
 			tween._enabled(true);
 			i = targets.length;
 			while (--i > -1) {
@@ -6216,7 +6446,11 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 							difs[p] = vars[p];
 						}
 					}
-					results.push( TweenLite.to(targets[i], duration, difs) );
+					from = {};
+					for (p in difs) {
+						from[p] = b[i][p];
+					}
+					results.push(TweenLite.fromTo(targets[i], duration, from, difs));
 				}
 			}
 			return results;
@@ -6709,9 +6943,10 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		//Elastic
 		_createElastic = function(n, f, def) {
 			var C = _class("easing." + n, function(amplitude, period) {
-					this._p1 = amplitude || 1;
-					this._p2 = period || def;
+					this._p1 = (amplitude >= 1) ? amplitude : 1; //note: if amplitude is < 1, we simply adjust the period for a more natural feel. Otherwise the math doesn't work right and the curve starts at 1.
+					this._p2 = (period || def) / (amplitude < 1 ? amplitude : 1);
 					this._p3 = this._p2 / _2PI * (Math.asin(1 / this._p1) || 0);
+					this._p2 = _2PI / this._p2; //precalculate to optimize
 				}, true),
 				p = C.prototype = new Ease();
 			p.constructor = C;
@@ -6723,13 +6958,13 @@ var _gsScope = (typeof(module) !== "undefined" && module.exports && typeof(globa
 		};
 		_wrap("Elastic",
 			_createElastic("ElasticOut", function(p) {
-				return this._p1 * Math.pow(2, -10 * p) * Math.sin( (p - this._p3) * _2PI / this._p2 ) + 1;
+				return this._p1 * Math.pow(2, -10 * p) * Math.sin( (p - this._p3) * this._p2 ) + 1;
 			}, 0.3),
 			_createElastic("ElasticIn", function(p) {
-				return -(this._p1 * Math.pow(2, 10 * (p -= 1)) * Math.sin( (p - this._p3) * _2PI / this._p2 ));
+				return -(this._p1 * Math.pow(2, 10 * (p -= 1)) * Math.sin( (p - this._p3) * this._p2 ));
 			}, 0.3),
 			_createElastic("ElasticInOut", function(p) {
-				return ((p *= 2) < 1) ? -0.5 * (this._p1 * Math.pow(2, 10 * (p -= 1)) * Math.sin( (p - this._p3) * _2PI / this._p2)) : this._p1 * Math.pow(2, -10 *(p -= 1)) * Math.sin( (p - this._p3) * _2PI / this._p2 ) *0.5 + 1;
+				return ((p *= 2) < 1) ? -0.5 * (this._p1 * Math.pow(2, 10 * (p -= 1)) * Math.sin( (p - this._p3) * this._p2)) : this._p1 * Math.pow(2, -10 *(p -= 1)) * Math.sin( (p - this._p3) * this._p2 ) * 0.5 + 1;
 			}, 0.45)
 		);
 
@@ -7040,10 +7275,12 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				t = this._eventTarget;
 				while (--i > -1) {
 					listener = list[i];
-					if (listener.up) {
-						listener.c.call(listener.s || t, {type:type, target:t});
-					} else {
-						listener.c.call(listener.s || t);
+					if (listener) {
+						if (listener.up) {
+							listener.c.call(listener.s || t, {type:type, target:t});
+						} else {
+							listener.c.call(listener.s || t);
+						}
 					}
 				}
 			}
@@ -7074,6 +7311,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				_useRAF = (useRAF !== false && _reqAnimFrame),
 				_lagThreshold = 500,
 				_adjustedLag = 33,
+				_tickWord = "tick", //helps reduce gc burden
 				_fps, _req, _id, _gap, _nextTime,
 				_tick = function(manual) {
 					var elapsed = _getTime() - _lastUpdate,
@@ -7093,7 +7331,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 						_id = _req(_tick);
 					}
 					if (dispatch) {
-						_self.dispatchEvent("tick");
+						_self.dispatchEvent(_tickWord);
 					}
 				};
 
@@ -7445,6 +7683,10 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 			return this;
 		};
 
+		p.endTime = function(includeRepeats) {
+			return this._startTime + ((includeRepeats != false) ? this.totalDuration() : this.duration()) / this._timeScale;
+		};
+
 		p.timeScale = function(value) {
 			if (!arguments.length) {
 				return this._timeScale;
@@ -7474,13 +7716,14 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 			if (!arguments.length) {
 				return this._paused;
 			}
-			if (value != this._paused) if (this._timeline) {
+			var tl = this._timeline,
+				raw, elapsed;
+			if (value != this._paused) if (tl) {
 				if (!_tickerActive && !value) {
 					_ticker.wake();
 				}
-				var tl = this._timeline,
-					raw = tl.rawTime(),
-					elapsed = raw - this._pauseTime;
+				raw = tl.rawTime();
+				elapsed = raw - this._pauseTime;
 				if (!value && tl.smoothChildTiming) {
 					this._startTime += elapsed;
 					this._uncache(false);
@@ -7512,7 +7755,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 		p = SimpleTimeline.prototype = new Animation();
 		p.constructor = SimpleTimeline;
 		p.kill()._gc = false;
-		p._first = p._last = null;
+		p._first = p._last = p._recent = null;
 		p._sortChildren = false;
 
 		p.add = p.insert = function(child, position, align, stagger) {
@@ -7548,6 +7791,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				this._last = child;
 			}
 			child._prev = prevTween;
+			this._recent = child;
 			if (this._timeline) {
 				this._uncache(true);
 			}
@@ -7571,6 +7815,9 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 					this._last = tween._prev;
 				}
 				tween._next = tween._prev = tween.timeline = null;
+				if (tween === this._recent) {
+					this._recent = this._last;
+				}
 
 				if (this._timeline) {
 					this._uncache(true);
@@ -7663,7 +7910,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				}
 			}, true),
 			_isSelector = function(v) {
-				return (v.length && v !== window && v[0] && (v[0] === window || (v[0].nodeType && v[0].style && !v.nodeType))); //we cannot check "nodeType" if the target is window from within an iframe, otherwise it will trigger a security error in some browsers like Firefox.
+				return (v && v.length && v !== window && v[0] && (v[0] === window || (v[0].nodeType && v[0].style && !v.nodeType))); //we cannot check "nodeType" if the target is window from within an iframe, otherwise it will trigger a security error in some browsers like Firefox.
 			},
 			_autoCSS = function(vars, target) {
 				var css = {},
@@ -7687,11 +7934,11 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 		p._firstPT = p._targets = p._overwrittenProps = p._startAt = null;
 		p._notifyPluginsOfEnabled = p._lazy = false;
 
-		TweenLite.version = "1.13.2";
+		TweenLite.version = "1.16.0";
 		TweenLite.defaultEase = p._ease = new Ease(null, null, 1, 1);
 		TweenLite.defaultOverwrite = "auto";
 		TweenLite.ticker = _ticker;
-		TweenLite.autoSleep = true;
+		TweenLite.autoSleep = 120;
 		TweenLite.lagSmoothing = function(threshold, adjustedLag) {
 			_ticker.lagSmoothing(threshold, adjustedLag);
 		};
@@ -7711,18 +7958,20 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 			_plugins = TweenLite._plugins = {},
 			_tweenLookup = _internals.tweenLookup = {},
 			_tweenLookupNum = 0,
-			_reservedProps = _internals.reservedProps = {ease:1, delay:1, overwrite:1, onComplete:1, onCompleteParams:1, onCompleteScope:1, useFrames:1, runBackwards:1, startAt:1, onUpdate:1, onUpdateParams:1, onUpdateScope:1, onStart:1, onStartParams:1, onStartScope:1, onReverseComplete:1, onReverseCompleteParams:1, onReverseCompleteScope:1, onRepeat:1, onRepeatParams:1, onRepeatScope:1, easeParams:1, yoyo:1, immediateRender:1, repeat:1, repeatDelay:1, data:1, paused:1, reversed:1, autoCSS:1, lazy:1},
+			_reservedProps = _internals.reservedProps = {ease:1, delay:1, overwrite:1, onComplete:1, onCompleteParams:1, onCompleteScope:1, useFrames:1, runBackwards:1, startAt:1, onUpdate:1, onUpdateParams:1, onUpdateScope:1, onStart:1, onStartParams:1, onStartScope:1, onReverseComplete:1, onReverseCompleteParams:1, onReverseCompleteScope:1, onRepeat:1, onRepeatParams:1, onRepeatScope:1, easeParams:1, yoyo:1, immediateRender:1, repeat:1, repeatDelay:1, data:1, paused:1, reversed:1, autoCSS:1, lazy:1, onOverwrite:1},
 			_overwriteLookup = {none:0, all:1, auto:2, concurrent:3, allOnStart:4, preexisting:5, "true":1, "false":0},
 			_rootFramesTimeline = Animation._rootFramesTimeline = new SimpleTimeline(),
 			_rootTimeline = Animation._rootTimeline = new SimpleTimeline(),
+			_nextGCFrame = 30,
 			_lazyRender = _internals.lazyRender = function() {
-				var i = _lazyTweens.length;
+				var i = _lazyTweens.length,
+					tween;
 				_lazyLookup = {};
 				while (--i > -1) {
-					a = _lazyTweens[i];
-					if (a && a._lazy !== false) {
-						a.render(a._lazy[0], a._lazy[1], true);
-						a._lazy = false;
+					tween = _lazyTweens[i];
+					if (tween && tween._lazy !== false) {
+						tween.render(tween._lazy[0], tween._lazy[1], true);
+						tween._lazy = false;
 					}
 				}
 				_lazyTweens.length = 0;
@@ -7743,7 +7992,8 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				if (_lazyTweens.length) {
 					_lazyRender();
 				}
-				if (!(_ticker.frame % 120)) { //dump garbage every 120 frames...
+				if (_ticker.frame >= _nextGCFrame) { //dump garbage every 120 frames or whatever the user sets TweenLite.autoSleep to
+					_nextGCFrame = _ticker.frame + (parseInt(TweenLite.autoSleep, 10) || 120);
 					for (p in _tweenLookup) {
 						a = _tweenLookup[p].tweens;
 						i = a.length;
@@ -7790,14 +8040,27 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				return _tweenLookup[id].tweens;
 			},
 
+			_onOverwrite = function(overwrittenTween, overwritingTween, target, killedProps) {
+				var func = overwrittenTween.vars.onOverwrite, r1, r2;
+				if (func) {
+					r1 = func(overwrittenTween, overwritingTween, target, killedProps);
+				}
+				func = TweenLite.onOverwrite;
+				if (func) {
+					r2 = func(overwrittenTween, overwritingTween, target, killedProps);
+				}
+				return (r1 !== false && r2 !== false);
+			},
 			_applyOverwrite = function(target, tween, props, mode, siblings) {
 				var i, changed, curTween, l;
 				if (mode === 1 || mode >= 4) {
 					l = siblings.length;
 					for (i = 0; i < l; i++) {
 						if ((curTween = siblings[i]) !== tween) {
-							if (!curTween._gc) if (curTween._enabled(false, false)) {
-								changed = true;
+							if (!curTween._gc) {
+								if (_onOverwrite(curTween, tween) && curTween._enabled(false, false)) {
+									changed = true;
+								}
 							}
 						} else if (mode === 5) {
 							break;
@@ -7828,10 +8091,13 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				i = oCount;
 				while (--i > -1) {
 					curTween = overlaps[i];
-					if (mode === 2) if (curTween._kill(props, target)) {
+					if (mode === 2) if (curTween._kill(props, target, tween)) {
 						changed = true;
 					}
 					if (mode !== 2 || (!curTween._firstPT && curTween._initted)) {
+						if (mode !== 2 && !_onOverwrite(curTween, tween)) {
+							continue;
+						}
 						if (curTween._enabled(false, false)) { //if all property tweens have been overwritten, kill the tween.
 							changed = true;
 						}
@@ -8037,7 +8303,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 					if (this._startTime === this._timeline._duration) { //if a zero-duration tween is at the VERY end of a timeline and that timeline renders at its end, it will typically add a tiny bit of cushion to the render time to prevent rounding errors from getting in the way of tweens rendering their VERY end. If we then reverse() that timeline, the zero-duration tween will trigger its onReverseComplete even though technically the playhead didn't pass over it again. It's a very specific edge case we must accommodate.
 						time = 0;
 					}
-					if (time === 0 || prevRawPrevTime < 0 || prevRawPrevTime === _tinyNum) if (prevRawPrevTime !== time) {
+					if (time === 0 || prevRawPrevTime < 0 || (prevRawPrevTime === _tinyNum && this.data !== "isPause")) if (prevRawPrevTime !== time) { //note: when this.data is "isPause", it's a callback added by addPause() on a timeline that we should not be triggered when LEAVING its exact start time. In other words, tl.addPause(1).play(1) shouldn't pause.
 						force = true;
 						if (prevRawPrevTime > _tinyNum) {
 							callback = "onReverseComplete";
@@ -8049,14 +8315,14 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 			} else if (time < 0.0000001) { //to work around occasional floating point math artifacts, round super small values to 0.
 				this._totalTime = this._time = 0;
 				this.ratio = this._ease._calcEnd ? this._ease.getRatio(0) : 0;
-				if (prevTime !== 0 || (duration === 0 && prevRawPrevTime > 0 && prevRawPrevTime !== _tinyNum)) {
+				if (prevTime !== 0 || (duration === 0 && prevRawPrevTime > 0)) {
 					callback = "onReverseComplete";
 					isComplete = this._reversed;
 				}
 				if (time < 0) {
 					this._active = false;
 					if (duration === 0) if (this._initted || !this.vars.lazy || force) { //zero-duration tweens are tricky because we must discern the momentum/direction of time in order to determine whether the starting values should be rendered or the ending values. If the "playhead" of its timeline goes past the zero-duration tween in the forward direction or lands directly on it, the end values should be rendered, but if the timeline's "playhead" moves past it in the backward direction (from a postitive time to a negative time), the starting values must be rendered.
-						if (prevRawPrevTime >= 0) {
+						if (prevRawPrevTime >= 0 && !(prevRawPrevTime === _tinyNum && this.data === "isPause")) {
 							force = true;
 						}
 						this._rawPrevTime = rawPrevTime = (!suppressEvents || time || prevRawPrevTime === time) ? time : _tinyNum; //when the playhead arrives at EXACTLY time 0 (right on top) of a zero-duration tween, we need to discern if events are suppressed so that when the playhead moves again (next time), it'll trigger the callback. If events are NOT suppressed, obviously the callback would be triggered in this render. Basically, the callback should fire either when the playhead ARRIVES or LEAVES this exact spot, not both. Imagine doing a timeline.seek(0) and there's a callback that sits at 0. Since events are suppressed on that seek() by default, nothing will fire, but when the playhead moves off of that position, the callback should fire. This behavior is what people intuitively expect. We set the _rawPrevTime to be a precise tiny number to indicate this scenario rather than using another property/variable which would increase memory usage. This technique is less readable, but more efficient.
@@ -8150,16 +8416,15 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 			}
 
 			if (this._onUpdate) {
-				if (time < 0) if (this._startAt && this._startTime) { //if the tween is positioned at the VERY beginning (_startTime 0) of its parent timeline, it's illegal for the playhead to go back further, so we should not render the recorded startAt values.
+				if (time < 0) if (this._startAt && time !== -0.0001) { //if the tween is positioned at the VERY beginning (_startTime 0) of its parent timeline, it's illegal for the playhead to go back further, so we should not render the recorded startAt values.
 					this._startAt.render(time, suppressEvents, force); //note: for performance reasons, we tuck this conditional logic inside less traveled areas (most tweens don't have an onUpdate). We'd just have it at the end before the onComplete, but the values should be updated before any onUpdate is called, so we ALSO put it here and then if it's not called, we do so later near the onComplete.
 				}
 				if (!suppressEvents) if (this._time !== prevTime || isComplete) {
 					this._onUpdate.apply(this.vars.onUpdateScope || this, this.vars.onUpdateParams || _blankArray);
 				}
 			}
-
 			if (callback) if (!this._gc || force) { //check _gc because there's a chance that kill() could be called in an onUpdate
-				if (time < 0 && this._startAt && !this._onUpdate && this._startTime) { //if the tween is positioned at the VERY beginning (_startTime 0) of its parent timeline, it's illegal for the playhead to go back further, so we should not render the recorded startAt values.
+				if (time < 0 && this._startAt && !this._onUpdate && time !== -0.0001) { //-0.0001 is a special value that we use when looping back to the beginning of a repeated TimelineMax, in which case we shouldn't render the _startAt values.
 					this._startAt.render(time, suppressEvents, force);
 				}
 				if (isComplete) {
@@ -8177,7 +8442,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 			}
 		};
 
-		p._kill = function(vars, target) {
+		p._kill = function(vars, target, overwritingTween) {
 			if (vars === "all") {
 				vars = null;
 			}
@@ -8186,7 +8451,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				return this._enabled(false, false);
 			}
 			target = (typeof(target) !== "string") ? (target || this._targets || this.target) : TweenLite.selector(target) || target;
-			var i, overwrittenProps, p, pt, propLookup, changed, killProps, record;
+			var i, overwrittenProps, p, pt, propLookup, changed, killProps, record, killed;
 			if ((_isArray(target) || _isSelector(target)) && typeof(target[0]) !== "number") {
 				i = target.length;
 				while (--i > -1) {
@@ -8215,6 +8480,20 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 				if (propLookup) {
 					killProps = vars || propLookup;
 					record = (vars !== overwrittenProps && overwrittenProps !== "all" && vars !== propLookup && (typeof(vars) !== "object" || !vars._tempKill)); //_tempKill is a super-secret way to delete a particular tweening property but NOT have it remembered as an official overwritten property (like in BezierPlugin)
+					if (overwritingTween && (TweenLite.onOverwrite || this.vars.onOverwrite)) {
+						for (p in killProps) {
+							if (propLookup[p]) {
+								if (!killed) {
+									killed = [];
+								}
+								killed.push(p);
+							}
+						}
+						if (!_onOverwrite(this, overwritingTween, target, killed)) { //if the onOverwrite returned false, that means the user wants to override the overwriting (cancel it).
+							return false;
+						}
+					}
+
 					for (p in killProps) {
 						if ((pt = propLookup[p])) {
 							if (pt.pg && pt.t._kill(killProps)) {
@@ -8303,7 +8582,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 		};
 
 		TweenLite.delayedCall = function(delay, callback, params, scope, useFrames) {
-			return new TweenLite(callback, 0, {delay:delay, onComplete:callback, onCompleteParams:params, onCompleteScope:scope, onReverseComplete:callback, onReverseCompleteParams:params, onReverseCompleteScope:scope, immediateRender:false, useFrames:useFrames, overwrite:0});
+			return new TweenLite(callback, 0, {delay:delay, onComplete:callback, onCompleteParams:params, onCompleteScope:scope, onReverseComplete:callback, onReverseCompleteParams:params, onReverseCompleteScope:scope, immediateRender:false, lazy:false, useFrames:useFrames, overwrite:0});
 		};
 
 		TweenLite.set = function(target, vars) {
@@ -8359,7 +8638,7 @@ if (_gsScope._gsDefine) { _gsScope._gsQueue.pop()(); } //necessary in case Tween
 
 /*
  * ----------------------------------------------------------------
- * TweenPlugin   (could easily be split out as a separate file/class, but included for ease of use (so that people don't need to include another <script> call before loading plugins which is easy to forget)
+ * TweenPlugin   (could easily be split out as a separate file/class, but included for ease of use (so that people don't need to include another script call before loading plugins which is easy to forget)
  * ----------------------------------------------------------------
  */
 		var TweenPlugin = _class("plugins.TweenPlugin", function(props, priority) {
@@ -9842,7 +10121,7 @@ if (typeof JSON !== 'object') {
 		console = window.console||undefined, // Prevent a JSLint complain
 		document = window.document, // Make sure we are using the correct document
 		navigator = window.navigator, // Make sure we are using the correct navigator
-		sessionStorage = false, // sessionStorage
+		sessionStorage = window.sessionStorage||false, // sessionStorage
 		setTimeout = window.setTimeout,
 		clearTimeout = window.clearTimeout,
 		setInterval = window.setInterval,
@@ -9853,7 +10132,6 @@ if (typeof JSON !== 'object') {
 		history = window.history; // Old History Object
 
 	try {
-		sessionStorage = window.sessionStorage; // This will throw an exception in some browsers when cookies/localStorage are explicitly disabled (i.e. Chrome)
 		sessionStorage.setItem('TEST', '1');
 		sessionStorage.removeItem('TEST');
 	} catch(e) {
@@ -11871,18 +12149,6879 @@ if (typeof JSON !== 'object') {
 })(window);
 
 /*!
-* @license PreloadJS
+* PreloadJS
 * Visit http://createjs.com/ for documentation, updates and examples.
 *
-* Copyright (c) 2011-2013 gskinner.com, inc.
+* Copyright (c) 2010 gskinner.com, inc.
 *
-* Distributed under the terms of the MIT license.
-* http://www.opensource.org/licenses/mit-license.html
+* Permission is hereby granted, free of charge, to any person
+* obtaining a copy of this software and associated documentation
+* files (the "Software"), to deal in the Software without
+* restriction, including without limitation the rights to use,
+* copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the
+* Software is furnished to do so, subject to the following
+* conditions:
 *
-* This notice shall be included in all copies or substantial portions of the Software.
+* The above copyright notice and this permission notice shall be
+* included in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+* OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+* NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+* HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+* WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+* OTHER DEALINGS IN THE SOFTWARE.
 */
-this.createjs=this.createjs||{},function(){"use strict";var a=createjs.PreloadJS=createjs.PreloadJS||{};a.version="0.6.0",a.buildDate="Thu, 11 Dec 2014 23:32:09 GMT"}(),this.createjs=this.createjs||{},createjs.extend=function(a,b){"use strict";function c(){this.constructor=a}return c.prototype=b.prototype,a.prototype=new c},this.createjs=this.createjs||{},createjs.promote=function(a,b){"use strict";var c=a.prototype,d=Object.getPrototypeOf&&Object.getPrototypeOf(c)||c.__proto__;if(d){c[(b+="_")+"constructor"]=d.constructor;for(var e in d)c.hasOwnProperty(e)&&"function"==typeof d[e]&&(c[b+e]=d[e])}return a},this.createjs=this.createjs||{},createjs.indexOf=function(a,b){"use strict";for(var c=0,d=a.length;d>c;c++)if(b===a[c])return c;return-1},this.createjs=this.createjs||{},function(){"use strict";createjs.proxy=function(a,b){var c=Array.prototype.slice.call(arguments,2);return function(){return a.apply(b,Array.prototype.slice.call(arguments,0).concat(c))}}}(),this.createjs=this.createjs||{},function(){"use strict";function a(){throw"BrowserDetect cannot be instantiated"}var b=a.agent=window.navigator.userAgent;a.isWindowPhone=b.indexOf("IEMobile")>-1||b.indexOf("Windows Phone")>-1,a.isFirefox=b.indexOf("Firefox")>-1,a.isOpera=null!=window.opera,a.isChrome=b.indexOf("Chrome")>-1,a.isIOS=(b.indexOf("iPod")>-1||b.indexOf("iPhone")>-1||b.indexOf("iPad")>-1)&&!a.isWindowPhone,a.isAndroid=b.indexOf("Android")>-1&&!a.isWindowPhone,a.isBlackberry=b.indexOf("Blackberry")>-1,createjs.BrowserDetect=a}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b,c){this.type=a,this.target=null,this.currentTarget=null,this.eventPhase=0,this.bubbles=!!b,this.cancelable=!!c,this.timeStamp=(new Date).getTime(),this.defaultPrevented=!1,this.propagationStopped=!1,this.immediatePropagationStopped=!1,this.removed=!1}var b=a.prototype;b.preventDefault=function(){this.defaultPrevented=this.cancelable&&!0},b.stopPropagation=function(){this.propagationStopped=!0},b.stopImmediatePropagation=function(){this.immediatePropagationStopped=this.propagationStopped=!0},b.remove=function(){this.removed=!0},b.clone=function(){return new a(this.type,this.bubbles,this.cancelable)},b.set=function(a){for(var b in a)this[b]=a[b];return this},b.toString=function(){return"[Event (type="+this.type+")]"},createjs.Event=a}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b,c){this.Event_constructor("error"),this.title=a,this.message=b,this.data=c}var b=createjs.extend(a,createjs.Event);b.clone=function(){return new createjs.ErrorEvent(this.title,this.message,this.data)},createjs.ErrorEvent=createjs.promote(a,"Event")}(),this.createjs=this.createjs||{},function(){"use strict";function a(){this._listeners=null,this._captureListeners=null}var b=a.prototype;a.initialize=function(a){a.addEventListener=b.addEventListener,a.on=b.on,a.removeEventListener=a.off=b.removeEventListener,a.removeAllEventListeners=b.removeAllEventListeners,a.hasEventListener=b.hasEventListener,a.dispatchEvent=b.dispatchEvent,a._dispatchEvent=b._dispatchEvent,a.willTrigger=b.willTrigger},b.addEventListener=function(a,b,c){var d;d=c?this._captureListeners=this._captureListeners||{}:this._listeners=this._listeners||{};var e=d[a];return e&&this.removeEventListener(a,b,c),e=d[a],e?e.push(b):d[a]=[b],b},b.on=function(a,b,c,d,e,f){return b.handleEvent&&(c=c||b,b=b.handleEvent),c=c||this,this.addEventListener(a,function(a){b.call(c,a,e),d&&a.remove()},f)},b.removeEventListener=function(a,b,c){var d=c?this._captureListeners:this._listeners;if(d){var e=d[a];if(e)for(var f=0,g=e.length;g>f;f++)if(e[f]==b){1==g?delete d[a]:e.splice(f,1);break}}},b.off=b.removeEventListener,b.removeAllEventListeners=function(a){a?(this._listeners&&delete this._listeners[a],this._captureListeners&&delete this._captureListeners[a]):this._listeners=this._captureListeners=null},b.dispatchEvent=function(a){if("string"==typeof a){var b=this._listeners;if(!b||!b[a])return!1;a=new createjs.Event(a)}else a.target&&a.clone&&(a=a.clone());try{a.target=this}catch(c){}if(a.bubbles&&this.parent){for(var d=this,e=[d];d.parent;)e.push(d=d.parent);var f,g=e.length;for(f=g-1;f>=0&&!a.propagationStopped;f--)e[f]._dispatchEvent(a,1+(0==f));for(f=1;g>f&&!a.propagationStopped;f++)e[f]._dispatchEvent(a,3)}else this._dispatchEvent(a,2);return a.defaultPrevented},b.hasEventListener=function(a){var b=this._listeners,c=this._captureListeners;return!!(b&&b[a]||c&&c[a])},b.willTrigger=function(a){for(var b=this;b;){if(b.hasEventListener(a))return!0;b=b.parent}return!1},b.toString=function(){return"[EventDispatcher]"},b._dispatchEvent=function(a,b){var c,d=1==b?this._captureListeners:this._listeners;if(a&&d){var e=d[a.type];if(!e||!(c=e.length))return;try{a.currentTarget=this}catch(f){}try{a.eventPhase=b}catch(f){}a.removed=!1,e=e.slice();for(var g=0;c>g&&!a.immediatePropagationStopped;g++){var h=e[g];h.handleEvent?h.handleEvent(a):h(a),a.removed&&(this.off(a.type,h,1==b),a.removed=!1)}}},createjs.EventDispatcher=a}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b){this.Event_constructor("progress"),this.loaded=a,this.total=null==b?1:b,this.progress=0==b?0:this.loaded/this.total}var b=createjs.extend(a,createjs.Event);b.clone=function(){return new createjs.ProgressEvent(this.loaded,this.total)},createjs.ProgressEvent=createjs.promote(a,"Event")}(window),function(){function a(b,d){function f(a){if(f[a]!==q)return f[a];var b;if("bug-string-char-index"==a)b="a"!="a"[0];else if("json"==a)b=f("json-stringify")&&f("json-parse");else{var c,e='{"a":[1,true,false,null,"\\u0000\\b\\n\\f\\r\\t"]}';if("json-stringify"==a){var i=d.stringify,k="function"==typeof i&&t;if(k){(c=function(){return 1}).toJSON=c;try{k="0"===i(0)&&"0"===i(new g)&&'""'==i(new h)&&i(s)===q&&i(q)===q&&i()===q&&"1"===i(c)&&"[1]"==i([c])&&"[null]"==i([q])&&"null"==i(null)&&"[null,null,null]"==i([q,s,null])&&i({a:[c,!0,!1,null,"\x00\b\n\f\r	"]})==e&&"1"===i(null,c)&&"[\n 1,\n 2\n]"==i([1,2],null,1)&&'"-271821-04-20T00:00:00.000Z"'==i(new j(-864e13))&&'"+275760-09-13T00:00:00.000Z"'==i(new j(864e13))&&'"-000001-01-01T00:00:00.000Z"'==i(new j(-621987552e5))&&'"1969-12-31T23:59:59.999Z"'==i(new j(-1))}catch(l){k=!1}}b=k}if("json-parse"==a){var m=d.parse;if("function"==typeof m)try{if(0===m("0")&&!m(!1)){c=m(e);var n=5==c.a.length&&1===c.a[0];if(n){try{n=!m('"	"')}catch(l){}if(n)try{n=1!==m("01")}catch(l){}if(n)try{n=1!==m("1.")}catch(l){}}}}catch(l){n=!1}b=n}}return f[a]=!!b}b||(b=e.Object()),d||(d=e.Object());var g=b.Number||e.Number,h=b.String||e.String,i=b.Object||e.Object,j=b.Date||e.Date,k=b.SyntaxError||e.SyntaxError,l=b.TypeError||e.TypeError,m=b.Math||e.Math,n=b.JSON||e.JSON;"object"==typeof n&&n&&(d.stringify=n.stringify,d.parse=n.parse);var o,p,q,r=i.prototype,s=r.toString,t=new j(-0xc782b5b800cec);try{t=-109252==t.getUTCFullYear()&&0===t.getUTCMonth()&&1===t.getUTCDate()&&10==t.getUTCHours()&&37==t.getUTCMinutes()&&6==t.getUTCSeconds()&&708==t.getUTCMilliseconds()}catch(u){}if(!f("json")){var v="[object Function]",w="[object Date]",x="[object Number]",y="[object String]",z="[object Array]",A="[object Boolean]",B=f("bug-string-char-index");if(!t)var C=m.floor,D=[0,31,59,90,120,151,181,212,243,273,304,334],E=function(a,b){return D[b]+365*(a-1970)+C((a-1969+(b=+(b>1)))/4)-C((a-1901+b)/100)+C((a-1601+b)/400)};if((o=r.hasOwnProperty)||(o=function(a){var b,c={};return(c.__proto__=null,c.__proto__={toString:1},c).toString!=s?o=function(a){var b=this.__proto__,c=a in(this.__proto__=null,this);return this.__proto__=b,c}:(b=c.constructor,o=function(a){var c=(this.constructor||b).prototype;return a in this&&!(a in c&&this[a]===c[a])}),c=null,o.call(this,a)}),p=function(a,b){var d,e,f,g=0;(d=function(){this.valueOf=0}).prototype.valueOf=0,e=new d;for(f in e)o.call(e,f)&&g++;return d=e=null,g?p=2==g?function(a,b){var c,d={},e=s.call(a)==v;for(c in a)e&&"prototype"==c||o.call(d,c)||!(d[c]=1)||!o.call(a,c)||b(c)}:function(a,b){var c,d,e=s.call(a)==v;for(c in a)e&&"prototype"==c||!o.call(a,c)||(d="constructor"===c)||b(c);(d||o.call(a,c="constructor"))&&b(c)}:(e=["valueOf","toString","toLocaleString","propertyIsEnumerable","isPrototypeOf","hasOwnProperty","constructor"],p=function(a,b){var d,f,g=s.call(a)==v,h=!g&&"function"!=typeof a.constructor&&c[typeof a.hasOwnProperty]&&a.hasOwnProperty||o;for(d in a)g&&"prototype"==d||!h.call(a,d)||b(d);for(f=e.length;d=e[--f];h.call(a,d)&&b(d));}),p(a,b)},!f("json-stringify")){var F={92:"\\\\",34:'\\"',8:"\\b",12:"\\f",10:"\\n",13:"\\r",9:"\\t"},G="000000",H=function(a,b){return(G+(b||0)).slice(-a)},I="\\u00",J=function(a){for(var b='"',c=0,d=a.length,e=!B||d>10,f=e&&(B?a.split(""):a);d>c;c++){var g=a.charCodeAt(c);switch(g){case 8:case 9:case 10:case 12:case 13:case 34:case 92:b+=F[g];break;default:if(32>g){b+=I+H(2,g.toString(16));break}b+=e?f[c]:a.charAt(c)}}return b+'"'},K=function(a,b,c,d,e,f,g){var h,i,j,k,m,n,r,t,u,v,B,D,F,G,I,L;try{h=b[a]}catch(M){}if("object"==typeof h&&h)if(i=s.call(h),i!=w||o.call(h,"toJSON"))"function"==typeof h.toJSON&&(i!=x&&i!=y&&i!=z||o.call(h,"toJSON"))&&(h=h.toJSON(a));else if(h>-1/0&&1/0>h){if(E){for(m=C(h/864e5),j=C(m/365.2425)+1970-1;E(j+1,0)<=m;j++);for(k=C((m-E(j,0))/30.42);E(j,k+1)<=m;k++);m=1+m-E(j,k),n=(h%864e5+864e5)%864e5,r=C(n/36e5)%24,t=C(n/6e4)%60,u=C(n/1e3)%60,v=n%1e3}else j=h.getUTCFullYear(),k=h.getUTCMonth(),m=h.getUTCDate(),r=h.getUTCHours(),t=h.getUTCMinutes(),u=h.getUTCSeconds(),v=h.getUTCMilliseconds();h=(0>=j||j>=1e4?(0>j?"-":"+")+H(6,0>j?-j:j):H(4,j))+"-"+H(2,k+1)+"-"+H(2,m)+"T"+H(2,r)+":"+H(2,t)+":"+H(2,u)+"."+H(3,v)+"Z"}else h=null;if(c&&(h=c.call(b,a,h)),null===h)return"null";if(i=s.call(h),i==A)return""+h;if(i==x)return h>-1/0&&1/0>h?""+h:"null";if(i==y)return J(""+h);if("object"==typeof h){for(G=g.length;G--;)if(g[G]===h)throw l();if(g.push(h),B=[],I=f,f+=e,i==z){for(F=0,G=h.length;G>F;F++)D=K(F,h,c,d,e,f,g),B.push(D===q?"null":D);L=B.length?e?"[\n"+f+B.join(",\n"+f)+"\n"+I+"]":"["+B.join(",")+"]":"[]"}else p(d||h,function(a){var b=K(a,h,c,d,e,f,g);b!==q&&B.push(J(a)+":"+(e?" ":"")+b)}),L=B.length?e?"{\n"+f+B.join(",\n"+f)+"\n"+I+"}":"{"+B.join(",")+"}":"{}";return g.pop(),L}};d.stringify=function(a,b,d){var e,f,g,h;if(c[typeof b]&&b)if((h=s.call(b))==v)f=b;else if(h==z){g={};for(var i,j=0,k=b.length;k>j;i=b[j++],h=s.call(i),(h==y||h==x)&&(g[i]=1));}if(d)if((h=s.call(d))==x){if((d-=d%1)>0)for(e="",d>10&&(d=10);e.length<d;e+=" ");}else h==y&&(e=d.length<=10?d:d.slice(0,10));return K("",(i={},i[""]=a,i),f,g,e,"",[])}}if(!f("json-parse")){var L,M,N=h.fromCharCode,O={92:"\\",34:'"',47:"/",98:"\b",116:"	",110:"\n",102:"\f",114:"\r"},P=function(){throw L=M=null,k()},Q=function(){for(var a,b,c,d,e,f=M,g=f.length;g>L;)switch(e=f.charCodeAt(L)){case 9:case 10:case 13:case 32:L++;break;case 123:case 125:case 91:case 93:case 58:case 44:return a=B?f.charAt(L):f[L],L++,a;case 34:for(a="@",L++;g>L;)if(e=f.charCodeAt(L),32>e)P();else if(92==e)switch(e=f.charCodeAt(++L)){case 92:case 34:case 47:case 98:case 116:case 110:case 102:case 114:a+=O[e],L++;break;case 117:for(b=++L,c=L+4;c>L;L++)e=f.charCodeAt(L),e>=48&&57>=e||e>=97&&102>=e||e>=65&&70>=e||P();a+=N("0x"+f.slice(b,L));break;default:P()}else{if(34==e)break;for(e=f.charCodeAt(L),b=L;e>=32&&92!=e&&34!=e;)e=f.charCodeAt(++L);a+=f.slice(b,L)}if(34==f.charCodeAt(L))return L++,a;P();default:if(b=L,45==e&&(d=!0,e=f.charCodeAt(++L)),e>=48&&57>=e){for(48==e&&(e=f.charCodeAt(L+1),e>=48&&57>=e)&&P(),d=!1;g>L&&(e=f.charCodeAt(L),e>=48&&57>=e);L++);if(46==f.charCodeAt(L)){for(c=++L;g>c&&(e=f.charCodeAt(c),e>=48&&57>=e);c++);c==L&&P(),L=c}if(e=f.charCodeAt(L),101==e||69==e){for(e=f.charCodeAt(++L),(43==e||45==e)&&L++,c=L;g>c&&(e=f.charCodeAt(c),e>=48&&57>=e);c++);c==L&&P(),L=c}return+f.slice(b,L)}if(d&&P(),"true"==f.slice(L,L+4))return L+=4,!0;if("false"==f.slice(L,L+5))return L+=5,!1;if("null"==f.slice(L,L+4))return L+=4,null;P()}return"$"},R=function(a){var b,c;if("$"==a&&P(),"string"==typeof a){if("@"==(B?a.charAt(0):a[0]))return a.slice(1);if("["==a){for(b=[];a=Q(),"]"!=a;c||(c=!0))c&&(","==a?(a=Q(),"]"==a&&P()):P()),","==a&&P(),b.push(R(a));return b}if("{"==a){for(b={};a=Q(),"}"!=a;c||(c=!0))c&&(","==a?(a=Q(),"}"==a&&P()):P()),(","==a||"string"!=typeof a||"@"!=(B?a.charAt(0):a[0])||":"!=Q())&&P(),b[a.slice(1)]=R(Q());return b}P()}return a},S=function(a,b,c){var d=T(a,b,c);d===q?delete a[b]:a[b]=d},T=function(a,b,c){var d,e=a[b];if("object"==typeof e&&e)if(s.call(e)==z)for(d=e.length;d--;)S(e,d,c);else p(e,function(a){S(e,a,c)});return c.call(a,b,e)};d.parse=function(a,b){var c,d;return L=0,M=""+a,c=R(Q()),"$"!=Q()&&P(),L=M=null,b&&s.call(b)==v?T((d={},d[""]=c,d),"",b):c}}}return d.runInContext=a,d}var b="function"==typeof define&&define.amd,c={"function":!0,object:!0},d=c[typeof exports]&&exports&&!exports.nodeType&&exports,e=c[typeof window]&&window||this,f=d&&c[typeof module]&&module&&!module.nodeType&&"object"==typeof global&&global;if(!f||f.global!==f&&f.window!==f&&f.self!==f||(e=f),d&&!b)a(e,d);else{var g=e.JSON,h=e.JSON3,i=!1,j=a(e,e.JSON3={noConflict:function(){return i||(i=!0,e.JSON=g,e.JSON3=h,g=h=null),j}});e.JSON={parse:j.parse,stringify:j.stringify}}b&&define(function(){return j})}.call(this),function(){var a={};a.parseXML=function(a,b){var c=null;try{if(window.DOMParser){var d=new DOMParser;c=d.parseFromString(a,b)}else c=new ActiveXObject("Microsoft.XMLDOM"),c.async=!1,c.loadXML(a)}catch(e){}return c},a.parseJSON=function(a){if(null==a)return null;try{return JSON.parse(a)}catch(b){throw b}},createjs.DataUtils=a}(),this.createjs=this.createjs||{},function(){"use strict";function a(){this.src=null,this.type=null,this.id=null,this.maintainOrder=!1,this.callback=null,this.data=null,this.method=createjs.LoadItem.GET,this.values=null,this.headers=null,this.withCredentials=!1,this.mimeType=null,this.crossOrigin=null,this.loadTimeout=8e3}var b=a.prototype={},c=a;c.create=function(b){if("string"==typeof b){var d=new a;return d.src=b,d}if(b instanceof c)return b;if(b instanceof Object)return b;throw new Error("Type not recognized.")},b.set=function(a){for(var b in a)this[b]=a[b];return this},createjs.LoadItem=c}(),function(){var a={};a.ABSOLUTE_PATT=/^(?:\w+:)?\/{2}/i,a.RELATIVE_PATT=/^[./]*?\//i,a.EXTENSION_PATT=/\/?[^/]+\.(\w{1,5})$/i,a.parseURI=function(b){var c={absolute:!1,relative:!1};if(null==b)return c;var d=b.indexOf("?");d>-1&&(b=b.substr(0,d));var e;return a.ABSOLUTE_PATT.test(b)?c.absolute=!0:a.RELATIVE_PATT.test(b)&&(c.relative=!0),(e=b.match(a.EXTENSION_PATT))&&(c.extension=e[1].toLowerCase()),c},a.formatQueryString=function(a,b){if(null==a)throw new Error("You must specify data.");var c=[];for(var d in a)c.push(d+"="+escape(a[d]));return b&&(c=c.concat(b)),c.join("&")},a.buildPath=function(a,b){if(null==b)return a;var c=[],d=a.indexOf("?");if(-1!=d){var e=a.slice(d+1);c=c.concat(e.split("&"))}return-1!=d?a.slice(0,d)+"?"+this._formatQueryString(b,c):a+"?"+this._formatQueryString(b,c)},a.isCrossDomain=function(a){var b=document.createElement("a");b.href=a.src;var c=document.createElement("a");c.href=location.href;var d=""!=b.hostname&&(b.port!=c.port||b.protocol!=c.protocol||b.hostname!=c.hostname);return d},a.isLocal=function(a){var b=document.createElement("a");return b.href=a.src,""==b.hostname&&"file:"==b.protocol},a.isBinary=function(a){switch(a){case createjs.AbstractLoader.IMAGE:case createjs.AbstractLoader.BINARY:return!0;default:return!1}},a.isImageTag=function(a){return a instanceof HTMLImageElement},a.isAudioTag=function(a){return window.HTMLAudioElement?a instanceof HTMLAudioElement:!1},a.isVideoTag=function(a){return window.HTMLVideoElement?a instanceof HTMLVideoElement:void 0},a.isText=function(a){switch(a){case createjs.AbstractLoader.TEXT:case createjs.AbstractLoader.JSON:case createjs.AbstractLoader.MANIFEST:case createjs.AbstractLoader.XML:case createjs.AbstractLoader.CSS:case createjs.AbstractLoader.SVG:case createjs.AbstractLoader.JAVASCRIPT:return!0;default:return!1}},a.getTypeByExtension=function(a){if(null==a)return createjs.AbstractLoader.TEXT;switch(a.toLowerCase()){case"jpeg":case"jpg":case"gif":case"png":case"webp":case"bmp":return createjs.AbstractLoader.IMAGE;case"ogg":case"mp3":case"webm":return createjs.AbstractLoader.SOUND;case"mp4":case"webm":case"ts":return createjs.AbstractLoader.VIDEO;case"json":return createjs.AbstractLoader.JSON;case"xml":return createjs.AbstractLoader.XML;case"css":return createjs.AbstractLoader.CSS;case"js":return createjs.AbstractLoader.JAVASCRIPT;case"svg":return createjs.AbstractLoader.SVG;default:return createjs.AbstractLoader.TEXT}},createjs.RequestUtils=a}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b,c){this.EventDispatcher_constructor(),this.loaded=!1,this.canceled=!1,this.progress=0,this.type=c,this.resultFormatter=null,this._item=a?createjs.LoadItem.create(a):null,this._preferXHR=b,this._result=null,this._rawResult=null,this._loadedItems=null,this._tagSrcAttribute=null,this._tag=null}var b=createjs.extend(a,createjs.EventDispatcher),c=a;c.POST="POST",c.GET="GET",c.BINARY="binary",c.CSS="css",c.IMAGE="image",c.JAVASCRIPT="javascript",c.JSON="json",c.JSONP="jsonp",c.MANIFEST="manifest",c.SOUND="sound",c.VIDEO="video",c.SPRITESHEET="spritesheet",c.SVG="svg",c.TEXT="text",c.XML="xml",b.getItem=function(){return this._item},b.getResult=function(a){return a?this._rawResult:this._result},b.getTag=function(){return this._tag},b.setTag=function(a){this._tag=a},b.load=function(){this._createRequest(),this._request.on("complete",this,this),this._request.on("progress",this,this),this._request.on("loadStart",this,this),this._request.on("abort",this,this),this._request.on("timeout",this,this),this._request.on("error",this,this);var a=new createjs.Event("initialize");a.loader=this._request,this.dispatchEvent(a),this._request.load()},b.cancel=function(){this.canceled=!0,this.destroy()},b.destroy=function(){this._request&&(this._request.removeAllEventListeners(),this._request.destroy()),this._request=null,this._item=null,this._rawResult=null,this._result=null,this._loadItems=null,this.removeAllEventListeners()},b.getLoadedItems=function(){return this._loadedItems},b._createRequest=function(){this._request=this._preferXHR?new createjs.XHRRequest(this._item):new createjs.TagRequest(this._item,this._tag||this._createTag(),this._tagSrcAttribute)},b._createTag=function(){return null},b._sendLoadStart=function(){this._isCanceled()||this.dispatchEvent("loadstart")},b._sendProgress=function(a){if(!this._isCanceled()){var b=null;"number"==typeof a?(this.progress=a,b=new createjs.ProgressEvent(this.progress)):(b=a,this.progress=a.loaded/a.total,b.progress=this.progress,(isNaN(this.progress)||1/0==this.progress)&&(this.progress=0)),this.hasEventListener("progress")&&this.dispatchEvent(b)}},b._sendComplete=function(){if(!this._isCanceled()){this.loaded=!0;var a=new createjs.Event("complete");a.rawResult=this._rawResult,null!=this._result&&(a.result=this._result),this.dispatchEvent(a)}},b._sendError=function(a){!this._isCanceled()&&this.hasEventListener("error")&&(null==a&&(a=new createjs.ErrorEvent("PRELOAD_ERROR_EMPTY")),this.dispatchEvent(a))},b._isCanceled=function(){return null==window.createjs||this.canceled?!0:!1},b.resultFormatter=null,b.handleEvent=function(a){switch(a.type){case"complete":this._rawResult=a.target._response;var b=this.resultFormatter&&this.resultFormatter(this),c=this;b instanceof Function?b(function(a){c._result=a,c._sendComplete()}):(this._result=b||this._rawResult,this._sendComplete());break;case"progress":this._sendProgress(a);break;case"error":this._sendError(a);break;case"loadstart":this._sendLoadStart();break;case"abort":case"timeout":this._isCanceled()||this.dispatchEvent(a.type)}},b.buildPath=function(a,b){return createjs.RequestUtils.buildPath(a,b)},b.toString=function(){return"[PreloadJS AbstractLoader]"},createjs.AbstractLoader=createjs.promote(a,"EventDispatcher")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b,c){this.AbstractLoader_constructor(a,b,c),this.resultFormatter=this._formatResult,this._tagSrcAttribute="src"}var b=createjs.extend(a,createjs.AbstractLoader);b.load=function(){this._tag||(this._tag=this._createTag(this._item.src)),this._tag.preload="auto",this._tag.load(),this.AbstractLoader_load()},b._createTag=function(){},b._createRequest=function(){this._request=this._preferXHR?new createjs.XHRRequest(this._item):new createjs.MediaTagRequest(this._item,this._tag||this._createTag(),this._tagSrcAttribute)},b._formatResult=function(a){return this._tag.removeEventListener&&this._tag.removeEventListener("canplaythrough",this._loadedHandler),this._tag.onstalled=null,this._preferXHR&&(a.getTag().src=a.getResult(!0)),a.getTag()},createjs.AbstractMediaLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";var a=function(a){this._item=a},b=createjs.extend(a,createjs.EventDispatcher);b.load=function(){},b.destroy=function(){},b.cancel=function(){},createjs.AbstractRequest=createjs.promote(a,"EventDispatcher")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b,c){this.AbstractRequest_constructor(a),this._tag=b,this._tagSrcAttribute=c,this._loadedHandler=createjs.proxy(this._handleTagComplete,this),this._addedToDOM=!1,this._startTagVisibility=null}var b=createjs.extend(a,createjs.AbstractRequest);b.load=function(){null==this._tag.parentNode&&(window.document.body.appendChild(this._tag),this._addedToDOM=!0),this._tag.onload=createjs.proxy(this._handleTagComplete,this),this._tag.onreadystatechange=createjs.proxy(this._handleReadyStateChange,this);var a=new createjs.Event("initialize");a.loader=this._tag,this.dispatchEvent(a),this._hideTag(),this._tag[this._tagSrcAttribute]=this._item.src},b.destroy=function(){this._clean(),this._tag=null,this.AbstractRequest_destroy()},b._handleReadyStateChange=function(){clearTimeout(this._loadTimeout);var a=this._tag;("loaded"==a.readyState||"complete"==a.readyState)&&this._handleTagComplete()},b._handleTagComplete=function(){this._rawResult=this._tag,this._result=this.resultFormatter&&this.resultFormatter(this)||this._rawResult,this._clean(),this._showTag(),this.dispatchEvent("complete")},b._clean=function(){this._tag.onload=null,this._tag.onreadystatechange=null,this._addedToDOM&&null!=this._tag.parentNode&&this._tag.parentNode.removeChild(this._tag)},b._hideTag=function(){this._startTagVisibility=this._tag.style.visibility,this._tag.style.visibility="hidden"},b._showTag=function(){this._tag.style.visibility=this._startTagVisibility},b._handleStalled=function(){},createjs.TagRequest=createjs.promote(a,"AbstractRequest")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b,c){this.AbstractRequest_constructor(a),this._tag=b,this._tagSrcAttribute=c,this._loadedHandler=createjs.proxy(this._handleTagComplete,this)}var b=createjs.extend(a,createjs.TagRequest);b.load=function(){this._tag.onstalled=createjs.proxy(this._handleStalled,this),this._tag.onprogress=createjs.proxy(this._handleProgress,this),this._tag.addEventListener&&this._tag.addEventListener("canplaythrough",this._loadedHandler,!1),this.TagRequest_load()},b._handleReadyStateChange=function(){clearTimeout(this._loadTimeout);var a=this._tag;("loaded"==a.readyState||"complete"==a.readyState)&&this._handleTagComplete()},b._handleStalled=function(){},b._handleProgress=function(a){if(a&&!(a.loaded>0&&0==a.total)){var b=new createjs.ProgressEvent(a.loaded,a.total);this.dispatchEvent(b)}},b._clean=function(){this._tag.removeEventListener&&this._tag.removeEventListener("canplaythrough",this._loadedHandler),this._tag.onstalled=null,this._tag.onprogress=null,this.TagRequest__clean()},createjs.MediaTagRequest=createjs.promote(a,"TagRequest")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractRequest_constructor(a),this._request=null,this._loadTimeout=null,this._xhrLevel=1,this._response=null,this._rawResponse=null,this._canceled=!1,this._handleLoadStartProxy=createjs.proxy(this._handleLoadStart,this),this._handleProgressProxy=createjs.proxy(this._handleProgress,this),this._handleAbortProxy=createjs.proxy(this._handleAbort,this),this._handleErrorProxy=createjs.proxy(this._handleError,this),this._handleTimeoutProxy=createjs.proxy(this._handleTimeout,this),this._handleLoadProxy=createjs.proxy(this._handleLoad,this),this._handleReadyStateChangeProxy=createjs.proxy(this._handleReadyStateChange,this),!this._createXHR(a)}var b=createjs.extend(a,createjs.AbstractRequest);a.ACTIVEX_VERSIONS=["Msxml2.XMLHTTP.6.0","Msxml2.XMLHTTP.5.0","Msxml2.XMLHTTP.4.0","MSXML2.XMLHTTP.3.0","MSXML2.XMLHTTP","Microsoft.XMLHTTP"],b.getResult=function(a){return a&&this._rawResponse?this._rawResponse:this._response},b.cancel=function(){this.canceled=!0,this._clean(),this._request.abort()},b.load=function(){if(null==this._request)return void this._handleError();this._request.addEventListener("loadstart",this._handleLoadStartProxy,!1),this._request.addEventListener("progress",this._handleProgressProxy,!1),this._request.addEventListener("abort",this._handleAbortProxy,!1),this._request.addEventListener("error",this._handleErrorProxy,!1),this._request.addEventListener("timeout",this._handleTimeoutProxy,!1),this._request.addEventListener("load",this._handleLoadProxy,!1),this._request.addEventListener("readystatechange",this._handleReadyStateChangeProxy,!1),1==this._xhrLevel&&(this._loadTimeout=setTimeout(createjs.proxy(this._handleTimeout,this),this._item.loadTimeout));try{this._item.values&&this._item.method!=createjs.AbstractLoader.GET?this._item.method==createjs.AbstractLoader.POST&&this._request.send(createjs.RequestUtils.formatQueryString(this._item.values)):this._request.send()}catch(a){this.dispatchEvent(new createjs.ErrorEvent("XHR_SEND",null,a))}},b.setResponseType=function(a){this._request.responseType=a},b.getAllResponseHeaders=function(){return this._request.getAllResponseHeaders instanceof Function?this._request.getAllResponseHeaders():null},b.getResponseHeader=function(a){return this._request.getResponseHeader instanceof Function?this._request.getResponseHeader(a):null},b._handleProgress=function(a){if(a&&!(a.loaded>0&&0==a.total)){var b=new createjs.ProgressEvent(a.loaded,a.total);this.dispatchEvent(b)}},b._handleLoadStart=function(){clearTimeout(this._loadTimeout),this.dispatchEvent("loadstart")},b._handleAbort=function(a){this._clean(),this.dispatchEvent(new createjs.ErrorEvent("XHR_ABORTED",null,a))},b._handleError=function(a){this._clean(),this.dispatchEvent(new createjs.ErrorEvent(a.message))},b._handleReadyStateChange=function(){4==this._request.readyState&&this._handleLoad()},b._handleLoad=function(){if(!this.loaded){this.loaded=!0;var a=this._checkError();if(a)return void this._handleError(a);this._response=this._getResponse(),this._clean(),this.dispatchEvent(new createjs.Event("complete"))}},b._handleTimeout=function(a){this._clean(),this.dispatchEvent(new createjs.ErrorEvent("PRELOAD_TIMEOUT",null,a))},b._checkError=function(){var a=parseInt(this._request.status);switch(a){case 404:case 0:return new Error(a)}return null},b._getResponse=function(){if(null!=this._response)return this._response;if(null!=this._request.response)return this._request.response;try{if(null!=this._request.responseText)return this._request.responseText}catch(a){}try{if(null!=this._request.responseXML)return this._request.responseXML}catch(a){}return null},b._createXHR=function(a){var b=createjs.RequestUtils.isCrossDomain(a),c={},d=null;if(window.XMLHttpRequest)d=new XMLHttpRequest,b&&void 0===d.withCredentials&&window.XDomainRequest&&(d=new XDomainRequest);else{for(var e=0,f=s.ACTIVEX_VERSIONS.length;f>e;e++){{s.ACTIVEX_VERSIONS[e]}try{d=new ActiveXObject(axVersions);break}catch(g){}}if(null==d)return!1}a.mimeType&&d.overrideMimeType&&d.overrideMimeType(a.mimeType),this._xhrLevel="string"==typeof d.responseType?2:1;var h=null;if(h=a.method==createjs.AbstractLoader.GET?createjs.RequestUtils.buildPath(a.src,a.values):a.src,d.open(a.method||createjs.AbstractLoader.GET,h,!0),b&&d instanceof XMLHttpRequest&&1==this._xhrLevel&&(c.Origin=location.origin),a.values&&a.method==createjs.AbstractLoader.POST&&(c["Content-Type"]="application/x-www-form-urlencoded"),b||c["X-Requested-With"]||(c["X-Requested-With"]="XMLHttpRequest"),a.headers)for(var i in a.headers)c[i]=a.headers[i];for(i in c)d.setRequestHeader(i,c[i]);return d instanceof XMLHttpRequest&&void 0!==a.withCredentials&&(d.withCredentials=a.withCredentials),this._request=d,!0},b._clean=function(){clearTimeout(this._loadTimeout),this._request.removeEventListener("loadstart",this._handleLoadStartProxy),this._request.removeEventListener("progress",this._handleProgressProxy),this._request.removeEventListener("abort",this._handleAbortProxy),this._request.removeEventListener("error",this._handleErrorProxy),this._request.removeEventListener("timeout",this._handleTimeoutProxy),this._request.removeEventListener("load",this._handleLoadProxy),this._request.removeEventListener("readystatechange",this._handleReadyStateChangeProxy)},b.toString=function(){return"[PreloadJS XHRRequest]"},createjs.XHRRequest=createjs.promote(a,"AbstractRequest")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b,c){this.AbstractLoader_constructor(),this.init(a,b,c)}var b=createjs.extend(a,createjs.AbstractLoader),c=a;b.init=function(a,b,c){this.useXHR=!0,this.preferXHR=!0,this._preferXHR=!0,this.setPreferXHR(a),this.stopOnError=!1,this.maintainScriptOrder=!0,this.next=null,this._paused=!1,this._basePath=b,this._crossOrigin=c,this._typeCallbacks={},this._extensionCallbacks={},this._loadStartWasDispatched=!1,this._maxConnections=1,this._currentlyLoadingScript=null,this._currentLoads=[],this._loadQueue=[],this._loadQueueBackup=[],this._loadItemsById={},this._loadItemsBySrc={},this._loadedResults={},this._loadedRawResults={},this._numItems=0,this._numItemsLoaded=0,this._scriptOrder=[],this._loadedScripts=[],this._lastProgress=0/0,this._availableLoaders=[createjs.ImageLoader,createjs.JavaScriptLoader,createjs.CSSLoader,createjs.JSONLoader,createjs.JSONPLoader,createjs.SoundLoader,createjs.ManifestLoader,createjs.SpriteSheetLoader,createjs.XMLLoader,createjs.SVGLoader,createjs.BinaryLoader,createjs.VideoLoader,createjs.TextLoader],this._defaultLoaderLength=this._availableLoaders.length},c.loadTimeout=8e3,c.LOAD_TIMEOUT=0,c.BINARY=createjs.AbstractLoader.BINARY,c.CSS=createjs.AbstractLoader.CSS,c.IMAGE=createjs.AbstractLoader.IMAGE,c.JAVASCRIPT=createjs.AbstractLoader.JAVASCRIPT,c.JSON=createjs.AbstractLoader.JSON,c.JSONP=createjs.AbstractLoader.JSONP,c.MANIFEST=createjs.AbstractLoader.MANIFEST,c.SOUND=createjs.AbstractLoader.SOUND,c.VIDEO=createjs.AbstractLoader.VIDEO,c.SVG=createjs.AbstractLoader.SVG,c.TEXT=createjs.AbstractLoader.TEXT,c.XML=createjs.AbstractLoader.XML,c.POST=createjs.AbstractLoader.POST,c.GET=createjs.AbstractLoader.GET,b.registerLoader=function(a){if(!a||!a.canLoadItem)throw new Error("loader is of an incorrect type.");if(-1!=this._availableLoaders.indexOf(a))throw new Error("loader already exists.");this._availableLoaders.unshift(a)},b.unregisterLoader=function(a){var b=this._availableLoaders.indexOf(a);-1!=b&&b<this._defaultLoaderLength-1&&this._availableLoaders.splice(b,1)},b.setUseXHR=function(a){return this.setPreferXHR(a)},b.setPreferXHR=function(a){return this.preferXHR=0!=a&&null!=window.XMLHttpRequest,this.preferXHR},b.removeAll=function(){this.remove()},b.remove=function(a){var b=null;if(!a||a instanceof Array){if(a)b=a;else if(arguments.length>0)return}else b=[a];var c=!1;if(b){for(;b.length;){var d=b.pop(),e=this.getResult(d);for(f=this._loadQueue.length-1;f>=0;f--)if(g=this._loadQueue[f].getItem(),g.id==d||g.src==d){this._loadQueue.splice(f,1)[0].cancel();break}for(f=this._loadQueueBackup.length-1;f>=0;f--)if(g=this._loadQueueBackup[f].getItem(),g.id==d||g.src==d){this._loadQueueBackup.splice(f,1)[0].cancel();break}if(e)delete this._loadItemsById[e.id],delete this._loadItemsBySrc[e.src],this._disposeItem(e);
-else for(var f=this._currentLoads.length-1;f>=0;f--){var g=this._currentLoads[f].getItem();if(g.id==d||g.src==d){this._currentLoads.splice(f,1)[0].cancel(),c=!0;break}}}c&&this._loadNext()}else{this.close();for(var h in this._loadItemsById)this._disposeItem(this._loadItemsById[h]);this.init(this.preferXHR,this._basePath)}},b.reset=function(){this.close();for(var a in this._loadItemsById)this._disposeItem(this._loadItemsById[a]);for(var b=[],c=0,d=this._loadQueueBackup.length;d>c;c++)b.push(this._loadQueueBackup[c].getItem());this.loadManifest(b,!1)},b.installPlugin=function(a){if(null!=a&&null!=a.getPreloadHandlers){var b=a.getPreloadHandlers();if(b.scope=a,null!=b.types)for(var c=0,d=b.types.length;d>c;c++)this._typeCallbacks[b.types[c]]=b;if(null!=b.extensions)for(c=0,d=b.extensions.length;d>c;c++)this._extensionCallbacks[b.extensions[c]]=b}},b.setMaxConnections=function(a){this._maxConnections=a,!this._paused&&this._loadQueue.length>0&&this._loadNext()},b.loadFile=function(a,b,c){if(null==a){var d=new createjs.ErrorEvent("PRELOAD_NO_FILE");return void this._sendError(d)}this._addItem(a,null,c),this.setPaused(b!==!1?!1:!0)},b.loadManifest=function(a,b,d){var e=null,f=null;if(a instanceof Array){if(0==a.length){var g=new createjs.ErrorEvent("PRELOAD_MANIFEST_EMPTY");return void this._sendError(g)}e=a}else if("string"==typeof a)e=[{src:a,type:c.MANIFEST}];else{if("object"!=typeof a){var g=new createjs.ErrorEvent("PRELOAD_MANIFEST_NULL");return void this._sendError(g)}if(void 0!==a.src){if(null==a.type)a.type=c.MANIFEST;else if(a.type!=c.MANIFEST){var g=new createjs.ErrorEvent("PRELOAD_MANIFEST_TYPE");this._sendError(g)}e=[a]}else void 0!==a.manifest&&(e=a.manifest,f=a.path)}for(var h=0,i=e.length;i>h;h++)this._addItem(e[h],f,d);this.setPaused(b!==!1?!1:!0)},b.load=function(){this.setPaused(!1)},b.getItem=function(a){return this._loadItemsById[a]||this._loadItemsBySrc[a]},b.getResult=function(a,b){var c=this._loadItemsById[a]||this._loadItemsBySrc[a];if(null==c)return null;var d=c.id;return b&&this._loadedRawResults[d]?this._loadedRawResults[d]:this._loadedResults[d]},b.getItems=function(a){for(var b=[],c=0,d=this._loadQueueBackup.length;d>c;c++){var e=this._loadQueueBackup[c],f=e.getItem();(a!==!0||e.loaded)&&b.push({item:f,result:this.getResult(f.id),rawResult:this.getResult(f.id,!0)})}return b},b.setPaused=function(a){this._paused=a,this._paused||this._loadNext()},b.close=function(){for(;this._currentLoads.length;)this._currentLoads.pop().cancel();this._scriptOrder.length=0,this._loadedScripts.length=0,this.loadStartWasDispatched=!1,this._itemCount=0,this._lastProgress=0/0},b._addItem=function(a,b,c){var d=this._createLoadItem(a,b,c);if(null!=d){var e=this._createLoader(d);null!=e&&(d._loader=e,this._loadQueue.push(e),this._loadQueueBackup.push(e),this._numItems++,this._updateProgress(),(this.maintainScriptOrder&&d.type==createjs.LoadQueue.JAVASCRIPT||d.maintainOrder===!0)&&(this._scriptOrder.push(d),this._loadedScripts.push(null)))}},b._createLoadItem=function(a,b,d){var e=createjs.LoadItem.create(a);if(null==e)return null;var f=createjs.RequestUtils.parseURI(e.src);f.extension&&(e.ext=f.extension),null==e.type&&(e.type=createjs.RequestUtils.getTypeByExtension(e.ext));var g="",h=d||this._basePath,i=e.src;if(!f.absolute&&!f.relative)if(b){g=b;var j=createjs.RequestUtils.parseURI(b);i=b+i,null==h||j.absolute||j.relative||(g=h+g)}else null!=h&&(g=h);e.src=g+e.src,e.path=g,(void 0===e.id||null===e.id||""===e.id)&&(e.id=i);var k=this._typeCallbacks[e.type]||this._extensionCallbacks[e.ext];if(k){var l=k.callback.call(k.scope,e,this);if(l===!1)return null;l===!0||null!=l&&(e._loader=l),f=createjs.RequestUtils.parseURI(e.src),null!=f.extension&&(e.ext=f.extension)}return this._loadItemsById[e.id]=e,this._loadItemsBySrc[e.src]=e,null==e.loadTimeout&&(e.loadTimeout=c.loadTimeout),null==e.crossOrigin&&(e.crossOrigin=this._crossOrigin),e},b._createLoader=function(a){if(null!=a._loader)return a._loader;for(var b=this.preferXHR,c=0;c<this._availableLoaders.length;c++){var d=this._availableLoaders[c];if(d&&d.canLoadItem(a))return new d(a,b)}return null},b._loadNext=function(){if(!this._paused){this._loadStartWasDispatched||(this._sendLoadStart(),this._loadStartWasDispatched=!0),this._numItems==this._numItemsLoaded?(this.loaded=!0,this._sendComplete(),this.next&&this.next.load&&this.next.load()):this.loaded=!1;for(var a=0;a<this._loadQueue.length&&!(this._currentLoads.length>=this._maxConnections);a++){var b=this._loadQueue[a];this._canStartLoad(b)&&(this._loadQueue.splice(a,1),a--,this._loadItem(b))}}},b._loadItem=function(a){a.on("fileload",this._handleFileLoad,this),a.on("progress",this._handleProgress,this),a.on("complete",this._handleFileComplete,this),a.on("error",this._handleError,this),a.on("fileerror",this._handleFileError,this),this._currentLoads.push(a),this._sendFileStart(a.getItem()),a.load()},b._handleFileLoad=function(a){a.target=null,this.dispatchEvent(a)},b._handleFileError=function(a){var b=new createjs.ErrorEvent("FILE_LOAD_ERROR",null,a.item);this._sendError(b)},b._handleError=function(a){var b=a.target;this._numItemsLoaded++,this._finishOrderedItem(b,!0),this._updateProgress();var c=new createjs.ErrorEvent("FILE_LOAD_ERROR",null,b.getItem());this._sendError(c),this.stopOnError||(this._removeLoadItem(b),this._loadNext())},b._handleFileComplete=function(a){var b=a.target,c=b.getItem(),d=b.getResult();this._loadedResults[c.id]=d;var e=b.getResult(!0);null!=e&&e!==d&&(this._loadedRawResults[c.id]=e),this._saveLoadedItems(b),this._removeLoadItem(b),this._finishOrderedItem(b)||this._processFinishedLoad(c,b)},b._saveLoadedItems=function(a){var b=a.getLoadedItems();if(null!==b)for(var c=0;c<b.length;c++){var d=b[c].item;this._loadItemsBySrc[d.src]=d,this._loadItemsById[d.id]=d,this._loadedResults[d.id]=b[c].result,this._loadedRawResults[d.id]=b[c].rawResult}},b._finishOrderedItem=function(a,b){var c=a.getItem();if(this.maintainScriptOrder&&c.type==createjs.LoadQueue.JAVASCRIPT||c.maintainOrder){a instanceof createjs.JavaScriptLoader&&(this._currentlyLoadingScript=!1);var d=createjs.indexOf(this._scriptOrder,c);return-1==d?!1:(this._loadedScripts[d]=b===!0?!0:c,this._checkScriptLoadOrder(),!0)}return!1},b._checkScriptLoadOrder=function(){for(var a=this._loadedScripts.length,b=0;a>b;b++){var c=this._loadedScripts[b];if(null===c)break;if(c!==!0){var d=this._loadedResults[c.id];c.type==createjs.LoadQueue.JAVASCRIPT&&(document.body||document.getElementsByTagName("body")[0]).appendChild(d);var e=c._loader;this._processFinishedLoad(c,e),this._loadedScripts[b]=!0}}},b._processFinishedLoad=function(a,b){this._numItemsLoaded++,this._updateProgress(),this._sendFileComplete(a,b),this._loadNext()},b._canStartLoad=function(a){if(!this.maintainScriptOrder||a.preferXHR)return!0;var b=a.getItem();if(b.type!=createjs.LoadQueue.JAVASCRIPT)return!0;if(this._currentlyLoadingScript)return!1;for(var c=this._scriptOrder.indexOf(b),d=0;c>d;){var e=this._loadedScripts[d];if(null==e)return!1;d++}return this._currentlyLoadingScript=!0,!0},b._removeLoadItem=function(a){var b=a.getItem();delete b._loader;for(var c=this._currentLoads.length,d=0;c>d;d++)if(this._currentLoads[d]==a){this._currentLoads.splice(d,1);break}},b._handleProgress=function(a){var b=a.target;this._sendFileProgress(b.getItem(),b.progress),this._updateProgress()},b._updateProgress=function(){var a=this._numItemsLoaded/this._numItems,b=this._numItems-this._numItemsLoaded;if(b>0){for(var c=0,d=0,e=this._currentLoads.length;e>d;d++)c+=this._currentLoads[d].progress;a+=c/b*(b/this._numItems)}this._lastProgress!=a&&(this._sendProgress(a),this._lastProgress=a)},b._disposeItem=function(a){delete this._loadedResults[a.id],delete this._loadedRawResults[a.id],delete this._loadItemsById[a.id],delete this._loadItemsBySrc[a.src]},b._sendFileProgress=function(a,b){if(this._isCanceled())return void this._cleanUp();if(this.hasEventListener("fileprogress")){var c=new createjs.Event("fileprogress");c.progress=b,c.loaded=b,c.total=1,c.item=a,this.dispatchEvent(c)}},b._sendFileComplete=function(a,b){if(!this._isCanceled()){var c=new createjs.Event("fileload");c.loader=b,c.item=a,c.result=this._loadedResults[a.id],c.rawResult=this._loadedRawResults[a.id],a.completeHandler&&a.completeHandler(c),this.hasEventListener("fileload")&&this.dispatchEvent(c)}},b._sendFileStart=function(a){var b=new createjs.Event("filestart");b.item=a,this.hasEventListener("filestart")&&this.dispatchEvent(b)},b.toString=function(){return"[PreloadJS LoadQueue]"},createjs.LoadQueue=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractLoader_constructor(a,!0,createjs.AbstractLoader.TEXT)}var b=(createjs.extend(a,createjs.AbstractLoader),a);b.canLoadItem=function(a){return a.type==createjs.AbstractLoader.TEXT},createjs.TextLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractLoader_constructor(a,!0,createjs.AbstractLoader.BINARY),this.on("initialize",this._updateXHR,this)}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.BINARY},b._updateXHR=function(a){a.loader.setResponseType("arraybuffer")},createjs.BinaryLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b){this.AbstractLoader_constructor(a,b,createjs.AbstractLoader.CSS),this.resultFormatter=this._formatResult,this._tagSrcAttribute="href",this._tag=document.createElement(b?"style":"link"),this._tag.rel="stylesheet",this._tag.type="text/css"}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.CSS},b._formatResult=function(a){if(this._preferXHR){var b=a.getTag(),c=document.getElementsByTagName("head")[0];if(c.appendChild(b),b.styleSheet)b.styleSheet.cssText=a.getResult(!0);else{var d=document.createTextNode(a.getResult(!0));b.appendChild(d)}}else b=this._tag;return b},createjs.CSSLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b){this.AbstractLoader_constructor(a,b,createjs.AbstractLoader.IMAGE),this.resultFormatter=this._formatResult,this._tagSrcAttribute="src",createjs.RequestUtils.isImageTag(a)?this._tag=a:createjs.RequestUtils.isImageTag(a.src)?this._tag=a.src:createjs.RequestUtils.isImageTag(a.tag)&&(this._tag=a.tag),null!=this._tag?this._preferXHR=!1:this._tag=document.createElement("img"),this.on("initialize",this._updateXHR,this)}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.IMAGE},b.load=function(){if(""!=this._tag.src&&this._tag.complete)return void this._sendComplete();var a=this._item.crossOrigin;1==a&&(a="Anonymous"),null==a||createjs.RequestUtils.isLocal(this._item.src)||(this._tag.crossOrigin=a),this.AbstractLoader_load()},b._updateXHR=function(a){a.loader.mimeType="text/plain; charset=x-user-defined-binary",a.loader.setResponseType&&a.loader.setResponseType("blob")},b._formatResult=function(a){var b=this;return function(c){var d=b._tag,e=window.URL||window.webkitURL;if(b._preferXHR)if(e){var f=e.createObjectURL(a.getResult(!0));d.src=f,d.onload=function(){e.revokeObjectURL(b.src)}}else d.src=a.getItem().src;else;d.complete?c(d):d.onload=function(){c(this)}}},createjs.ImageLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b){this.AbstractLoader_constructor(a,b,createjs.AbstractLoader.JAVASCRIPT),this.resultFormatter=this._formatResult,this._tagSrcAttribute="src",this.setTag(document.createElement("script"))}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.JAVASCRIPT},b._formatResult=function(a){var b=a.getTag();return this._preferXHR&&(b.text=a.getResult(!0)),b},createjs.JavaScriptLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractLoader_constructor(a,!0,createjs.AbstractLoader.JSON),this.resultFormatter=this._formatResult}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.JSON&&!a._loadAsJSONP},b._formatResult=function(a){var b=null;try{b=createjs.DataUtils.parseJSON(a.getResult(!0))}catch(c){var d=new createjs.ErrorEvent("JSON_FORMAT",null,c);return this._sendError(d),c}return b},createjs.JSONLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractLoader_constructor(a,!1,createjs.AbstractLoader.JSONP),this.setTag(document.createElement("script")),this.getTag().type="text/javascript"}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.JSONP||a._loadAsJSONP},b.cancel=function(){this.AbstractLoader_cancel(),this._dispose()},b.load=function(){if(null==this._item.callback)throw new Error("callback is required for loading JSONP requests.");if(null!=window[this._item.callback])throw new Error("JSONP callback '"+this._item.callback+"' already exists on window. You need to specify a different callback or re-name the current one.");window[this._item.callback]=createjs.proxy(this._handleLoad,this),window.document.body.appendChild(this._tag),this._tag.src=this._item.src},b._handleLoad=function(a){this._result=this._rawResult=a,this._sendComplete(),this._dispose()},b._dispose=function(){window.document.body.removeChild(this._tag),delete window[this._item.callback]},createjs.JSONPLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractLoader_constructor(a,null,createjs.AbstractLoader.MANIFEST),this._manifestQueue=null}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.MANIFEST_PROGRESS=.25,c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.MANIFEST},b.load=function(){this.AbstractLoader_load()},b._createRequest=function(){var a=this._item.callback;this._request=null!=a?new createjs.JSONPLoader(this._item):new createjs.JSONLoader(this._item)},b.handleEvent=function(a){switch(a.type){case"complete":return this._rawResult=a.target.getResult(!0),this._result=a.target.getResult(),this._sendProgress(c.MANIFEST_PROGRESS),void this._loadManifest(this._result);case"progress":return a.loaded*=c.MANIFEST_PROGRESS,this.progress=a.loaded/a.total,(isNaN(this.progress)||1/0==this.progress)&&(this.progress=0),void this._sendProgress(a)}this.AbstractLoader_handleEvent(a)},b.destroy=function(){this.AbstractLoader_destroy(),this._manifestQueue.close()},b._loadManifest=function(a){if(a&&a.manifest){var b=this._manifestQueue=new createjs.LoadQueue;b.on("fileload",this._handleManifestFileLoad,this),b.on("progress",this._handleManifestProgress,this),b.on("complete",this._handleManifestComplete,this,!0),b.on("error",this._handleManifestError,this,!0),b.loadManifest(a)}else this._sendComplete()},b._handleManifestFileLoad=function(a){a.target=null,this.dispatchEvent(a)},b._handleManifestComplete=function(){this._loadedItems=this._manifestQueue.getItems(!0),this._sendComplete()},b._handleManifestProgress=function(a){this.progress=a.progress*(1-c.MANIFEST_PROGRESS)+c.MANIFEST_PROGRESS,this._sendProgress(this.progress)},b._handleManifestError=function(a){var b=new createjs.Event("fileerror");b.item=a.data,this.dispatchEvent(b)},createjs.ManifestLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b){this.AbstractMediaLoader_constructor(a,b,createjs.AbstractLoader.SOUND),createjs.RequestUtils.isAudioTag(a)?this._tag=a:createjs.RequestUtils.isAudioTag(a.src)?this._tag=a:createjs.RequestUtils.isAudioTag(a.tag)&&(this._tag=createjs.RequestUtils.isAudioTag(a)?a:a.src),null!=this._tag&&(this._preferXHR=!1)}var b=createjs.extend(a,createjs.AbstractMediaLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.SOUND},b._createTag=function(a){var b=document.createElement("audio");return b.autoplay=!1,b.preload="none",b.src=a,b},createjs.SoundLoader=createjs.promote(a,"AbstractMediaLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b){this.AbstractMediaLoader_constructor(a,b,createjs.AbstractLoader.VIDEO),createjs.RequestUtils.isVideoTag(a)||createjs.RequestUtils.isVideoTag(a.src)?(this.setTag(createjs.RequestUtils.isVideoTag(a)?a:a.src),this._preferXHR=!1):this.setTag(this._createTag())}var b=createjs.extend(a,createjs.AbstractMediaLoader),c=a;b._createTag=function(){return document.createElement("video")},c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.VIDEO},createjs.VideoLoader=createjs.promote(a,"AbstractMediaLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractLoader_constructor(a,null,createjs.AbstractLoader.SPRITESHEET),this._manifestQueue=null}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.SPRITESHEET_PROGRESS=.25,c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.SPRITESHEET},b.destroy=function(){this.AbstractLoader_destroy,this._manifestQueue.close()},b._createRequest=function(){var a=this._item.callback;this._request=null!=a&&a instanceof Function?new createjs.JSONPLoader(this._item):new createjs.JSONLoader(this._item)},b.handleEvent=function(a){switch(a.type){case"complete":return this._rawResult=a.target.getResult(!0),this._result=a.target.getResult(),this._sendProgress(c.SPRITESHEET_PROGRESS),void this._loadManifest(this._result);case"progress":return a.loaded*=c.SPRITESHEET_PROGRESS,this.progress=a.loaded/a.total,(isNaN(this.progress)||1/0==this.progress)&&(this.progress=0),void this._sendProgress(a)}this.AbstractLoader_handleEvent(a)},b._loadManifest=function(a){if(a&&a.images){var b=this._manifestQueue=new createjs.LoadQueue;b.on("complete",this._handleManifestComplete,this,!0),b.on("fileload",this._handleManifestFileLoad,this),b.on("progress",this._handleManifestProgress,this),b.on("error",this._handleManifestError,this,!0),b.loadManifest(a.images)}},b._handleManifestFileLoad=function(a){var b=a.result;if(null!=b){var c=this.getResult().images,d=c.indexOf(a.item.src);c[d]=b}},b._handleManifestComplete=function(){this._result=new createjs.SpriteSheet(this._result),this._loadedItems=this._manifestQueue.getItems(!0),this._sendComplete()},b._handleManifestProgress=function(a){this.progress=a.progress*(1-c.SPRITESHEET_PROGRESS)+c.SPRITESHEET_PROGRESS,this._sendProgress(this.progress)},b._handleManifestError=function(a){var b=new createjs.Event("fileerror");b.item=a.data,this.dispatchEvent(b)},createjs.SpriteSheetLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a,b){this.AbstractLoader_constructor(a,b,createjs.AbstractLoader.SVG),this.resultFormatter=this._formatResult,this._tagSrcAttribute="data",b?this.setTag(document.createElement("svg")):(this.setTag(document.createElement("object")),this.getTag().type="image/svg+xml"),this.getTag().style.visibility="hidden"}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.SVG},b._formatResult=function(a){var b=createjs.DataUtils.parseXML(a.getResult(!0),"text/xml"),c=a.getTag();return!this._preferXHR&&document.body.contains(c)&&document.body.removeChild(c),null!=b.documentElement?(c.appendChild(b.documentElement),c.style.visibility="visible",c):b},createjs.SVGLoader=createjs.promote(a,"AbstractLoader")}(),this.createjs=this.createjs||{},function(){"use strict";function a(a){this.AbstractLoader_constructor(a,!0,createjs.AbstractLoader.XML),this.resultFormatter=this._formatResult}var b=createjs.extend(a,createjs.AbstractLoader),c=a;c.canLoadItem=function(a){return a.type==createjs.AbstractLoader.XML},b._formatResult=function(a){return createjs.DataUtils.parseXML(a.getResult(!0),"text/xml")},createjs.XMLLoader=createjs.promote(a,"AbstractLoader")}();
+
+
+//##############################################################################
+// version.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	/**
+	 * Static class holding library specific information such as the version and buildDate of the library.
+	 * @class PreloadJS
+	 **/
+	var s = createjs.PreloadJS = createjs.PreloadJS || {};
+
+	/**
+	 * The version string for this release.
+	 * @property version
+	 * @type {String}
+	 * @static
+	 **/
+	s.version = /*=version*/"0.6.0"; // injected by build process
+
+	/**
+	 * The build date for this release in UTC format.
+	 * @property buildDate
+	 * @type {String}
+	 * @static
+	 **/
+	s.buildDate = /*=date*/"Thu, 11 Dec 2014 23:32:09 GMT"; // injected by build process
+
+})();
+
+//##############################################################################
+// extend.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+/**
+ * @class Utility Methods
+ */
+
+/**
+ * Sets up the prototype chain and constructor property for a new class.
+ *
+ * This should be called right after creating the class constructor.
+ *
+ * 	function MySubClass() {}
+ * 	createjs.extend(MySubClass, MySuperClass);
+ * 	ClassB.prototype.doSomething = function() { }
+ *
+ * 	var foo = new MySubClass();
+ * 	console.log(foo instanceof MySuperClass); // true
+ * 	console.log(foo.prototype.constructor === MySubClass); // true
+ *
+ * @method extend
+ * @param {Function} subclass The subclass.
+ * @param {Function} superclass The superclass to extend.
+ * @return {Function} Returns the subclass's new prototype.
+ */
+createjs.extend = function(subclass, superclass) {
+	"use strict";
+
+	function o() { this.constructor = subclass; }
+	o.prototype = superclass.prototype;
+	return (subclass.prototype = new o());
+};
+
+//##############################################################################
+// promote.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+/**
+ * @class Utility Methods
+ */
+
+/**
+ * Promotes any methods on the super class that were overridden, by creating an alias in the format `prefix_methodName`.
+ * It is recommended to use the super class's name as the prefix.
+ * An alias to the super class's constructor is always added in the format `prefix_constructor`.
+ * This allows the subclass to call super class methods without using `function.call`, providing better performance.
+ *
+ * For example, if `MySubClass` extends `MySuperClass`, and both define a `draw` method, then calling `promote(MySubClass, "MySuperClass")`
+ * would add a `MySuperClass_constructor` method to MySubClass and promote the `draw` method on `MySuperClass` to the
+ * prototype of `MySubClass` as `MySuperClass_draw`.
+ *
+ * This should be called after the class's prototype is fully defined.
+ *
+ * 	function ClassA(name) {
+ * 		this.name = name;
+ * 	}
+ * 	ClassA.prototype.greet = function() {
+ * 		return "Hello "+this.name;
+ * 	}
+ *
+ * 	function ClassB(name, punctuation) {
+ * 		this.ClassA_constructor(name);
+ * 		this.punctuation = punctuation;
+ * 	}
+ * 	createjs.extend(ClassB, ClassA);
+ * 	ClassB.prototype.greet = function() {
+ * 		return this.ClassA_greet()+this.punctuation;
+ * 	}
+ * 	createjs.promote(ClassB, "ClassA");
+ *
+ * 	var foo = new ClassB("World", "!?!");
+ * 	console.log(foo.greet()); // Hello World!?!
+ *
+ * @method promote
+ * @param {Function} subclass The class to promote super class methods on.
+ * @param {String} prefix The prefix to add to the promoted method names. Usually the name of the superclass.
+ * @return {Function} Returns the subclass.
+ */
+createjs.promote = function(subclass, prefix) {
+	"use strict";
+
+	var subP = subclass.prototype, supP = (Object.getPrototypeOf&&Object.getPrototypeOf(subP))||subP.__proto__;
+	if (supP) {
+		subP[(prefix+="_") + "constructor"] = supP.constructor; // constructor is not always innumerable
+		for (var n in supP) {
+			if (subP.hasOwnProperty(n) && (typeof supP[n] == "function")) { subP[prefix + n] = supP[n]; }
+		}
+	}
+	return subclass;
+};
+
+//##############################################################################
+// indexOf.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+/**
+ * @class Utility Methods
+ */
+
+/**
+ * Finds the first occurrence of a specified value searchElement in the passed in array, and returns the index of
+ * that value.  Returns -1 if value is not found.
+ *
+ *      var i = createjs.indexOf(myArray, myElementToFind);
+ *
+ * @method indexOf
+ * @param {Array} array Array to search for searchElement
+ * @param searchElement Element to find in array.
+ * @return {Number} The first index of searchElement in array.
+ */
+createjs.indexOf = function (array, searchElement){
+	"use strict";
+
+	for (var i = 0,l=array.length; i < l; i++) {
+		if (searchElement === array[i]) {
+			return i;
+		}
+	}
+	return -1;
+};
+
+//##############################################################################
+// proxy.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+/**
+ * Various utilities that the CreateJS Suite uses. Utilities are created as separate files, and will be available on the
+ * createjs namespace directly.
+ *
+ * <h4>Example</h4>
+ *
+ *      myObject.addEventListener("change", createjs.proxy(myMethod, scope));
+ *
+ * @class Utility Methods
+ * @main Utility Methods
+ */
+
+(function() {
+	"use strict";
+
+	/**
+	 * A function proxy for methods. By default, JavaScript methods do not maintain scope, so passing a method as a
+	 * callback will result in the method getting called in the scope of the caller. Using a proxy ensures that the
+	 * method gets called in the correct scope.
+	 *
+	 * Additional arguments can be passed that will be applied to the function when it is called.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      myObject.addEventListener("event", createjs.proxy(myHandler, this, arg1, arg2));
+	 *
+	 *      function myHandler(arg1, arg2) {
+	 *           // This gets called when myObject.myCallback is executed.
+	 *      }
+	 *
+	 * @method proxy
+	 * @param {Function} method The function to call
+	 * @param {Object} scope The scope to call the method name on
+	 * @param {mixed} [arg] * Arguments that are appended to the callback for additional params.
+	 * @public
+	 * @static
+	 */
+	createjs.proxy = function (method, scope) {
+		var aArgs = Array.prototype.slice.call(arguments, 2);
+		return function () {
+			return method.apply(scope, Array.prototype.slice.call(arguments, 0).concat(aArgs));
+		};
+	}
+
+}());
+
+//##############################################################################
+// BrowserDetect.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+/**
+ * @class Utility Methods
+ */
+(function() {
+	"use strict";
+
+	/**
+	 * An object that determines the current browser, version, operating system, and other environment
+	 * variables via user agent string.
+	 *
+	 * Used for audio because feature detection is unable to detect the many limitations of mobile devices.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      if (createjs.BrowserDetect.isIOS) { // do stuff }
+	 *
+	 * @property BrowserDetect
+	 * @type {Object}
+	 * @param {Boolean} isFirefox True if our browser is Firefox.
+	 * @param {Boolean} isOpera True if our browser is opera.
+	 * @param {Boolean} isChrome True if our browser is Chrome.  Note that Chrome for Android returns true, but is a
+	 * completely different browser with different abilities.
+	 * @param {Boolean} isIOS True if our browser is safari for iOS devices (iPad, iPhone, and iPod).
+	 * @param {Boolean} isAndroid True if our browser is Android.
+	 * @param {Boolean} isBlackberry True if our browser is Blackberry.
+	 * @constructor
+	 * @static
+	 */
+	function BrowserDetect() {
+		throw "BrowserDetect cannot be instantiated";
+	};
+
+	var agent = BrowserDetect.agent = window.navigator.userAgent;
+	BrowserDetect.isWindowPhone = (agent.indexOf("IEMobile") > -1) || (agent.indexOf("Windows Phone") > -1);
+	BrowserDetect.isFirefox = (agent.indexOf("Firefox") > -1);
+	BrowserDetect.isOpera = (window.opera != null);
+	BrowserDetect.isChrome = (agent.indexOf("Chrome") > -1);  // NOTE that Chrome on Android returns true but is a completely different browser with different abilities
+	BrowserDetect.isIOS = (agent.indexOf("iPod") > -1 || agent.indexOf("iPhone") > -1 || agent.indexOf("iPad") > -1) && !BrowserDetect.isWindowPhone;
+	BrowserDetect.isAndroid = (agent.indexOf("Android") > -1) && !BrowserDetect.isWindowPhone;
+	BrowserDetect.isBlackberry = (agent.indexOf("Blackberry") > -1);
+
+	createjs.BrowserDetect = BrowserDetect;
+
+}());
+
+//##############################################################################
+// Event.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+(function() {
+	"use strict";
+
+// constructor:
+	/**
+	 * Contains properties and methods shared by all events for use with
+	 * {{#crossLink "EventDispatcher"}}{{/crossLink}}.
+	 * 
+	 * Note that Event objects are often reused, so you should never
+	 * rely on an event object's state outside of the call stack it was received in.
+	 * @class Event
+	 * @param {String} type The event type.
+	 * @param {Boolean} bubbles Indicates whether the event will bubble through the display list.
+	 * @param {Boolean} cancelable Indicates whether the default behaviour of this event can be cancelled.
+	 * @constructor
+	 **/
+	function Event(type, bubbles, cancelable) {
+		
+	
+	// public properties:
+		/**
+		 * The type of event.
+		 * @property type
+		 * @type String
+		 **/
+		this.type = type;
+	
+		/**
+		 * The object that generated an event.
+		 * @property target
+		 * @type Object
+		 * @default null
+		 * @readonly
+		*/
+		this.target = null;
+	
+		/**
+		 * The current target that a bubbling event is being dispatched from. For non-bubbling events, this will
+		 * always be the same as target. For example, if childObj.parent = parentObj, and a bubbling event
+		 * is generated from childObj, then a listener on parentObj would receive the event with
+		 * target=childObj (the original target) and currentTarget=parentObj (where the listener was added).
+		 * @property currentTarget
+		 * @type Object
+		 * @default null
+		 * @readonly
+		*/
+		this.currentTarget = null;
+	
+		/**
+		 * For bubbling events, this indicates the current event phase:<OL>
+		 * 	<LI> capture phase: starting from the top parent to the target</LI>
+		 * 	<LI> at target phase: currently being dispatched from the target</LI>
+		 * 	<LI> bubbling phase: from the target to the top parent</LI>
+		 * </OL>
+		 * @property eventPhase
+		 * @type Number
+		 * @default 0
+		 * @readonly
+		*/
+		this.eventPhase = 0;
+	
+		/**
+		 * Indicates whether the event will bubble through the display list.
+		 * @property bubbles
+		 * @type Boolean
+		 * @default false
+		 * @readonly
+		*/
+		this.bubbles = !!bubbles;
+	
+		/**
+		 * Indicates whether the default behaviour of this event can be cancelled via
+		 * {{#crossLink "Event/preventDefault"}}{{/crossLink}}. This is set via the Event constructor.
+		 * @property cancelable
+		 * @type Boolean
+		 * @default false
+		 * @readonly
+		*/
+		this.cancelable = !!cancelable;
+	
+		/**
+		 * The epoch time at which this event was created.
+		 * @property timeStamp
+		 * @type Number
+		 * @default 0
+		 * @readonly
+		*/
+		this.timeStamp = (new Date()).getTime();
+	
+		/**
+		 * Indicates if {{#crossLink "Event/preventDefault"}}{{/crossLink}} has been called
+		 * on this event.
+		 * @property defaultPrevented
+		 * @type Boolean
+		 * @default false
+		 * @readonly
+		*/
+		this.defaultPrevented = false;
+	
+		/**
+		 * Indicates if {{#crossLink "Event/stopPropagation"}}{{/crossLink}} or
+		 * {{#crossLink "Event/stopImmediatePropagation"}}{{/crossLink}} has been called on this event.
+		 * @property propagationStopped
+		 * @type Boolean
+		 * @default false
+		 * @readonly
+		*/
+		this.propagationStopped = false;
+	
+		/**
+		 * Indicates if {{#crossLink "Event/stopImmediatePropagation"}}{{/crossLink}} has been called
+		 * on this event.
+		 * @property immediatePropagationStopped
+		 * @type Boolean
+		 * @default false
+		 * @readonly
+		*/
+		this.immediatePropagationStopped = false;
+		
+		/**
+		 * Indicates if {{#crossLink "Event/remove"}}{{/crossLink}} has been called on this event.
+		 * @property removed
+		 * @type Boolean
+		 * @default false
+		 * @readonly
+		*/
+		this.removed = false;
+	}
+	var p = Event.prototype;
+	
+
+// public methods:
+	/**
+	 * Sets {{#crossLink "Event/defaultPrevented"}}{{/crossLink}} to true.
+	 * Mirrors the DOM event standard.
+	 * @method preventDefault
+	 **/
+	p.preventDefault = function() {
+		this.defaultPrevented = this.cancelable&&true;
+	};
+
+	/**
+	 * Sets {{#crossLink "Event/propagationStopped"}}{{/crossLink}} to true.
+	 * Mirrors the DOM event standard.
+	 * @method stopPropagation
+	 **/
+	p.stopPropagation = function() {
+		this.propagationStopped = true;
+	};
+
+	/**
+	 * Sets {{#crossLink "Event/propagationStopped"}}{{/crossLink}} and
+	 * {{#crossLink "Event/immediatePropagationStopped"}}{{/crossLink}} to true.
+	 * Mirrors the DOM event standard.
+	 * @method stopImmediatePropagation
+	 **/
+	p.stopImmediatePropagation = function() {
+		this.immediatePropagationStopped = this.propagationStopped = true;
+	};
+	
+	/**
+	 * Causes the active listener to be removed via removeEventListener();
+	 * 
+	 * 		myBtn.addEventListener("click", function(evt) {
+	 * 			// do stuff...
+	 * 			evt.remove(); // removes this listener.
+	 * 		});
+	 * 
+	 * @method remove
+	 **/
+	p.remove = function() {
+		this.removed = true;
+	};
+	
+	/**
+	 * Returns a clone of the Event instance.
+	 * @method clone
+	 * @return {Event} a clone of the Event instance.
+	 **/
+	p.clone = function() {
+		return new Event(this.type, this.bubbles, this.cancelable);
+	};
+	
+	/**
+	 * Provides a chainable shortcut method for setting a number of properties on the instance.
+	 *
+	 * @method set
+	 * @param {Object} props A generic object containing properties to copy to the instance.
+	 * @return {Event} Returns the instance the method is called on (useful for chaining calls.)
+	 * @chainable
+	*/
+	p.set = function(props) {
+		for (var n in props) { this[n] = props[n]; }
+		return this;
+	};
+
+	/**
+	 * Returns a string representation of this object.
+	 * @method toString
+	 * @return {String} a string representation of the instance.
+	 **/
+	p.toString = function() {
+		return "[Event (type="+this.type+")]";
+	};
+
+	createjs.Event = Event;
+}());
+
+//##############################################################################
+// ErrorEvent.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+(function() {
+	"use strict";
+
+	/**
+	 * A general error {{#crossLink "Event"}}{{/crossLink}}, that describes an error that occurred, as well as any details.
+	 * @class ErrorEvent
+	 * @param {String} [title] The error title
+	 * @param {String} [message] The error description
+	 * @param {Object} [data] Additional error data
+	 * @constructor
+	 */
+	function ErrorEvent(title, message, data) {
+		this.Event_constructor("error");
+
+		/**
+		 * The short error title, which indicates the type of error that occurred.
+		 * @property title
+		 * @type String
+		 */
+		this.title = title;
+
+		/**
+		 * The verbose error message, containing details about the error.
+		 * @property message
+		 * @type String
+		 */
+		this.message = message;
+
+		/**
+		 * Additional data attached to an error.
+		 * @property data
+		 * @type {Object}
+		 */
+		this.data = data;
+	}
+
+	var p = createjs.extend(ErrorEvent, createjs.Event);
+
+	p.clone = function() {
+		return new createjs.ErrorEvent(this.title, this.message, this.data);
+	};
+
+	createjs.ErrorEvent = createjs.promote(ErrorEvent, "Event");
+
+}());
+
+//##############################################################################
+// EventDispatcher.js
+//##############################################################################
+
+this.createjs = this.createjs||{};
+
+(function() {
+	"use strict";
+
+
+// constructor:
+	/**
+	 * EventDispatcher provides methods for managing queues of event listeners and dispatching events.
+	 *
+	 * You can either extend EventDispatcher or mix its methods into an existing prototype or instance by using the
+	 * EventDispatcher {{#crossLink "EventDispatcher/initialize"}}{{/crossLink}} method.
+	 * 
+	 * Together with the CreateJS Event class, EventDispatcher provides an extended event model that is based on the
+	 * DOM Level 2 event model, including addEventListener, removeEventListener, and dispatchEvent. It supports
+	 * bubbling / capture, preventDefault, stopPropagation, stopImmediatePropagation, and handleEvent.
+	 * 
+	 * EventDispatcher also exposes a {{#crossLink "EventDispatcher/on"}}{{/crossLink}} method, which makes it easier
+	 * to create scoped listeners, listeners that only run once, and listeners with associated arbitrary data. The 
+	 * {{#crossLink "EventDispatcher/off"}}{{/crossLink}} method is merely an alias to
+	 * {{#crossLink "EventDispatcher/removeEventListener"}}{{/crossLink}}.
+	 * 
+	 * Another addition to the DOM Level 2 model is the {{#crossLink "EventDispatcher/removeAllEventListeners"}}{{/crossLink}}
+	 * method, which can be used to listeners for all events, or listeners for a specific event. The Event object also 
+	 * includes a {{#crossLink "Event/remove"}}{{/crossLink}} method which removes the active listener.
+	 *
+	 * <h4>Example</h4>
+	 * Add EventDispatcher capabilities to the "MyClass" class.
+	 *
+	 *      EventDispatcher.initialize(MyClass.prototype);
+	 *
+	 * Add an event (see {{#crossLink "EventDispatcher/addEventListener"}}{{/crossLink}}).
+	 *
+	 *      instance.addEventListener("eventName", handlerMethod);
+	 *      function handlerMethod(event) {
+	 *          console.log(event.target + " Was Clicked");
+	 *      }
+	 *
+	 * <b>Maintaining proper scope</b><br />
+	 * Scope (ie. "this") can be be a challenge with events. Using the {{#crossLink "EventDispatcher/on"}}{{/crossLink}}
+	 * method to subscribe to events simplifies this.
+	 *
+	 *      instance.addEventListener("click", function(event) {
+	 *          console.log(instance == this); // false, scope is ambiguous.
+	 *      });
+	 *      
+	 *      instance.on("click", function(event) {
+	 *          console.log(instance == this); // true, "on" uses dispatcher scope by default.
+	 *      });
+	 * 
+	 * If you want to use addEventListener instead, you may want to use function.bind() or a similar proxy to manage scope.
+	 *      
+	 *
+	 * @class EventDispatcher
+	 * @constructor
+	 **/
+	function EventDispatcher() {
+	
+	
+	// private properties:
+		/**
+		 * @protected
+		 * @property _listeners
+		 * @type Object
+		 **/
+		this._listeners = null;
+		
+		/**
+		 * @protected
+		 * @property _captureListeners
+		 * @type Object
+		 **/
+		this._captureListeners = null;
+	}
+	var p = EventDispatcher.prototype;
+
+
+// static public methods:
+	/**
+	 * Static initializer to mix EventDispatcher methods into a target object or prototype.
+	 * 
+	 * 		EventDispatcher.initialize(MyClass.prototype); // add to the prototype of the class
+	 * 		EventDispatcher.initialize(myObject); // add to a specific instance
+	 * 
+	 * @method initialize
+	 * @static
+	 * @param {Object} target The target object to inject EventDispatcher methods into. This can be an instance or a
+	 * prototype.
+	 **/
+	EventDispatcher.initialize = function(target) {
+		target.addEventListener = p.addEventListener;
+		target.on = p.on;
+		target.removeEventListener = target.off =  p.removeEventListener;
+		target.removeAllEventListeners = p.removeAllEventListeners;
+		target.hasEventListener = p.hasEventListener;
+		target.dispatchEvent = p.dispatchEvent;
+		target._dispatchEvent = p._dispatchEvent;
+		target.willTrigger = p.willTrigger;
+	};
+	
+
+// public methods:
+	/**
+	 * Adds the specified event listener. Note that adding multiple listeners to the same function will result in
+	 * multiple callbacks getting fired.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      displayObject.addEventListener("click", handleClick);
+	 *      function handleClick(event) {
+	 *         // Click happened.
+	 *      }
+	 *
+	 * @method addEventListener
+	 * @param {String} type The string type of the event.
+	 * @param {Function | Object} listener An object with a handleEvent method, or a function that will be called when
+	 * the event is dispatched.
+	 * @param {Boolean} [useCapture] For events that bubble, indicates whether to listen for the event in the capture or bubbling/target phase.
+	 * @return {Function | Object} Returns the listener for chaining or assignment.
+	 **/
+	p.addEventListener = function(type, listener, useCapture) {
+		var listeners;
+		if (useCapture) {
+			listeners = this._captureListeners = this._captureListeners||{};
+		} else {
+			listeners = this._listeners = this._listeners||{};
+		}
+		var arr = listeners[type];
+		if (arr) { this.removeEventListener(type, listener, useCapture); }
+		arr = listeners[type]; // remove may have deleted the array
+		if (!arr) { listeners[type] = [listener];  }
+		else { arr.push(listener); }
+		return listener;
+	};
+	
+	/**
+	 * A shortcut method for using addEventListener that makes it easier to specify an execution scope, have a listener
+	 * only run once, associate arbitrary data with the listener, and remove the listener.
+	 * 
+	 * This method works by creating an anonymous wrapper function and subscribing it with addEventListener.
+	 * The created anonymous function is returned for use with .removeEventListener (or .off).
+	 * 
+	 * <h4>Example</h4>
+	 * 
+	 * 		var listener = myBtn.on("click", handleClick, null, false, {count:3});
+	 * 		function handleClick(evt, data) {
+	 * 			data.count -= 1;
+	 * 			console.log(this == myBtn); // true - scope defaults to the dispatcher
+	 * 			if (data.count == 0) {
+	 * 				alert("clicked 3 times!");
+	 * 				myBtn.off("click", listener);
+	 * 				// alternately: evt.remove();
+	 * 			}
+	 * 		}
+	 * 
+	 * @method on
+	 * @param {String} type The string type of the event.
+	 * @param {Function | Object} listener An object with a handleEvent method, or a function that will be called when
+	 * the event is dispatched.
+	 * @param {Object} [scope] The scope to execute the listener in. Defaults to the dispatcher/currentTarget for function listeners, and to the listener itself for object listeners (ie. using handleEvent).
+	 * @param {Boolean} [once=false] If true, the listener will remove itself after the first time it is triggered.
+	 * @param {*} [data] Arbitrary data that will be included as the second parameter when the listener is called.
+	 * @param {Boolean} [useCapture=false] For events that bubble, indicates whether to listen for the event in the capture or bubbling/target phase.
+	 * @return {Function} Returns the anonymous function that was created and assigned as the listener. This is needed to remove the listener later using .removeEventListener.
+	 **/
+	p.on = function(type, listener, scope, once, data, useCapture) {
+		if (listener.handleEvent) {
+			scope = scope||listener;
+			listener = listener.handleEvent;
+		}
+		scope = scope||this;
+		return this.addEventListener(type, function(evt) {
+				listener.call(scope, evt, data);
+				once&&evt.remove();
+			}, useCapture);
+	};
+
+	/**
+	 * Removes the specified event listener.
+	 *
+	 * <b>Important Note:</b> that you must pass the exact function reference used when the event was added. If a proxy
+	 * function, or function closure is used as the callback, the proxy/closure reference must be used - a new proxy or
+	 * closure will not work.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      displayObject.removeEventListener("click", handleClick);
+	 *
+	 * @method removeEventListener
+	 * @param {String} type The string type of the event.
+	 * @param {Function | Object} listener The listener function or object.
+	 * @param {Boolean} [useCapture] For events that bubble, indicates whether to listen for the event in the capture or bubbling/target phase.
+	 **/
+	p.removeEventListener = function(type, listener, useCapture) {
+		var listeners = useCapture ? this._captureListeners : this._listeners;
+		if (!listeners) { return; }
+		var arr = listeners[type];
+		if (!arr) { return; }
+		for (var i=0,l=arr.length; i<l; i++) {
+			if (arr[i] == listener) {
+				if (l==1) { delete(listeners[type]); } // allows for faster checks.
+				else { arr.splice(i,1); }
+				break;
+			}
+		}
+	};
+	
+	/**
+	 * A shortcut to the removeEventListener method, with the same parameters and return value. This is a companion to the
+	 * .on method.
+	 *
+	 * @method off
+	 * @param {String} type The string type of the event.
+	 * @param {Function | Object} listener The listener function or object.
+	 * @param {Boolean} [useCapture] For events that bubble, indicates whether to listen for the event in the capture or bubbling/target phase.
+	 **/
+	p.off = p.removeEventListener;
+
+	/**
+	 * Removes all listeners for the specified type, or all listeners of all types.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      // Remove all listeners
+	 *      displayObject.removeAllEventListeners();
+	 *
+	 *      // Remove all click listeners
+	 *      displayObject.removeAllEventListeners("click");
+	 *
+	 * @method removeAllEventListeners
+	 * @param {String} [type] The string type of the event. If omitted, all listeners for all types will be removed.
+	 **/
+	p.removeAllEventListeners = function(type) {
+		if (!type) { this._listeners = this._captureListeners = null; }
+		else {
+			if (this._listeners) { delete(this._listeners[type]); }
+			if (this._captureListeners) { delete(this._captureListeners[type]); }
+		}
+	};
+
+	/**
+	 * Dispatches the specified event to all listeners.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      // Use a string event
+	 *      this.dispatchEvent("complete");
+	 *
+	 *      // Use an Event instance
+	 *      var event = new createjs.Event("progress");
+	 *      this.dispatchEvent(event);
+	 *
+	 * @method dispatchEvent
+	 * @param {Object | String | Event} eventObj An object with a "type" property, or a string type.
+	 * While a generic object will work, it is recommended to use a CreateJS Event instance. If a string is used,
+	 * dispatchEvent will construct an Event instance with the specified type.
+	 * @return {Boolean} Returns the value of eventObj.defaultPrevented.
+	 **/
+	p.dispatchEvent = function(eventObj) {
+		if (typeof eventObj == "string") {
+			// won't bubble, so skip everything if there's no listeners:
+			var listeners = this._listeners;
+			if (!listeners || !listeners[eventObj]) { return false; }
+			eventObj = new createjs.Event(eventObj);
+		} else if (eventObj.target && eventObj.clone) {
+			// redispatching an active event object, so clone it:
+			eventObj = eventObj.clone();
+		}
+		try { eventObj.target = this; } catch (e) {} // try/catch allows redispatching of native events
+
+		if (!eventObj.bubbles || !this.parent) {
+			this._dispatchEvent(eventObj, 2);
+		} else {
+			var top=this, list=[top];
+			while (top.parent) { list.push(top = top.parent); }
+			var i, l=list.length;
+
+			// capture & atTarget
+			for (i=l-1; i>=0 && !eventObj.propagationStopped; i--) {
+				list[i]._dispatchEvent(eventObj, 1+(i==0));
+			}
+			// bubbling
+			for (i=1; i<l && !eventObj.propagationStopped; i++) {
+				list[i]._dispatchEvent(eventObj, 3);
+			}
+		}
+		return eventObj.defaultPrevented;
+	};
+
+	/**
+	 * Indicates whether there is at least one listener for the specified event type.
+	 * @method hasEventListener
+	 * @param {String} type The string type of the event.
+	 * @return {Boolean} Returns true if there is at least one listener for the specified event.
+	 **/
+	p.hasEventListener = function(type) {
+		var listeners = this._listeners, captureListeners = this._captureListeners;
+		return !!((listeners && listeners[type]) || (captureListeners && captureListeners[type]));
+	};
+	
+	/**
+	 * Indicates whether there is at least one listener for the specified event type on this object or any of its
+	 * ancestors (parent, parent's parent, etc). A return value of true indicates that if a bubbling event of the
+	 * specified type is dispatched from this object, it will trigger at least one listener.
+	 * 
+	 * This is similar to {{#crossLink "EventDispatcher/hasEventListener"}}{{/crossLink}}, but it searches the entire
+	 * event flow for a listener, not just this object.
+	 * @method willTrigger
+	 * @param {String} type The string type of the event.
+	 * @return {Boolean} Returns `true` if there is at least one listener for the specified event.
+	 **/
+	p.willTrigger = function(type) {
+		var o = this;
+		while (o) {
+			if (o.hasEventListener(type)) { return true; }
+			o = o.parent;
+		}
+		return false;
+	};
+
+	/**
+	 * @method toString
+	 * @return {String} a string representation of the instance.
+	 **/
+	p.toString = function() {
+		return "[EventDispatcher]";
+	};
+
+
+// private methods:
+	/**
+	 * @method _dispatchEvent
+	 * @param {Object | String | Event} eventObj
+	 * @param {Object} eventPhase
+	 * @protected
+	 **/
+	p._dispatchEvent = function(eventObj, eventPhase) {
+		var l, listeners = (eventPhase==1) ? this._captureListeners : this._listeners;
+		if (eventObj && listeners) {
+			var arr = listeners[eventObj.type];
+			if (!arr||!(l=arr.length)) { return; }
+			try { eventObj.currentTarget = this; } catch (e) {}
+			try { eventObj.eventPhase = eventPhase; } catch (e) {}
+			eventObj.removed = false;
+			
+			arr = arr.slice(); // to avoid issues with items being removed or added during the dispatch
+			for (var i=0; i<l && !eventObj.immediatePropagationStopped; i++) {
+				var o = arr[i];
+				if (o.handleEvent) { o.handleEvent(eventObj); }
+				else { o(eventObj); }
+				if (eventObj.removed) {
+					this.off(eventObj.type, o, eventPhase==1);
+					eventObj.removed = false;
+				}
+			}
+		}
+	};
+
+
+	createjs.EventDispatcher = EventDispatcher;
+}());
+
+//##############################################################################
+// ProgressEvent.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function (scope) {
+	"use strict";
+
+	// constructor
+	/**
+	 * A createjs {{#crossLink "Event"}}{{/crossLink}} that is dispatched when progress changes.
+	 * @class ProgressEvent
+	 * @param {Number} loaded The amount that has been loaded. This can be any number relative to the total.
+	 * @param {Number} [total] The total amount that will load. This will default to 0, so does not need to be passed in,
+	 * as long as the loaded value is a progress value (between 0 and 1).
+	 * @todo Consider having this event be a "fileprogress" event as well
+	 * @constructor
+	 */
+	function ProgressEvent(loaded, total) {
+		this.Event_constructor("progress");
+
+		/**
+		 * The amount that has been loaded (out of a total amount)
+		 * @property loaded
+		 * @type {Number}
+		 */
+		this.loaded = loaded;
+
+		/**
+		 * The total "size" of the load.
+		 * @property total
+		 * @type {Number}
+		 * @default 1
+		 */
+		this.total = (total == null) ? 1 : total;
+
+		/**
+		 * The percentage (out of 1) that the load has been completed. This is calculated using `loaded/total`.
+		 * @property progress
+		 * @type {Number}
+		 * @default 0
+		 */
+		this.progress = (total == 0) ? 0 : this.loaded / this.total;
+	};
+
+	var p = createjs.extend(ProgressEvent, createjs.Event);
+
+	/**
+	 * Returns a clone of the ProgressEvent instance.
+	 * @method clone
+	 * @return {ProgressEvent} a clone of the Event instance.
+	 **/
+	p.clone = function() {
+		return new createjs.ProgressEvent(this.loaded, this.total);
+	};
+
+	createjs.ProgressEvent = createjs.promote(ProgressEvent, "Event");
+
+}(window));
+
+//##############################################################################
+// json3.js
+//##############################################################################
+
+/*! JSON v3.3.2 | http://bestiejs.github.io/json3 | Copyright 2012-2014, Kit Cambridge | http://kit.mit-license.org */
+;(function () {
+  // Detect the `define` function exposed by asynchronous module loaders. The
+  // strict `define` check is necessary for compatibility with `r.js`.
+  var isLoader = typeof define === "function" && define.amd;
+
+  // A set of types used to distinguish objects from primitives.
+  var objectTypes = {
+    "function": true,
+    "object": true
+  };
+
+  // Detect the `exports` object exposed by CommonJS implementations.
+  var freeExports = objectTypes[typeof exports] && exports && !exports.nodeType && exports;
+
+  // Use the `global` object exposed by Node (including Browserify via
+  // `insert-module-globals`), Narwhal, and Ringo as the default context,
+  // and the `window` object in browsers. Rhino exports a `global` function
+  // instead.
+  var root = objectTypes[typeof window] && window || this,
+      freeGlobal = freeExports && objectTypes[typeof module] && module && !module.nodeType && typeof global == "object" && global;
+
+  if (freeGlobal && (freeGlobal["global"] === freeGlobal || freeGlobal["window"] === freeGlobal || freeGlobal["self"] === freeGlobal)) {
+    root = freeGlobal;
+  }
+
+  // Public: Initializes JSON 3 using the given `context` object, attaching the
+  // `stringify` and `parse` functions to the specified `exports` object.
+  function runInContext(context, exports) {
+    context || (context = root["Object"]());
+    exports || (exports = root["Object"]());
+
+    // Native constructor aliases.
+    var Number = context["Number"] || root["Number"],
+        String = context["String"] || root["String"],
+        Object = context["Object"] || root["Object"],
+        Date = context["Date"] || root["Date"],
+        SyntaxError = context["SyntaxError"] || root["SyntaxError"],
+        TypeError = context["TypeError"] || root["TypeError"],
+        Math = context["Math"] || root["Math"],
+        nativeJSON = context["JSON"] || root["JSON"];
+
+    // Delegate to the native `stringify` and `parse` implementations.
+    if (typeof nativeJSON == "object" && nativeJSON) {
+      exports.stringify = nativeJSON.stringify;
+      exports.parse = nativeJSON.parse;
+    }
+
+    // Convenience aliases.
+    var objectProto = Object.prototype,
+        getClass = objectProto.toString,
+        isProperty, forEach, undef;
+
+    // Test the `Date#getUTC*` methods. Based on work by @Yaffle.
+    var isExtended = new Date(-3509827334573292);
+    try {
+      // The `getUTCFullYear`, `Month`, and `Date` methods return nonsensical
+      // results for certain dates in Opera >= 10.53.
+      isExtended = isExtended.getUTCFullYear() == -109252 && isExtended.getUTCMonth() === 0 && isExtended.getUTCDate() === 1 &&
+        // Safari < 2.0.2 stores the internal millisecond time value correctly,
+        // but clips the values returned by the date methods to the range of
+        // signed 32-bit integers ([-2 ** 31, 2 ** 31 - 1]).
+        isExtended.getUTCHours() == 10 && isExtended.getUTCMinutes() == 37 && isExtended.getUTCSeconds() == 6 && isExtended.getUTCMilliseconds() == 708;
+    } catch (exception) {}
+
+    // Internal: Determines whether the native `JSON.stringify` and `parse`
+    // implementations are spec-compliant. Based on work by Ken Snyder.
+    function has(name) {
+      if (has[name] !== undef) {
+        // Return cached feature test result.
+        return has[name];
+      }
+      var isSupported;
+      if (name == "bug-string-char-index") {
+        // IE <= 7 doesn't support accessing string characters using square
+        // bracket notation. IE 8 only supports this for primitives.
+        isSupported = "a"[0] != "a";
+      } else if (name == "json") {
+        // Indicates whether both `JSON.stringify` and `JSON.parse` are
+        // supported.
+        isSupported = has("json-stringify") && has("json-parse");
+      } else {
+        var value, serialized = '{"a":[1,true,false,null,"\\u0000\\b\\n\\f\\r\\t"]}';
+        // Test `JSON.stringify`.
+        if (name == "json-stringify") {
+          var stringify = exports.stringify, stringifySupported = typeof stringify == "function" && isExtended;
+          if (stringifySupported) {
+            // A test function object with a custom `toJSON` method.
+            (value = function () {
+              return 1;
+            }).toJSON = value;
+            try {
+              stringifySupported =
+                // Firefox 3.1b1 and b2 serialize string, number, and boolean
+                // primitives as object literals.
+                stringify(0) === "0" &&
+                // FF 3.1b1, b2, and JSON 2 serialize wrapped primitives as object
+                // literals.
+                stringify(new Number()) === "0" &&
+                stringify(new String()) == '""' &&
+                // FF 3.1b1, 2 throw an error if the value is `null`, `undefined`, or
+                // does not define a canonical JSON representation (this applies to
+                // objects with `toJSON` properties as well, *unless* they are nested
+                // within an object or array).
+                stringify(getClass) === undef &&
+                // IE 8 serializes `undefined` as `"undefined"`. Safari <= 5.1.7 and
+                // FF 3.1b3 pass this test.
+                stringify(undef) === undef &&
+                // Safari <= 5.1.7 and FF 3.1b3 throw `Error`s and `TypeError`s,
+                // respectively, if the value is omitted entirely.
+                stringify() === undef &&
+                // FF 3.1b1, 2 throw an error if the given value is not a number,
+                // string, array, object, Boolean, or `null` literal. This applies to
+                // objects with custom `toJSON` methods as well, unless they are nested
+                // inside object or array literals. YUI 3.0.0b1 ignores custom `toJSON`
+                // methods entirely.
+                stringify(value) === "1" &&
+                stringify([value]) == "[1]" &&
+                // Prototype <= 1.6.1 serializes `[undefined]` as `"[]"` instead of
+                // `"[null]"`.
+                stringify([undef]) == "[null]" &&
+                // YUI 3.0.0b1 fails to serialize `null` literals.
+                stringify(null) == "null" &&
+                // FF 3.1b1, 2 halts serialization if an array contains a function:
+                // `[1, true, getClass, 1]` serializes as "[1,true,],". FF 3.1b3
+                // elides non-JSON values from objects and arrays, unless they
+                // define custom `toJSON` methods.
+                stringify([undef, getClass, null]) == "[null,null,null]" &&
+                // Simple serialization test. FF 3.1b1 uses Unicode escape sequences
+                // where character escape codes are expected (e.g., `\b` => `\u0008`).
+                stringify({ "a": [value, true, false, null, "\x00\b\n\f\r\t"] }) == serialized &&
+                // FF 3.1b1 and b2 ignore the `filter` and `width` arguments.
+                stringify(null, value) === "1" &&
+                stringify([1, 2], null, 1) == "[\n 1,\n 2\n]" &&
+                // JSON 2, Prototype <= 1.7, and older WebKit builds incorrectly
+                // serialize extended years.
+                stringify(new Date(-8.64e15)) == '"-271821-04-20T00:00:00.000Z"' &&
+                // The milliseconds are optional in ES 5, but required in 5.1.
+                stringify(new Date(8.64e15)) == '"+275760-09-13T00:00:00.000Z"' &&
+                // Firefox <= 11.0 incorrectly serializes years prior to 0 as negative
+                // four-digit years instead of six-digit years. Credits: @Yaffle.
+                stringify(new Date(-621987552e5)) == '"-000001-01-01T00:00:00.000Z"' &&
+                // Safari <= 5.1.5 and Opera >= 10.53 incorrectly serialize millisecond
+                // values less than 1000. Credits: @Yaffle.
+                stringify(new Date(-1)) == '"1969-12-31T23:59:59.999Z"';
+            } catch (exception) {
+              stringifySupported = false;
+            }
+          }
+          isSupported = stringifySupported;
+        }
+        // Test `JSON.parse`.
+        if (name == "json-parse") {
+          var parse = exports.parse;
+          if (typeof parse == "function") {
+            try {
+              // FF 3.1b1, b2 will throw an exception if a bare literal is provided.
+              // Conforming implementations should also coerce the initial argument to
+              // a string prior to parsing.
+              if (parse("0") === 0 && !parse(false)) {
+                // Simple parsing test.
+                value = parse(serialized);
+                var parseSupported = value["a"].length == 5 && value["a"][0] === 1;
+                if (parseSupported) {
+                  try {
+                    // Safari <= 5.1.2 and FF 3.1b1 allow unescaped tabs in strings.
+                    parseSupported = !parse('"\t"');
+                  } catch (exception) {}
+                  if (parseSupported) {
+                    try {
+                      // FF 4.0 and 4.0.1 allow leading `+` signs and leading
+                      // decimal points. FF 4.0, 4.0.1, and IE 9-10 also allow
+                      // certain octal literals.
+                      parseSupported = parse("01") !== 1;
+                    } catch (exception) {}
+                  }
+                  if (parseSupported) {
+                    try {
+                      // FF 4.0, 4.0.1, and Rhino 1.7R3-R4 allow trailing decimal
+                      // points. These environments, along with FF 3.1b1 and 2,
+                      // also allow trailing commas in JSON objects and arrays.
+                      parseSupported = parse("1.") !== 1;
+                    } catch (exception) {}
+                  }
+                }
+              }
+            } catch (exception) {
+              parseSupported = false;
+            }
+          }
+          isSupported = parseSupported;
+        }
+      }
+      return has[name] = !!isSupported;
+    }
+
+    if (!has("json")) {
+      // Common `[[Class]]` name aliases.
+      var functionClass = "[object Function]",
+          dateClass = "[object Date]",
+          numberClass = "[object Number]",
+          stringClass = "[object String]",
+          arrayClass = "[object Array]",
+          booleanClass = "[object Boolean]";
+
+      // Detect incomplete support for accessing string characters by index.
+      var charIndexBuggy = has("bug-string-char-index");
+
+      // Define additional utility methods if the `Date` methods are buggy.
+      if (!isExtended) {
+        var floor = Math.floor;
+        // A mapping between the months of the year and the number of days between
+        // January 1st and the first of the respective month.
+        var Months = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+        // Internal: Calculates the number of days between the Unix epoch and the
+        // first day of the given month.
+        var getDay = function (year, month) {
+          return Months[month] + 365 * (year - 1970) + floor((year - 1969 + (month = +(month > 1))) / 4) - floor((year - 1901 + month) / 100) + floor((year - 1601 + month) / 400);
+        };
+      }
+
+      // Internal: Determines if a property is a direct property of the given
+      // object. Delegates to the native `Object#hasOwnProperty` method.
+      if (!(isProperty = objectProto.hasOwnProperty)) {
+        isProperty = function (property) {
+          var members = {}, constructor;
+          if ((members.__proto__ = null, members.__proto__ = {
+            // The *proto* property cannot be set multiple times in recent
+            // versions of Firefox and SeaMonkey.
+            "toString": 1
+          }, members).toString != getClass) {
+            // Safari <= 2.0.3 doesn't implement `Object#hasOwnProperty`, but
+            // supports the mutable *proto* property.
+            isProperty = function (property) {
+              // Capture and break the object's prototype chain (see section 8.6.2
+              // of the ES 5.1 spec). The parenthesized expression prevents an
+              // unsafe transformation by the Closure Compiler.
+              var original = this.__proto__, result = property in (this.__proto__ = null, this);
+              // Restore the original prototype chain.
+              this.__proto__ = original;
+              return result;
+            };
+          } else {
+            // Capture a reference to the top-level `Object` constructor.
+            constructor = members.constructor;
+            // Use the `constructor` property to simulate `Object#hasOwnProperty` in
+            // other environments.
+            isProperty = function (property) {
+              var parent = (this.constructor || constructor).prototype;
+              return property in this && !(property in parent && this[property] === parent[property]);
+            };
+          }
+          members = null;
+          return isProperty.call(this, property);
+        };
+      }
+
+      // Internal: Normalizes the `for...in` iteration algorithm across
+      // environments. Each enumerated key is yielded to a `callback` function.
+      forEach = function (object, callback) {
+        var size = 0, Properties, members, property;
+
+        // Tests for bugs in the current environment's `for...in` algorithm. The
+        // `valueOf` property inherits the non-enumerable flag from
+        // `Object.prototype` in older versions of IE, Netscape, and Mozilla.
+        (Properties = function () {
+          this.valueOf = 0;
+        }).prototype.valueOf = 0;
+
+        // Iterate over a new instance of the `Properties` class.
+        members = new Properties();
+        for (property in members) {
+          // Ignore all properties inherited from `Object.prototype`.
+          if (isProperty.call(members, property)) {
+            size++;
+          }
+        }
+        Properties = members = null;
+
+        // Normalize the iteration algorithm.
+        if (!size) {
+          // A list of non-enumerable properties inherited from `Object.prototype`.
+          members = ["valueOf", "toString", "toLocaleString", "propertyIsEnumerable", "isPrototypeOf", "hasOwnProperty", "constructor"];
+          // IE <= 8, Mozilla 1.0, and Netscape 6.2 ignore shadowed non-enumerable
+          // properties.
+          forEach = function (object, callback) {
+            var isFunction = getClass.call(object) == functionClass, property, length;
+            var hasProperty = !isFunction && typeof object.constructor != "function" && objectTypes[typeof object.hasOwnProperty] && object.hasOwnProperty || isProperty;
+            for (property in object) {
+              // Gecko <= 1.0 enumerates the `prototype` property of functions under
+              // certain conditions; IE does not.
+              if (!(isFunction && property == "prototype") && hasProperty.call(object, property)) {
+                callback(property);
+              }
+            }
+            // Manually invoke the callback for each non-enumerable property.
+            for (length = members.length; property = members[--length]; hasProperty.call(object, property) && callback(property));
+          };
+        } else if (size == 2) {
+          // Safari <= 2.0.4 enumerates shadowed properties twice.
+          forEach = function (object, callback) {
+            // Create a set of iterated properties.
+            var members = {}, isFunction = getClass.call(object) == functionClass, property;
+            for (property in object) {
+              // Store each property name to prevent double enumeration. The
+              // `prototype` property of functions is not enumerated due to cross-
+              // environment inconsistencies.
+              if (!(isFunction && property == "prototype") && !isProperty.call(members, property) && (members[property] = 1) && isProperty.call(object, property)) {
+                callback(property);
+              }
+            }
+          };
+        } else {
+          // No bugs detected; use the standard `for...in` algorithm.
+          forEach = function (object, callback) {
+            var isFunction = getClass.call(object) == functionClass, property, isConstructor;
+            for (property in object) {
+              if (!(isFunction && property == "prototype") && isProperty.call(object, property) && !(isConstructor = property === "constructor")) {
+                callback(property);
+              }
+            }
+            // Manually invoke the callback for the `constructor` property due to
+            // cross-environment inconsistencies.
+            if (isConstructor || isProperty.call(object, (property = "constructor"))) {
+              callback(property);
+            }
+          };
+        }
+        return forEach(object, callback);
+      };
+
+      // Public: Serializes a JavaScript `value` as a JSON string. The optional
+      // `filter` argument may specify either a function that alters how object and
+      // array members are serialized, or an array of strings and numbers that
+      // indicates which properties should be serialized. The optional `width`
+      // argument may be either a string or number that specifies the indentation
+      // level of the output.
+      if (!has("json-stringify")) {
+        // Internal: A map of control characters and their escaped equivalents.
+        var Escapes = {
+          92: "\\\\",
+          34: '\\"',
+          8: "\\b",
+          12: "\\f",
+          10: "\\n",
+          13: "\\r",
+          9: "\\t"
+        };
+
+        // Internal: Converts `value` into a zero-padded string such that its
+        // length is at least equal to `width`. The `width` must be <= 6.
+        var leadingZeroes = "000000";
+        var toPaddedString = function (width, value) {
+          // The `|| 0` expression is necessary to work around a bug in
+          // Opera <= 7.54u2 where `0 == -0`, but `String(-0) !== "0"`.
+          return (leadingZeroes + (value || 0)).slice(-width);
+        };
+
+        // Internal: Double-quotes a string `value`, replacing all ASCII control
+        // characters (characters with code unit values between 0 and 31) with
+        // their escaped equivalents. This is an implementation of the
+        // `Quote(value)` operation defined in ES 5.1 section 15.12.3.
+        var unicodePrefix = "\\u00";
+        var quote = function (value) {
+          var result = '"', index = 0, length = value.length, useCharIndex = !charIndexBuggy || length > 10;
+          var symbols = useCharIndex && (charIndexBuggy ? value.split("") : value);
+          for (; index < length; index++) {
+            var charCode = value.charCodeAt(index);
+            // If the character is a control character, append its Unicode or
+            // shorthand escape sequence; otherwise, append the character as-is.
+            switch (charCode) {
+              case 8: case 9: case 10: case 12: case 13: case 34: case 92:
+                result += Escapes[charCode];
+                break;
+              default:
+                if (charCode < 32) {
+                  result += unicodePrefix + toPaddedString(2, charCode.toString(16));
+                  break;
+                }
+                result += useCharIndex ? symbols[index] : value.charAt(index);
+            }
+          }
+          return result + '"';
+        };
+
+        // Internal: Recursively serializes an object. Implements the
+        // `Str(key, holder)`, `JO(value)`, and `JA(value)` operations.
+        var serialize = function (property, object, callback, properties, whitespace, indentation, stack) {
+          var value, className, year, month, date, time, hours, minutes, seconds, milliseconds, results, element, index, length, prefix, result;
+          try {
+            // Necessary for host object support.
+            value = object[property];
+          } catch (exception) {}
+          if (typeof value == "object" && value) {
+            className = getClass.call(value);
+            if (className == dateClass && !isProperty.call(value, "toJSON")) {
+              if (value > -1 / 0 && value < 1 / 0) {
+                // Dates are serialized according to the `Date#toJSON` method
+                // specified in ES 5.1 section 15.9.5.44. See section 15.9.1.15
+                // for the ISO 8601 date time string format.
+                if (getDay) {
+                  // Manually compute the year, month, date, hours, minutes,
+                  // seconds, and milliseconds if the `getUTC*` methods are
+                  // buggy. Adapted from @Yaffle's `date-shim` project.
+                  date = floor(value / 864e5);
+                  for (year = floor(date / 365.2425) + 1970 - 1; getDay(year + 1, 0) <= date; year++);
+                  for (month = floor((date - getDay(year, 0)) / 30.42); getDay(year, month + 1) <= date; month++);
+                  date = 1 + date - getDay(year, month);
+                  // The `time` value specifies the time within the day (see ES
+                  // 5.1 section 15.9.1.2). The formula `(A % B + B) % B` is used
+                  // to compute `A modulo B`, as the `%` operator does not
+                  // correspond to the `modulo` operation for negative numbers.
+                  time = (value % 864e5 + 864e5) % 864e5;
+                  // The hours, minutes, seconds, and milliseconds are obtained by
+                  // decomposing the time within the day. See section 15.9.1.10.
+                  hours = floor(time / 36e5) % 24;
+                  minutes = floor(time / 6e4) % 60;
+                  seconds = floor(time / 1e3) % 60;
+                  milliseconds = time % 1e3;
+                } else {
+                  year = value.getUTCFullYear();
+                  month = value.getUTCMonth();
+                  date = value.getUTCDate();
+                  hours = value.getUTCHours();
+                  minutes = value.getUTCMinutes();
+                  seconds = value.getUTCSeconds();
+                  milliseconds = value.getUTCMilliseconds();
+                }
+                // Serialize extended years correctly.
+                value = (year <= 0 || year >= 1e4 ? (year < 0 ? "-" : "+") + toPaddedString(6, year < 0 ? -year : year) : toPaddedString(4, year)) +
+                  "-" + toPaddedString(2, month + 1) + "-" + toPaddedString(2, date) +
+                  // Months, dates, hours, minutes, and seconds should have two
+                  // digits; milliseconds should have three.
+                  "T" + toPaddedString(2, hours) + ":" + toPaddedString(2, minutes) + ":" + toPaddedString(2, seconds) +
+                  // Milliseconds are optional in ES 5.0, but required in 5.1.
+                  "." + toPaddedString(3, milliseconds) + "Z";
+              } else {
+                value = null;
+              }
+            } else if (typeof value.toJSON == "function" && ((className != numberClass && className != stringClass && className != arrayClass) || isProperty.call(value, "toJSON"))) {
+              // Prototype <= 1.6.1 adds non-standard `toJSON` methods to the
+              // `Number`, `String`, `Date`, and `Array` prototypes. JSON 3
+              // ignores all `toJSON` methods on these objects unless they are
+              // defined directly on an instance.
+              value = value.toJSON(property);
+            }
+          }
+          if (callback) {
+            // If a replacement function was provided, call it to obtain the value
+            // for serialization.
+            value = callback.call(object, property, value);
+          }
+          if (value === null) {
+            return "null";
+          }
+          className = getClass.call(value);
+          if (className == booleanClass) {
+            // Booleans are represented literally.
+            return "" + value;
+          } else if (className == numberClass) {
+            // JSON numbers must be finite. `Infinity` and `NaN` are serialized as
+            // `"null"`.
+            return value > -1 / 0 && value < 1 / 0 ? "" + value : "null";
+          } else if (className == stringClass) {
+            // Strings are double-quoted and escaped.
+            return quote("" + value);
+          }
+          // Recursively serialize objects and arrays.
+          if (typeof value == "object") {
+            // Check for cyclic structures. This is a linear search; performance
+            // is inversely proportional to the number of unique nested objects.
+            for (length = stack.length; length--;) {
+              if (stack[length] === value) {
+                // Cyclic structures cannot be serialized by `JSON.stringify`.
+                throw TypeError();
+              }
+            }
+            // Add the object to the stack of traversed objects.
+            stack.push(value);
+            results = [];
+            // Save the current indentation level and indent one additional level.
+            prefix = indentation;
+            indentation += whitespace;
+            if (className == arrayClass) {
+              // Recursively serialize array elements.
+              for (index = 0, length = value.length; index < length; index++) {
+                element = serialize(index, value, callback, properties, whitespace, indentation, stack);
+                results.push(element === undef ? "null" : element);
+              }
+              result = results.length ? (whitespace ? "[\n" + indentation + results.join(",\n" + indentation) + "\n" + prefix + "]" : ("[" + results.join(",") + "]")) : "[]";
+            } else {
+              // Recursively serialize object members. Members are selected from
+              // either a user-specified list of property names, or the object
+              // itself.
+              forEach(properties || value, function (property) {
+                var element = serialize(property, value, callback, properties, whitespace, indentation, stack);
+                if (element !== undef) {
+                  // According to ES 5.1 section 15.12.3: "If `gap` {whitespace}
+                  // is not the empty string, let `member` {quote(property) + ":"}
+                  // be the concatenation of `member` and the `space` character."
+                  // The "`space` character" refers to the literal space
+                  // character, not the `space` {width} argument provided to
+                  // `JSON.stringify`.
+                  results.push(quote(property) + ":" + (whitespace ? " " : "") + element);
+                }
+              });
+              result = results.length ? (whitespace ? "{\n" + indentation + results.join(",\n" + indentation) + "\n" + prefix + "}" : ("{" + results.join(",") + "}")) : "{}";
+            }
+            // Remove the object from the traversed object stack.
+            stack.pop();
+            return result;
+          }
+        };
+
+        // Public: `JSON.stringify`. See ES 5.1 section 15.12.3.
+        exports.stringify = function (source, filter, width) {
+          var whitespace, callback, properties, className;
+          if (objectTypes[typeof filter] && filter) {
+            if ((className = getClass.call(filter)) == functionClass) {
+              callback = filter;
+            } else if (className == arrayClass) {
+              // Convert the property names array into a makeshift set.
+              properties = {};
+              for (var index = 0, length = filter.length, value; index < length; value = filter[index++], ((className = getClass.call(value)), className == stringClass || className == numberClass) && (properties[value] = 1));
+            }
+          }
+          if (width) {
+            if ((className = getClass.call(width)) == numberClass) {
+              // Convert the `width` to an integer and create a string containing
+              // `width` number of space characters.
+              if ((width -= width % 1) > 0) {
+                for (whitespace = "", width > 10 && (width = 10); whitespace.length < width; whitespace += " ");
+              }
+            } else if (className == stringClass) {
+              whitespace = width.length <= 10 ? width : width.slice(0, 10);
+            }
+          }
+          // Opera <= 7.54u2 discards the values associated with empty string keys
+          // (`""`) only if they are used directly within an object member list
+          // (e.g., `!("" in { "": 1})`).
+          return serialize("", (value = {}, value[""] = source, value), callback, properties, whitespace, "", []);
+        };
+      }
+
+      // Public: Parses a JSON source string.
+      if (!has("json-parse")) {
+        var fromCharCode = String.fromCharCode;
+
+        // Internal: A map of escaped control characters and their unescaped
+        // equivalents.
+        var Unescapes = {
+          92: "\\",
+          34: '"',
+          47: "/",
+          98: "\b",
+          116: "\t",
+          110: "\n",
+          102: "\f",
+          114: "\r"
+        };
+
+        // Internal: Stores the parser state.
+        var Index, Source;
+
+        // Internal: Resets the parser state and throws a `SyntaxError`.
+        var abort = function () {
+          Index = Source = null;
+          throw SyntaxError();
+        };
+
+        // Internal: Returns the next token, or `"$"` if the parser has reached
+        // the end of the source string. A token may be a string, number, `null`
+        // literal, or Boolean literal.
+        var lex = function () {
+          var source = Source, length = source.length, value, begin, position, isSigned, charCode;
+          while (Index < length) {
+            charCode = source.charCodeAt(Index);
+            switch (charCode) {
+              case 9: case 10: case 13: case 32:
+                // Skip whitespace tokens, including tabs, carriage returns, line
+                // feeds, and space characters.
+                Index++;
+                break;
+              case 123: case 125: case 91: case 93: case 58: case 44:
+                // Parse a punctuator token (`{`, `}`, `[`, `]`, `:`, or `,`) at
+                // the current position.
+                value = charIndexBuggy ? source.charAt(Index) : source[Index];
+                Index++;
+                return value;
+              case 34:
+                // `"` delimits a JSON string; advance to the next character and
+                // begin parsing the string. String tokens are prefixed with the
+                // sentinel `@` character to distinguish them from punctuators and
+                // end-of-string tokens.
+                for (value = "@", Index++; Index < length;) {
+                  charCode = source.charCodeAt(Index);
+                  if (charCode < 32) {
+                    // Unescaped ASCII control characters (those with a code unit
+                    // less than the space character) are not permitted.
+                    abort();
+                  } else if (charCode == 92) {
+                    // A reverse solidus (`\`) marks the beginning of an escaped
+                    // control character (including `"`, `\`, and `/`) or Unicode
+                    // escape sequence.
+                    charCode = source.charCodeAt(++Index);
+                    switch (charCode) {
+                      case 92: case 34: case 47: case 98: case 116: case 110: case 102: case 114:
+                        // Revive escaped control characters.
+                        value += Unescapes[charCode];
+                        Index++;
+                        break;
+                      case 117:
+                        // `\u` marks the beginning of a Unicode escape sequence.
+                        // Advance to the first character and validate the
+                        // four-digit code point.
+                        begin = ++Index;
+                        for (position = Index + 4; Index < position; Index++) {
+                          charCode = source.charCodeAt(Index);
+                          // A valid sequence comprises four hexdigits (case-
+                          // insensitive) that form a single hexadecimal value.
+                          if (!(charCode >= 48 && charCode <= 57 || charCode >= 97 && charCode <= 102 || charCode >= 65 && charCode <= 70)) {
+                            // Invalid Unicode escape sequence.
+                            abort();
+                          }
+                        }
+                        // Revive the escaped character.
+                        value += fromCharCode("0x" + source.slice(begin, Index));
+                        break;
+                      default:
+                        // Invalid escape sequence.
+                        abort();
+                    }
+                  } else {
+                    if (charCode == 34) {
+                      // An unescaped double-quote character marks the end of the
+                      // string.
+                      break;
+                    }
+                    charCode = source.charCodeAt(Index);
+                    begin = Index;
+                    // Optimize for the common case where a string is valid.
+                    while (charCode >= 32 && charCode != 92 && charCode != 34) {
+                      charCode = source.charCodeAt(++Index);
+                    }
+                    // Append the string as-is.
+                    value += source.slice(begin, Index);
+                  }
+                }
+                if (source.charCodeAt(Index) == 34) {
+                  // Advance to the next character and return the revived string.
+                  Index++;
+                  return value;
+                }
+                // Unterminated string.
+                abort();
+              default:
+                // Parse numbers and literals.
+                begin = Index;
+                // Advance past the negative sign, if one is specified.
+                if (charCode == 45) {
+                  isSigned = true;
+                  charCode = source.charCodeAt(++Index);
+                }
+                // Parse an integer or floating-point value.
+                if (charCode >= 48 && charCode <= 57) {
+                  // Leading zeroes are interpreted as octal literals.
+                  if (charCode == 48 && ((charCode = source.charCodeAt(Index + 1)), charCode >= 48 && charCode <= 57)) {
+                    // Illegal octal literal.
+                    abort();
+                  }
+                  isSigned = false;
+                  // Parse the integer component.
+                  for (; Index < length && ((charCode = source.charCodeAt(Index)), charCode >= 48 && charCode <= 57); Index++);
+                  // Floats cannot contain a leading decimal point; however, this
+                  // case is already accounted for by the parser.
+                  if (source.charCodeAt(Index) == 46) {
+                    position = ++Index;
+                    // Parse the decimal component.
+                    for (; position < length && ((charCode = source.charCodeAt(position)), charCode >= 48 && charCode <= 57); position++);
+                    if (position == Index) {
+                      // Illegal trailing decimal.
+                      abort();
+                    }
+                    Index = position;
+                  }
+                  // Parse exponents. The `e` denoting the exponent is
+                  // case-insensitive.
+                  charCode = source.charCodeAt(Index);
+                  if (charCode == 101 || charCode == 69) {
+                    charCode = source.charCodeAt(++Index);
+                    // Skip past the sign following the exponent, if one is
+                    // specified.
+                    if (charCode == 43 || charCode == 45) {
+                      Index++;
+                    }
+                    // Parse the exponential component.
+                    for (position = Index; position < length && ((charCode = source.charCodeAt(position)), charCode >= 48 && charCode <= 57); position++);
+                    if (position == Index) {
+                      // Illegal empty exponent.
+                      abort();
+                    }
+                    Index = position;
+                  }
+                  // Coerce the parsed value to a JavaScript number.
+                  return +source.slice(begin, Index);
+                }
+                // A negative sign may only precede numbers.
+                if (isSigned) {
+                  abort();
+                }
+                // `true`, `false`, and `null` literals.
+                if (source.slice(Index, Index + 4) == "true") {
+                  Index += 4;
+                  return true;
+                } else if (source.slice(Index, Index + 5) == "false") {
+                  Index += 5;
+                  return false;
+                } else if (source.slice(Index, Index + 4) == "null") {
+                  Index += 4;
+                  return null;
+                }
+                // Unrecognized token.
+                abort();
+            }
+          }
+          // Return the sentinel `$` character if the parser has reached the end
+          // of the source string.
+          return "$";
+        };
+
+        // Internal: Parses a JSON `value` token.
+        var get = function (value) {
+          var results, hasMembers;
+          if (value == "$") {
+            // Unexpected end of input.
+            abort();
+          }
+          if (typeof value == "string") {
+            if ((charIndexBuggy ? value.charAt(0) : value[0]) == "@") {
+              // Remove the sentinel `@` character.
+              return value.slice(1);
+            }
+            // Parse object and array literals.
+            if (value == "[") {
+              // Parses a JSON array, returning a new JavaScript array.
+              results = [];
+              for (;; hasMembers || (hasMembers = true)) {
+                value = lex();
+                // A closing square bracket marks the end of the array literal.
+                if (value == "]") {
+                  break;
+                }
+                // If the array literal contains elements, the current token
+                // should be a comma separating the previous element from the
+                // next.
+                if (hasMembers) {
+                  if (value == ",") {
+                    value = lex();
+                    if (value == "]") {
+                      // Unexpected trailing `,` in array literal.
+                      abort();
+                    }
+                  } else {
+                    // A `,` must separate each array element.
+                    abort();
+                  }
+                }
+                // Elisions and leading commas are not permitted.
+                if (value == ",") {
+                  abort();
+                }
+                results.push(get(value));
+              }
+              return results;
+            } else if (value == "{") {
+              // Parses a JSON object, returning a new JavaScript object.
+              results = {};
+              for (;; hasMembers || (hasMembers = true)) {
+                value = lex();
+                // A closing curly brace marks the end of the object literal.
+                if (value == "}") {
+                  break;
+                }
+                // If the object literal contains members, the current token
+                // should be a comma separator.
+                if (hasMembers) {
+                  if (value == ",") {
+                    value = lex();
+                    if (value == "}") {
+                      // Unexpected trailing `,` in object literal.
+                      abort();
+                    }
+                  } else {
+                    // A `,` must separate each object member.
+                    abort();
+                  }
+                }
+                // Leading commas are not permitted, object property names must be
+                // double-quoted strings, and a `:` must separate each property
+                // name and value.
+                if (value == "," || typeof value != "string" || (charIndexBuggy ? value.charAt(0) : value[0]) != "@" || lex() != ":") {
+                  abort();
+                }
+                results[value.slice(1)] = get(lex());
+              }
+              return results;
+            }
+            // Unexpected token encountered.
+            abort();
+          }
+          return value;
+        };
+
+        // Internal: Updates a traversed object member.
+        var update = function (source, property, callback) {
+          var element = walk(source, property, callback);
+          if (element === undef) {
+            delete source[property];
+          } else {
+            source[property] = element;
+          }
+        };
+
+        // Internal: Recursively traverses a parsed JSON object, invoking the
+        // `callback` function for each value. This is an implementation of the
+        // `Walk(holder, name)` operation defined in ES 5.1 section 15.12.2.
+        var walk = function (source, property, callback) {
+          var value = source[property], length;
+          if (typeof value == "object" && value) {
+            // `forEach` can't be used to traverse an array in Opera <= 8.54
+            // because its `Object#hasOwnProperty` implementation returns `false`
+            // for array indices (e.g., `![1, 2, 3].hasOwnProperty("0")`).
+            if (getClass.call(value) == arrayClass) {
+              for (length = value.length; length--;) {
+                update(value, length, callback);
+              }
+            } else {
+              forEach(value, function (property) {
+                update(value, property, callback);
+              });
+            }
+          }
+          return callback.call(source, property, value);
+        };
+
+        // Public: `JSON.parse`. See ES 5.1 section 15.12.2.
+        exports.parse = function (source, callback) {
+          var result, value;
+          Index = 0;
+          Source = "" + source;
+          result = get(lex());
+          // If a JSON string contains multiple tokens, it is invalid.
+          if (lex() != "$") {
+            abort();
+          }
+          // Reset the parser state.
+          Index = Source = null;
+          return callback && getClass.call(callback) == functionClass ? walk((value = {}, value[""] = result, value), "", callback) : result;
+        };
+      }
+    }
+
+    exports["runInContext"] = runInContext;
+    return exports;
+  }
+
+  if (freeExports && !isLoader) {
+    // Export for CommonJS environments.
+    runInContext(root, freeExports);
+  } else {
+    // Export for web browsers and JavaScript engines.
+    var nativeJSON = root.JSON,
+        previousJSON = root["JSON3"],
+        isRestored = false;
+
+    var JSON3 = runInContext(root, (root["JSON3"] = {
+      // Public: Restores the original value of the global `JSON` object and
+      // returns a reference to the `JSON3` object.
+      "noConflict": function () {
+        if (!isRestored) {
+          isRestored = true;
+          root.JSON = nativeJSON;
+          root["JSON3"] = previousJSON;
+          nativeJSON = previousJSON = null;
+        }
+        return JSON3;
+      }
+    }));
+
+    root.JSON = {
+      "parse": JSON3.parse,
+      "stringify": JSON3.stringify
+    };
+  }
+
+  // Export for asynchronous module loaders.
+  if (isLoader) {
+    define(function () {
+      return JSON3;
+    });
+  }
+}).call(this);
+
+//##############################################################################
+// DataUtils.js
+//##############################################################################
+
+(function () {
+
+	/**
+	 * A few data utilities for formatting different data types.
+	 * @class DataUtils
+	 */
+	var s = {};
+
+	// static methods
+	/**
+	 * Parse XML using the DOM. This is required when preloading XML or SVG.
+	 * @method parseXML
+	 * @param {String} text The raw text or XML that is loaded by XHR.
+	 * @param {String} type The mime type of the XML. Use "text/xml" for XML, and  "image/svg+xml" for SVG parsing.
+	 * @return {XML} An XML document
+	 * @static
+	 */
+	s.parseXML = function (text, type) {
+		var xml = null;
+		try {
+			// CocoonJS does not support XML parsing with either method.
+			if (window.DOMParser) {
+				var parser = new DOMParser();
+				xml = parser.parseFromString(text, type);
+			} else { // IE
+				xml = new ActiveXObject("Microsoft.XMLDOM");
+				xml.async = false;
+				xml.loadXML(text);
+			}
+		} catch (e) {}
+		return xml;
+	};
+
+	/**
+	 * Parse a string into an Object.
+	 * @method parseJSON
+	 * @param {String} value The loaded JSON string
+	 * @returns {Object} A JavaScript object.
+	 */
+	s.parseJSON = function (value) {
+		if (value == null) {
+			return null;
+		}
+
+		try {
+			return JSON.parse(value);
+		} catch (e) {
+			// TODO; Handle this with a custom error?
+			throw e;
+		}
+	};
+
+	createjs.DataUtils = s;
+
+}());
+
+//##############################################################################
+// LoadItem.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	/**
+	 * All loaders accept an item containing the properties defined in this class. If a raw object is passed instead,
+	 * it will not be affected, but it must contain at least a {{#crossLink "src:property"}}{{/crossLink}} property. A
+	 * string path or HTML tag is also acceptable, but it will be automatically converted to a LoadItem using the
+	 * {{#crossLink "create"}}{{/crossLink}} method by {{#crossLink "AbstractLoader"}}{{/crossLink}}
+	 * @class LoadItem
+	 * @constructor
+	 * @since 0.6.0
+	 */
+	function LoadItem() {
+		/**
+		 * The source of the file that is being loaded. This property is <b>required</b>. The source can either be a
+		 * string (recommended), or an HTML tag.</li>
+		 * @property src
+		 * @type {String}
+		 * @default null
+		 */
+		this.src = null;
+
+		/**
+		 * The source of the file that is being loaded. This property is <strong>required</strong>. The source can
+		 * either be a string (recommended), or an HTML tag. See the {{#crossLink "AbstractLoader"}}{{/crossLink}}
+		 * class for the full list of supported types.
+		 * @property type
+		 * @type {String}
+		 * @default null
+		 */
+		this.type = null;
+
+		/**
+		 * A string identifier which can be used to reference the loaded object. If none is provided, this will be
+		 * automatically set to the {{#crossLink "src:property"}}{{/crossLink}}.
+		 * @property id
+		 * @type {String}
+		 * @default null
+		 */
+		this.id = null;
+
+		/**
+		 * Determines if a manifest will maintain the order of this item, in relation to other items in the manifest
+		 * that have also set the `maintainOrder` property to `true`. This only applies when the max connections has
+		 * been set above 1 (using {{#crossLink "LoadQueue/setMaxConnections"}}{{/crossLink}}). Everything with this
+		 * property set to `false` will finish as it is loaded. Ordered items are combined with script tags loading in
+		 * order when {{#crossLink "LoadQueue/maintainScriptOrder:property"}}{{/crossLink}} is set to `true`.
+		 * @property maintainOrder
+		 * @type {Boolean}
+		 * @default false
+		 */
+		this.maintainOrder = false;
+
+		/**
+		 * A callback used by JSONP requests that defines what global method to call when the JSONP content is loaded.
+		 * @property callback
+		 * @type {String}
+		 * @default null
+		 */
+		this.callback = null;
+
+		/**
+		 * An arbitrary data object, which is included with the loaded object.
+		 * @property data
+		 * @type {Object}
+		 * @default null
+		 */
+		this.data = null;
+
+		/**
+		 * The request method used for HTTP calls. Both {{#crossLink "AbstractLoader/GET:property"}}{{/crossLink}} or
+		 * {{#crossLink "AbstractLoader/POST:property"}}{{/crossLink}} request types are supported, and are defined as
+		 * constants on {{#crossLink "AbstractLoader"}}{{/crossLink}}.
+		 * @property method
+		 * @type {String}
+		 * @default get
+		 */
+		this.method = createjs.LoadItem.GET;
+
+		/**
+		 * An object hash of name/value pairs to send to the server.
+		 * @property values
+		 * @type {Object}
+		 * @default null
+		 */
+		this.values = null;
+
+		/**
+		 * An object hash of headers to attach to an XHR request. PreloadJS will automatically attach some default
+		 * headers when required, including "Origin", "Content-Type", and "X-Requested-With". You may override the
+		 * default headers by including them in your headers object.
+		 * @property headers
+		 * @type {Object}
+		 * @default null
+		 */
+		this.headers = null;
+
+		/**
+		 * Enable credentials for XHR requests.
+		 * @property withCredentials
+		 * @type {Boolean}
+		 * @default false
+		 */
+		this.withCredentials = false;
+
+		/**
+		 * Set the mime type of XHR-based requests. This is automatically set to "text/plain; charset=utf-8" for text
+		 * based files (json, xml, text, css, js).
+		 * @property mimeType
+		 * @type {String}
+		 * @default null
+		 */
+		this.mimeType = null;
+
+		/**
+		 * Sets the crossOrigin attribute for CORS-enabled images loading cross-domain.
+		 * @property crossOrigin
+		 * @type {boolean}
+		 * @default Anonymous
+		 */
+		this.crossOrigin = null;
+
+		/**
+		 * The duration in milliseconds to wait before a request times out. This only applies to tag-based and and XHR
+		 * (level one) loading, as XHR (level 2) provides its own timeout event.
+		 * @property loadTimeout
+		 * @type {Number}
+		 * @default 8000 (8 seconds)
+		 */
+		this.loadTimeout = 8000;
+	};
+
+	var p = LoadItem.prototype = {};
+	var s = LoadItem;
+
+	/**
+	 * Create/validate a LoadItem.
+	 * <ul>
+	 *     <li>String-based items are converted to a LoadItem with a populated {{#crossLink "src:property"}}{{/crossLink}}.</li>
+	 *     <li>LoadItem instances are returned as-is</li>
+	 *     <li>Objectss are returned as-is</li>
+	 * </ul>
+	 * @method create
+	 * @param {LoadItem|String|Object} value The load item value
+	 * @returns {Object|LoadItem}
+	 * @static
+	 */
+	s.create = function (value) {
+		if (typeof value == "string") {
+			var item = new LoadItem();
+			item.src = value;
+			return item;
+		} else if (value instanceof s) {
+			return value;
+		} else if (value instanceof Object) { // Don't modify object, allows users to attach random data to the item.
+			// TODO: Disallow objects with no src?
+			return value;
+		} else {
+			throw new Error("Type not recognized.");
+		}
+	};
+
+	/**
+	 * Provides a chainable shortcut method for setting a number of properties on the instance.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      var loadItem = new createjs.LoadItem().set({src:"image.png", maintainOrder:true});
+	 *
+	 * @method set
+	 * @param {Object} props A generic object containing properties to copy to the LoadItem instance.
+	 * @return {LoadItem} Returns the instance the method is called on (useful for chaining calls.)
+	*/
+	p.set = function(props) {
+		for (var n in props) { this[n] = props[n]; }
+		return this;
+	};
+
+	createjs.LoadItem = s;
+
+}());
+
+//##############################################################################
+// RequestUtils.js
+//##############################################################################
+
+(function () {
+
+	/**
+	 * Utilities that assist with parsing load items, and determining file types, etc.
+	 * @class RequestUtils
+	 */
+	var s = {};
+
+	/**
+	 * The Regular Expression used to test file URLS for an absolute path.
+	 * @property ABSOLUTE_PATH
+	 * @type {RegExp}
+	 * @static
+	 */
+	s.ABSOLUTE_PATT = /^(?:\w+:)?\/{2}/i;
+
+	/**
+	 * The Regular Expression used to test file URLS for a relative path.
+	 * @property RELATIVE_PATH
+	 * @type {RegExp}
+	 * @static
+	 */
+	s.RELATIVE_PATT = (/^[./]*?\//i);
+
+	/**
+	 * The Regular Expression used to test file URLS for an extension. Note that URIs must already have the query string
+	 * removed.
+	 * @property EXTENSION_PATT
+	 * @type {RegExp}
+	 * @static
+	 */
+	s.EXTENSION_PATT = /\/?[^/]+\.(\w{1,5})$/i;
+
+	/**
+	 * Parse a file path to determine the information we need to work with it. Currently, PreloadJS needs to know:
+	 * <ul>
+	 *     <li>If the path is absolute. Absolute paths start with a protocol (such as `http://`, `file://`, or
+	 *     `//networkPath`)</li>
+	 *     <li>If the path is relative. Relative paths start with `../` or `/path` (or similar)</li>
+	 *     <li>The file extension. This is determined by the filename with an extension. Query strings are dropped, and
+	 *     the file path is expected to follow the format `name.ext`.</li>
+	 * </ul>
+	 * @method parseURI
+	 * @param {String} path
+	 * @returns {Object} An Object with an `absolute` and `relative` Boolean values, as well as an optional 'extension`
+	 * property, which is the lowercase extension.
+	 * @static
+	 */
+	s.parseURI = function (path) {
+		var info = {absolute: false, relative: false};
+		if (path == null) { return info; }
+
+		// Drop the query string
+		var queryIndex = path.indexOf("?");
+		if (queryIndex > -1) {
+			path = path.substr(0, queryIndex);
+		}
+
+		// Absolute
+		var match;
+		if (s.ABSOLUTE_PATT.test(path)) {
+			info.absolute = true;
+
+			// Relative
+		} else if (s.RELATIVE_PATT.test(path)) {
+			info.relative = true;
+		}
+
+		// Extension
+		if (match = path.match(s.EXTENSION_PATT)) {
+			info.extension = match[1].toLowerCase();
+		}
+		return info;
+	};
+
+	/**
+	 * Formats an object into a query string for either a POST or GET request.
+	 * @method formatQueryString
+	 * @param {Object} data The data to convert to a query string.
+	 * @param {Array} [query] Existing name/value pairs to append on to this query.
+	 * @static
+	 */
+	s.formatQueryString = function (data, query) {
+		if (data == null) {
+			throw new Error('You must specify data.');
+		}
+		var params = [];
+		for (var n in data) {
+			params.push(n + '=' + escape(data[n]));
+		}
+		if (query) {
+			params = params.concat(query);
+		}
+		return params.join('&');
+	};
+
+	/**
+	 * A utility method that builds a file path using a source and a data object, and formats it into a new path.
+	 * @method buildPath
+	 * @param {String} src The source path to add values to.
+	 * @param {Object} [data] Object used to append values to this request as a query string. Existing parameters on the
+	 * path will be preserved.
+	 * @returns {string} A formatted string that contains the path and the supplied parameters.
+	 * @static
+	 */
+	s.buildPath = function (src, data) {
+		if (data == null) {
+			return src;
+		}
+
+		var query = [];
+		var idx = src.indexOf('?');
+
+		if (idx != -1) {
+			var q = src.slice(idx + 1);
+			query = query.concat(q.split('&'));
+		}
+
+		if (idx != -1) {
+			return src.slice(0, idx) + '?' + this._formatQueryString(data, query);
+		} else {
+			return src + '?' + this._formatQueryString(data, query);
+		}
+	};
+
+	/**
+	 * @method isCrossDomain
+	 * @param {LoadItem|Object} item A load item with a `src` property.
+	 * @return {Boolean} If the load item is loading from a different domain than the current location.
+	 * @static
+	 */
+	s.isCrossDomain = function (item) {
+		var target = document.createElement("a");
+		target.href = item.src;
+
+		var host = document.createElement("a");
+		host.href = location.href;
+
+		var crossdomain = (target.hostname != "") &&
+						  (target.port != host.port ||
+						   target.protocol != host.protocol ||
+						   target.hostname != host.hostname);
+		return crossdomain;
+	};
+
+	/**
+	 * @method isLocal
+	 * @param {LoadItem|Object} item A load item with a `src` property
+	 * @return {Boolean} If the load item is loading from the "file:" protocol. Assume that the host must be local as
+	 * well.
+	 * @static
+	 */
+	s.isLocal = function (item) {
+		var target = document.createElement("a");
+		target.href = item.src;
+		return target.hostname == "" && target.protocol == "file:";
+	};
+
+	/**
+	 * Determine if a specific type should be loaded as a binary file. Currently, only images and items marked
+	 * specifically as "binary" are loaded as binary. Note that audio is <b>not</b> a binary type, as we can not play
+	 * back using an audio tag if it is loaded as binary. Plugins can change the item type to binary to ensure they get
+	 * a binary result to work with. Binary files are loaded using XHR2. Types are defined as static constants on
+	 * {{#crossLink "AbstractLoader"}}{{/crossLink}}.
+	 * @method isBinary
+	 * @param {String} type The item type.
+	 * @return {Boolean} If the specified type is binary.
+	 * @static
+	 */
+	s.isBinary = function (type) {
+		switch (type) {
+			case createjs.AbstractLoader.IMAGE:
+			case createjs.AbstractLoader.BINARY:
+				return true;
+			default:
+				return false;
+		}
+	};
+
+	/**
+	 * Check if item is a valid HTMLImageElement
+	 * @method isImageTag
+	 * @param {Object} item
+	 * @returns {Boolean}
+	 * @static
+	 */
+	s.isImageTag = function(item) {
+		return item instanceof HTMLImageElement;
+	};
+
+	/**
+	 * Check if item is a valid HTMLAudioElement
+	 * @method isAudioTag
+	 * @param {Object} item
+	 * @returns {Boolean}
+	 * @static
+	 */
+	s.isAudioTag = function(item) {
+		if (window.HTMLAudioElement) {
+			return item instanceof HTMLAudioElement;
+		} else {
+			return false;
+		}
+	};
+
+	/**
+	 * Check if item is a valid HTMLVideoElement
+	 * @method isVideoTag
+	 * @param {Objectitem
+	 * @returns {Boolean}
+	 * @static
+	 */
+	s.isVideoTag = function(item) {
+		if (window.HTMLVideoElement) {
+			return item instanceof HTMLVideoElement;
+		} else {
+			false;
+		}
+	};
+
+	/**
+	 * Determine if a specific type is a text-based asset, and should be loaded as UTF-8.
+	 * @method isText
+	 * @param {String} type The item type.
+	 * @return {Boolean} If the specified type is text.
+	 * @static
+	 */
+	s.isText = function (type) {
+		switch (type) {
+			case createjs.AbstractLoader.TEXT:
+			case createjs.AbstractLoader.JSON:
+			case createjs.AbstractLoader.MANIFEST:
+			case createjs.AbstractLoader.XML:
+			case createjs.AbstractLoader.CSS:
+			case createjs.AbstractLoader.SVG:
+			case createjs.AbstractLoader.JAVASCRIPT:
+				return true;
+			default:
+				return false;
+		}
+	};
+
+	/**
+	 * Determine the type of the object using common extensions. Note that the type can be passed in with the load item
+	 * if it is an unusual extension.
+	 * @method getTypeByExtension
+	 * @param {String} extension The file extension to use to determine the load type.
+	 * @return {String} The determined load type (for example, <code>AbstractLoader.IMAGE</code>). Will return `null` if
+	 * the type can not be determined by the extension.
+	 * @static
+	 */
+	s.getTypeByExtension = function (extension) {
+		if (extension == null) {
+			return createjs.AbstractLoader.TEXT;
+		}
+
+		switch (extension.toLowerCase()) {
+			case "jpeg":
+			case "jpg":
+			case "gif":
+			case "png":
+			case "webp":
+			case "bmp":
+				return createjs.AbstractLoader.IMAGE;
+			case "ogg":
+			case "mp3":
+			case "webm":
+				return createjs.AbstractLoader.SOUND;
+			case "mp4":
+			case "webm":
+			case "ts":
+				return createjs.AbstractLoader.VIDEO;
+			case "json":
+				return createjs.AbstractLoader.JSON;
+			case "xml":
+				return createjs.AbstractLoader.XML;
+			case "css":
+				return createjs.AbstractLoader.CSS;
+			case "js":
+				return createjs.AbstractLoader.JAVASCRIPT;
+			case 'svg':
+				return createjs.AbstractLoader.SVG;
+			default:
+				return createjs.AbstractLoader.TEXT;
+		}
+	};
+
+	createjs.RequestUtils = s;
+
+}());
+
+//##############################################################################
+// AbstractLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+// constructor
+	/**
+	 * The base loader, which defines all the generic methods, properties, and events. All loaders extend this class,
+	 * including the {{#crossLink "LoadQueue"}}{{/crossLink}}.
+	 * @class AbstractLoader
+	 * @param {LoadItem|object|string} The item to be loaded.
+	 * @param {Boolean} [preferXHR] Determines if the LoadItem should <em>try</em> and load using XHR, or take a
+	 * tag-based approach, which can be better in cross-domain situations. Not all loaders can load using one or the
+	 * other, so this is a suggested directive.
+	 * @oaram {String} [type] The type of loader. Loader types are defined as constants on the AbstractLoader class,
+	 * such as {{#crossLink "IMAGE:property"}}{{/crossLink}}, {{#crossLink "CSS:property"}}{{/crossLink}}, etc.
+	 * @extends EventDispatcher
+	 */
+	function AbstractLoader(loadItem, preferXHR, type) {
+		this.EventDispatcher_constructor();
+
+		// public properties
+		/**
+		 * If the loader has completed loading. This provides a quick check, but also ensures that the different approaches
+		 * used for loading do not pile up resulting in more than one `complete` {{#crossLink "Event"}}{{/crossLink}}.
+		 * @property loaded
+		 * @type {Boolean}
+		 * @default false
+		 */
+		this.loaded = false;
+
+		/**
+		 * Determine if the loader was canceled. Canceled loads will not fire complete events. Note that this property
+		 * is readonly, so {{#crossLink "LoadQueue"}}{{/crossLink}} queues should be closed using {{#crossLink "LoadQueue/close"}}{{/crossLink}}
+		 * instead.
+		 * @property canceled
+		 * @type {Boolean}
+		 * @default false
+		 */
+		this.canceled = false;
+
+		/**
+		 * The current load progress (percentage) for this item. This will be a number between 0 and 1.
+		 *
+		 * <h4>Example</h4>
+		 *
+		 *     var queue = new createjs.LoadQueue();
+		 *     queue.loadFile("largeImage.png");
+		 *     queue.on("progress", function() {
+		 *         console.log("Progress:", queue.progress, event.progress);
+		 *     });
+		 *
+		 * @property progress
+		 * @type {Number}
+		 * @default 0
+		 */
+		this.progress = 0;
+
+		/**
+		 * The type of item this loader will load. See {{#crossLink "AbstractLoader"}}{{/crossLink}} for a full list of
+		 * supported types.
+		 * @property type
+		 * @type {String}
+		 */
+		this.type = type;
+
+		/**
+		 * A formatter function that converts the loaded raw result into the final result. For example, the JSONLoader
+		 * converts a string of text into a JavaScript object. Not all loaders have a resultFormatter, and this property
+		 * can be overridden to provide custom formatting.
+		 *
+		 * Optionally, a resultFormatter can return a callback function in cases where the formatting needs to be
+		 * asynchronous, such as creating a new image.
+		 * @property resultFormatter
+		 * @type {Function}
+		 * @default null
+		 */
+		this.resultFormatter = null;
+
+		// protected properties
+		/**
+		 * The {{#crossLink "LoadItem"}}{{/crossLink}} this loader represents. Note that this is null in a {{#crossLink "LoadQueue"}}{{/crossLink}},
+		 * but will be available on loaders such as {{#crossLink "XMLLoader"}}{{/crossLink}} and {{#crossLink "ImageLoader"}}{{/crossLink}}.
+		 * @property _item
+		 * @type {LoadItem|Object}
+		 * @private
+		 */
+		if (loadItem) {
+			this._item = createjs.LoadItem.create(loadItem);
+		} else {
+			this._item = null;
+		}
+
+		/**
+		 * Whether the loader will try and load content using XHR (true) or HTML tags (false).
+		 * @property _preferXHR
+		 * @type {Boolean}
+		 * @private
+		 */
+		this._preferXHR = preferXHR;
+
+		/**
+		 * The loaded result after it is formatted by an optional {{#crossLink "resultFormatter"}}{{/crossLink}}. For
+		 * items that are not formatted, this will be the same as the {{#crossLink "_rawResult:property"}}{{/crossLink}}.
+		 * The result is accessed using the {{#crossLink "getResult"}}{{/crossLink}} method.
+		 * @property _result
+		 * @type {Object|String}
+		 * @private
+		 */
+		this._result = null;
+
+		/**
+		 * The loaded result before it is formatted. The rawResult is accessed using the {{#crossLink "getResult"}}{{/crossLink}}
+		 * method, and passing `true`.
+		 * @property _rawResult
+		 * @type {Object|String}
+		 * @private
+		 */
+		this._rawResult = null;
+
+		/**
+		 * A list of items that loaders load behind the scenes. This does not include the main item the loader is
+		 * responsible for loading. Examples of loaders that have sub-items include the {{#crossLink "SpriteSheetLoader"}}{{/crossLink}} and
+		 * {{#crossLink "ManifestLoader"}}{{/crossLink}}.
+		 * @property _loadItems
+		 * @type {null}
+		 * @protected
+		 */
+		this._loadedItems = null;
+
+		/**
+		 * The attribute the items loaded using tags use for the source.
+		 * @type {string}
+		 * @default null
+		 * @private
+		 */
+		this._tagSrcAttribute = null;
+
+		/**
+		 * An HTML tag (or similar) that a loader may use to load HTML content, such as images, scripts, etc.
+		 * @property _tag
+		 * @type {Object}
+		 * @private
+		 */
+		this._tag = null;
+	};
+
+	var p = createjs.extend(AbstractLoader, createjs.EventDispatcher);
+	var s = AbstractLoader;
+
+	/**
+	 * Defines a POST request, use for a method value when loading data.
+	 * @property POST
+	 * @type {string}
+	 * @default post
+	 */
+	s.POST = "POST";
+
+	/**
+	 * Defines a GET request, use for a method value when loading data.
+	 * @property GET
+	 * @type {string}
+	 * @default get
+	 */
+	s.GET = "GET";
+
+	/**
+	 * The preload type for generic binary types. Note that images are loaded as binary files when using XHR.
+	 * @property BINARY
+	 * @type {String}
+	 * @default binary
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.BINARY = "binary";
+
+	/**
+	 * The preload type for css files. CSS files are loaded using a &lt;link&gt; when loaded with XHR, or a
+	 * &lt;style&gt; tag when loaded with tags.
+	 * @property CSS
+	 * @type {String}
+	 * @default css
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.CSS = "css";
+
+	/**
+	 * The preload type for image files, usually png, gif, or jpg/jpeg. Images are loaded into an &lt;image&gt; tag.
+	 * @property IMAGE
+	 * @type {String}
+	 * @default image
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.IMAGE = "image";
+
+	/**
+	 * The preload type for javascript files, usually with the "js" file extension. JavaScript files are loaded into a
+	 * &lt;script&gt; tag.
+	 *
+	 * Since version 0.4.1+, due to how tag-loaded scripts work, all JavaScript files are automatically injected into
+	 * the body of the document to maintain parity between XHR and tag-loaded scripts. In version 0.4.0 and earlier,
+	 * only tag-loaded scripts are injected.
+	 * @property JAVASCRIPT
+	 * @type {String}
+	 * @default javascript
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.JAVASCRIPT = "javascript";
+
+	/**
+	 * The preload type for json files, usually with the "json" file extension. JSON data is loaded and parsed into a
+	 * JavaScript object. Note that if a `callback` is present on the load item, the file will be loaded with JSONP,
+	 * no matter what the {{#crossLink "LoadQueue/preferXHR:property"}}{{/crossLink}} property is set to, and the JSON
+	 * must contain a matching wrapper function.
+	 * @property JSON
+	 * @type {String}
+	 * @default json
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.JSON = "json";
+
+	/**
+	 * The preload type for jsonp files, usually with the "json" file extension. JSON data is loaded and parsed into a
+	 * JavaScript object. You are required to pass a callback parameter that matches the function wrapper in the JSON.
+	 * Note that JSONP will always be used if there is a callback present, no matter what the {{#crossLink "LoadQueue/preferXHR:property"}}{{/crossLink}}
+	 * property is set to.
+	 * @property JSONP
+	 * @type {String}
+	 * @default jsonp
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.JSONP = "jsonp";
+
+	/**
+	 * The preload type for json-based manifest files, usually with the "json" file extension. The JSON data is loaded
+	 * and parsed into a JavaScript object. PreloadJS will then look for a "manifest" property in the JSON, which is an
+	 * Array of files to load, following the same format as the {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}
+	 * method. If a "callback" is specified on the manifest object, then it will be loaded using JSONP instead,
+	 * regardless of what the {{#crossLink "LoadQueue/preferXHR:property"}}{{/crossLink}} property is set to.
+	 * @property MANIFEST
+	 * @type {String}
+	 * @default manifest
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.MANIFEST = "manifest";
+
+	/**
+	 * The preload type for sound files, usually mp3, ogg, or wav. When loading via tags, audio is loaded into an
+	 * &lt;audio&gt; tag.
+	 * @property SOUND
+	 * @type {String}
+	 * @default sound
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.SOUND = "sound";
+
+	/**
+	 * The preload type for video files, usually mp4, ts, or ogg. When loading via tags, video is loaded into an
+	 * &lt;video&gt; tag.
+	 * @property VIDEO
+	 * @type {String}
+	 * @default video
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.VIDEO = "video";
+
+	/**
+	 * The preload type for SpriteSheet files. SpriteSheet files are JSON files that contain string image paths.
+	 * @property SPRITESHEET
+	 * @type {String}
+	 * @default spritesheet
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.SPRITESHEET = "spritesheet";
+
+	/**
+	 * The preload type for SVG files.
+	 * @property SVG
+	 * @type {String}
+	 * @default svg
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.SVG = "svg";
+
+	/**
+	 * The preload type for text files, which is also the default file type if the type can not be determined. Text is
+	 * loaded as raw text.
+	 * @property TEXT
+	 * @type {String}
+	 * @default text
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.TEXT = "text";
+
+	/**
+	 * The preload type for xml files. XML is loaded into an XML document.
+	 * @property XML
+	 * @type {String}
+	 * @default xml
+	 * @static
+	 * @since 0.6.0
+	 */
+	s.XML = "xml";
+
+// Events
+	/**
+	 * The {{#crossLink "ProgressEvent"}}{{/crossLink}} that is fired when the overall progress changes. Prior to
+	 * version 0.6.0, this was just a regular {{#crossLink "Event"}}{{/crossLink}}.
+	 * @event progress
+	 * @since 0.3.0
+	 */
+
+	/**
+	 * The {{#crossLink "Event"}}{{/crossLink}} that is fired when a load starts.
+	 * @event loadstart
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @since 0.3.1
+	 */
+
+	/**
+	 * The {{#crossLink "Event"}}{{/crossLink}} that is fired when the entire queue has been loaded.
+	 * @event complete
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @since 0.3.0
+	 */
+
+	/**
+	 * The {{#crossLink "ErrorEvent"}}{{/crossLink}} that is fired when the loader encounters an error. If the error was
+	 * encountered by a file, the event will contain the item that caused the error. Prior to version 0.6.0, this was
+	 * just a regular {{#crossLink "Event"}}{{/crossLink}}.
+	 * @event error
+	 * @since 0.3.0
+	 */
+
+	/**
+	 * The {{#crossLink "Event"}}{{/crossLink}} that is fired when the loader encounters an internal file load error.
+	 * This enables loaders to maintain internal queues, and surface file load errors.
+	 * @event fileerror
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The even type ("fileerror")
+	 * @param {LoadItem|object} The item that encountered the error
+	 * @since 0.6.0
+	 */
+
+	/**
+	 * The {{#crossLink "Event"}}{{/crossLink}} that is fired when a loader internally loads a file. This enables
+	 * loaders such as {{#crossLink "ManifestLoader"}}{{/crossLink}} to maintain internal {{#crossLink "LoadQueue"}}{{/crossLink}}s
+	 * and notify when they have loaded a file. The {{#crossLink "LoadQueue"}}{{/crossLink}} class dispatches a
+	 * slightly different {{#crossLink "LoadQueue/fileload:event"}}{{/crossLink}} event.
+	 * @event fileload
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type ("fileload")
+	 * @param {Object} item The file item which was specified in the {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}}
+	 * or {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}} call. If only a string path or tag was specified, the
+	 * object will contain that value as a `src` property.
+	 * @param {Object} result The HTML tag or parsed result of the loaded item.
+	 * @param {Object} rawResult The unprocessed result, usually the raw text or binary data before it is converted
+	 * to a usable object.
+	 * @since 0.6.0
+	 */
+
+	/**
+	 * The {{#crossLink "Event"}}{{/crossLink}} that is fired after the internal request is created, but before a load.
+	 * This allows updates to the loader for specific loading needs, such as binary or XHR image loading.
+	 * @event initialize
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type ("initialize")
+	 * @param {AbstractLoader} loader The loader that has been initialized.
+	 */
+
+
+	/**
+	 * Get a reference to the manifest item that is loaded by this loader. In some cases this will be the value that was
+	 * passed into {{#crossLink "LoadQueue"}}{{/crossLink}} using {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} or
+	 * {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}. However if only a String path was passed in, then it will
+	 * be a {{#crossLink "LoadItem"}}{{/crossLink}}.
+	 * @method getItem
+	 * @return {Object} The manifest item that this loader is responsible for loading.
+	 * @since 0.6.0
+	 */
+	p.getItem = function () {
+		return this._item;
+	};
+
+	/**
+	 * Get a reference to the content that was loaded by the loader (only available after the {{#crossLink "complete:event"}}{{/crossLink}}
+	 * event is dispatched.
+	 * @method getResult
+	 * @param {Boolean} [raw=false] Determines if the returned result will be the formatted content, or the raw loaded
+	 * data (if it exists).
+	 * @return {Object}
+	 * @since 0.6.0
+	 */
+	p.getResult = function (raw) {
+		return raw ? this._rawResult : this._result;
+	};
+
+	/**
+	 * Return the `tag` this object creates or uses for loading.
+	 * @method getTag
+	 * @return {Object} The tag instance
+	 * @since 0.6.0
+	 */
+	p.getTag = function () {
+		return this._tag;
+	};
+
+	/**
+	 * Set the `tag` this item uses for loading.
+	 * @method setTag
+	 * @param {Object} tag The tag instance
+	 * @since 0.6.0
+	 */
+	p.setTag = function(tag) {
+	  this._tag = tag;
+	};
+
+	/**
+	 * Begin loading the item. This method is required when using a loader by itself.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      var queue = new createjs.LoadQueue();
+	 *      queue.on("complete", handleComplete);
+	 *      queue.loadManifest(fileArray, false); // Note the 2nd argument that tells the queue not to start loading yet
+	 *      queue.load();
+	 *
+	 * @method load
+	 */
+	p.load = function () {
+		this._createRequest();
+
+		this._request.on("complete", this, this);
+		this._request.on("progress", this, this);
+		this._request.on("loadStart", this, this);
+		this._request.on("abort", this, this);
+		this._request.on("timeout", this, this);
+		this._request.on("error", this, this);
+
+		var evt = new createjs.Event("initialize");
+		evt.loader = this._request;
+		this.dispatchEvent(evt);
+
+		this._request.load();
+	};
+
+	/**
+	 * Close the the item. This will stop any open requests (although downloads using HTML tags may still continue in
+	 * the background), but events will not longer be dispatched.
+	 * @method cancel
+	 */
+	p.cancel = function () {
+		this.canceled = true;
+		this.destroy();
+	};
+
+	/**
+	 * Clean up the loader.
+	 * @method destroy
+	 */
+	p.destroy = function() {
+		if (this._request) {
+			this._request.removeAllEventListeners();
+			this._request.destroy();
+		}
+
+		this._request = null;
+
+		this._item = null;
+		this._rawResult = null;
+		this._result = null;
+
+		this._loadItems = null;
+
+		this.removeAllEventListeners();
+	};
+
+	/**
+	 * Get any items loaded internally by the loader. The enables loaders such as {{#crossLink "ManifestLoader"}}{{/crossLink}}
+	 * to expose items it loads internally.
+	 * @method getLoadedItems
+	 * @return {Array} A list of the items loaded by the loader.
+	 * @since 0.6.0
+	 */
+	p.getLoadedItems = function () {
+		return this._loadedItems;
+	};
+
+
+	// Private methods
+	/**
+	 * Create an internal request used for loading. By default, an {{#crossLink "XHRRequest"}}{{/crossLink}} or
+	 * {{#crossLink "TagRequest"}}{{/crossLink}} is created, depending on the value of {{#crossLink "preferXHR:property"}}{{/crossLink}}.
+	 * Other loaders may override this to use different request types, such as {{#crossLink "ManifestLoader"}}{{/crossLink}},
+	 * which uses {{#crossLink "JSONLoader"}}{{/crossLink}} or {{#crossLink "JSONPLoader"}}{{/crossLink}} under the hood.
+	 * @method _createRequest
+	 * @protected
+	 */
+	p._createRequest = function() {
+		if (!this._preferXHR) {
+			this._request = new createjs.TagRequest(this._item, this._tag || this._createTag(), this._tagSrcAttribute);
+		} else {
+			this._request = new createjs.XHRRequest(this._item);
+		}
+	};
+
+	/**
+	 * Create the HTML tag used for loading. This method does nothing by default, and needs to be implemented
+	 * by loaders that require tag loading.
+	 * @method _createTag
+	 * @param {String} src The tag source
+	 * @return {HTMLElement} The tag that was created
+	 * @protected
+	 */
+	p._createTag = function(src) { return null; };
+
+	/**
+	 * Dispatch a loadstart {{#crossLink "Event"}}{{/crossLink}}. Please see the {{#crossLink "AbstractLoader/loadstart:event"}}{{/crossLink}}
+	 * event for details on the event payload.
+	 * @method _sendLoadStart
+	 * @protected
+	 */
+	p._sendLoadStart = function () {
+		if (this._isCanceled()) { return; }
+		this.dispatchEvent("loadstart");
+	};
+
+	/**
+	 * Dispatch a {{#crossLink "ProgressEvent"}}{{/crossLink}}.
+	 * @method _sendProgress
+	 * @param {Number | Object} value The progress of the loaded item, or an object containing <code>loaded</code>
+	 * and <code>total</code> properties.
+	 * @protected
+	 */
+	p._sendProgress = function (value) {
+		if (this._isCanceled()) { return; }
+		var event = null;
+		if (typeof(value) == "number") {
+			this.progress = value;
+			event = new createjs.ProgressEvent(this.progress);
+		} else {
+			event = value;
+			this.progress = value.loaded / value.total;
+			event.progress = this.progress;
+			if (isNaN(this.progress) || this.progress == Infinity) { this.progress = 0; }
+		}
+		this.hasEventListener("progress") && this.dispatchEvent(event);
+	};
+
+	/**
+	 * Dispatch a complete {{#crossLink "Event"}}{{/crossLink}}. Please see the {{#crossLink "AbstractLoader/complete:event"}}{{/crossLink}} event
+	 * @method _sendComplete
+	 * @protected
+	 */
+	p._sendComplete = function () {
+		if (this._isCanceled()) { return; }
+
+		this.loaded = true;
+
+		var event = new createjs.Event("complete");
+		event.rawResult = this._rawResult;
+
+		if (this._result != null) {
+			event.result = this._result;
+		}
+
+		this.dispatchEvent(event);
+	};
+
+	/**
+	 * Dispatch an error {{#crossLink "Event"}}{{/crossLink}}. Please see the {{#crossLink "AbstractLoader/error:event"}}{{/crossLink}}
+	 * event for details on the event payload.
+	 * @method _sendError
+	 * @param {ErrorEvent} event The event object containing specific error properties.
+	 * @protected
+	 */
+	p._sendError = function (event) {
+		if (this._isCanceled() || !this.hasEventListener("error")) { return; }
+		if (event == null) {
+			event = new createjs.ErrorEvent("PRELOAD_ERROR_EMPTY"); // TODO: Populate error
+		}
+		this.dispatchEvent(event);
+	};
+
+	/**
+	 * Determine if the load has been canceled. This is important to ensure that method calls or asynchronous events
+	 * do not cause issues after the queue has been cleaned up.
+	 * @method _isCanceled
+	 * @return {Boolean} If the loader has been canceled.
+	 * @protected
+	 */
+	p._isCanceled = function () {
+		if (window.createjs == null || this.canceled) {
+			return true;
+		}
+		return false;
+	};
+
+	/**
+	 * A custom result formatter function, which is called just before a request dispatches its complete event. Most
+	 * loader types already have an internal formatter, but this can be user-overridden for custom formatting. The
+	 * formatted result will be available on Loaders using {{#crossLink "getResult"}}{{/crossLink}}, and passing `true`.
+	 * @property resultFormatter
+	 * @type Function
+	 * @return {Object} The formatted result
+	 * @since 0.6.0
+	 */
+	p.resultFormatter = null; //TODO: Add support for async formatting.
+
+	/**
+	 * Handle events from internal requests. By default, loaders will handle, and redispatch the necessary events, but
+	 * this method can be overridden for custom behaviours.
+	 * @method handleEvent
+	 * @param {Event} The event that the internal request dispatches.
+	 * @protected
+	 * @since 0.6.0
+	 */
+	p.handleEvent = function (event) {
+		switch (event.type) {
+			case "complete":
+				this._rawResult = event.target._response;
+				var result = this.resultFormatter && this.resultFormatter(this);
+				var _this = this;
+				if (result instanceof Function) {
+					result(function(result) {
+						_this._result = result;
+						_this._sendComplete();
+					});
+				} else {
+					this._result =  result || this._rawResult;
+					this._sendComplete();
+				}
+				break;
+			case "progress":
+				this._sendProgress(event);
+				break;
+			case "error":
+				this._sendError(event);
+				break;
+			case "loadstart":
+				this._sendLoadStart();
+				break;
+			case "abort":
+			case "timeout":
+				if (!this._isCanceled()) {
+					this.dispatchEvent(event.type);
+				}
+				break;
+		}
+	};
+
+	/**
+	 * @method buildPath
+	 * @protected
+	 * @deprecated Use the {{#crossLink "RequestUtils"}}{{/crossLink}} method {{#crossLink "RequestUtils/buildPath"}}{{/crossLink}}
+	 * instead.
+	 */
+	p.buildPath = function (src, data) {
+		return createjs.RequestUtils.buildPath(src, data);
+	};
+
+	/**
+	 * @method toString
+	 * @return {String} a string representation of the instance.
+	 */
+	p.toString = function () {
+		return "[PreloadJS AbstractLoader]";
+	};
+
+	createjs.AbstractLoader = createjs.promote(AbstractLoader, "EventDispatcher");
+
+}());
+
+//##############################################################################
+// AbstractMediaLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * The AbstractMediaLoader is a base class that handles some of the shared methods and properties of loaders that
+	 * handle HTML media elements, such as Video and Audio.
+	 * @class AbstractMediaLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @param {Boolean} preferXHR
+	 * @param {String} type The type of media to load. Usually "video" or "audio".
+	 * @constructor
+	 */
+	function AbstractMediaLoader(loadItem, preferXHR, type) {
+		this.AbstractLoader_constructor(loadItem, preferXHR, type);
+
+		// public properties
+		this.resultFormatter = this._formatResult;
+
+		// protected properties
+		this._tagSrcAttribute = "src";
+	};
+
+	var p = createjs.extend(AbstractMediaLoader, createjs.AbstractLoader);
+
+	// static properties
+	// public methods
+	p.load = function () {
+		// TagRequest will handle most of this, but Sound / Video need a few custom properties, so just handle them here.
+		if (!this._tag) {
+			this._tag = this._createTag(this._item.src);
+		}
+
+		this._tag.preload = "auto";
+		this._tag.load();
+
+		this.AbstractLoader_load();
+	};
+
+	// protected methods
+	/**
+	 * Creates a new tag for loading if it doesn't exist yet.
+	 * @method _createTag
+	 * @private
+	 */
+	p._createTag = function () {};
+
+
+	p._createRequest = function() {
+		if (!this._preferXHR) {
+			this._request = new createjs.MediaTagRequest(this._item, this._tag || this._createTag(), this._tagSrcAttribute);
+		} else {
+			this._request = new createjs.XHRRequest(this._item);
+		}
+	};
+
+	/**
+	 * The result formatter for media files.
+	 * @method _formatResult
+	 * @param {AbstractLoader} loader
+	 * @returns {HTMLVideoElement|HTMLAudioElement}
+	 * @private
+	 */
+	p._formatResult = function (loader) {
+		this._tag.removeEventListener && this._tag.removeEventListener("canplaythrough", this._loadedHandler);
+		this._tag.onstalled = null;
+		if (this._preferXHR) {
+			loader.getTag().src = loader.getResult(true);
+		}
+		return loader.getTag();
+	};
+
+	createjs.AbstractMediaLoader = createjs.promote(AbstractMediaLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// AbstractRequest.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	/**
+	 * A base class for actual data requests, such as {{#crossLink "XHRRequest"}}{{/crossLink}}, {{#crossLink "TagRequest"}}{{/crossLink}},
+	 * and {{#crossLink "MediaRequest"}}{{/crossLink}}. PreloadJS loaders will typically use a data loader under the
+	 * hood to get data.
+	 * @class AbstractRequest
+	 * @param {LoadItem} item
+	 * @constructor
+	 */
+	var AbstractRequest = function (item) {
+		this._item = item;
+	};
+
+	var p = createjs.extend(AbstractRequest, createjs.EventDispatcher);
+
+	// public methods
+	/**
+	 * Begin a load.
+	 * @method load
+	 */
+	p.load =  function() {};
+
+	/**
+	 * Clean up a request.
+	 * @method destroy
+	 */
+	p.destroy = function() {};
+
+	/**
+	 * Cancel an in-progress request.
+	 * @method cancel
+	 */
+	p.cancel = function() {};
+
+	createjs.AbstractRequest = createjs.promote(AbstractRequest, "EventDispatcher");
+
+}());
+
+//##############################################################################
+// TagRequest.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * An {{#crossLink "AbstractRequest"}}{{/crossLink}} that loads HTML tags, such as images and scripts.
+	 * @class TagRequest
+	 * @param {LoadItem} loadItem
+	 * @param {HTMLElement} tag
+	 * @param {String} srcAttribute The tag attribute that specifies the source, such as "src", "href", etc.
+	 */
+	function TagRequest(loadItem, tag, srcAttribute) {
+		this.AbstractRequest_constructor(loadItem);
+
+		// protected properties
+		/**
+		 * The HTML tag instance that is used to load.
+		 * @property _tag
+		 * @type {HTMLElement}
+		 * @protected
+		 */
+		this._tag = tag;
+
+		/**
+		 * The tag attribute that specifies the source, such as "src", "href", etc.
+		 * @property _tagSrcAttribute
+		 * @type {String}
+		 * @protected
+		 */
+		this._tagSrcAttribute = srcAttribute;
+
+		/**
+		 * A method closure used for handling the tag load event.
+		 * @property _loadedHandler
+		 * @type {Function}
+		 * @private
+		 */
+		this._loadedHandler = createjs.proxy(this._handleTagComplete, this);
+
+		/**
+		 * Determines if the element was added to the DOM automatically by PreloadJS, so it can be cleaned up after.
+		 * @property _addedToDOM
+		 * @type {Boolean}
+		 * @private
+		 */
+		this._addedToDOM = false;
+
+		/**
+		 * Determines what the tags initial style.visibility was, so we can set it correctly after a load.
+		 *
+		 * @type {null}
+		 * @private
+		 */
+		this._startTagVisibility = null;
+	};
+
+	var p = createjs.extend(TagRequest, createjs.AbstractRequest);
+
+	// public methods
+	p.load = function () {
+		if (this._tag.parentNode == null) {
+			window.document.body.appendChild(this._tag);
+			this._addedToDOM = true;
+		}
+
+		this._tag.onload = createjs.proxy(this._handleTagComplete, this);
+		this._tag.onreadystatechange = createjs.proxy(this._handleReadyStateChange, this);
+
+		var evt = new createjs.Event("initialize");
+		evt.loader = this._tag;
+
+		this.dispatchEvent(evt);
+
+		this._hideTag();
+
+		this._tag[this._tagSrcAttribute] = this._item.src;
+	};
+
+	p.destroy = function() {
+		this._clean();
+		this._tag = null;
+
+		this.AbstractRequest_destroy();
+	};
+
+	// private methods
+	/**
+	 * Handle the readyStateChange event from a tag. We need this in place of the `onload` callback (mainly SCRIPT
+	 * and LINK tags), but other cases may exist.
+	 * @method _handleReadyStateChange
+	 * @private
+	 */
+	p._handleReadyStateChange = function () {
+		clearTimeout(this._loadTimeout);
+		// This is strictly for tags in browsers that do not support onload.
+		var tag = this._tag;
+
+		// Complete is for old IE support.
+		if (tag.readyState == "loaded" || tag.readyState == "complete") {
+			this._handleTagComplete();
+		}
+	};
+
+	/**
+	 * Handle the tag's onload callback.
+	 * @method _handleTagComplete
+	 * @private
+	 */
+	p._handleTagComplete = function () {
+		this._rawResult = this._tag;
+		this._result = this.resultFormatter && this.resultFormatter(this) || this._rawResult;
+
+		this._clean();
+		this._showTag();
+
+		this.dispatchEvent("complete");
+	};
+
+	/**
+	 * Remove event listeners, but don't destroy the request object
+	 * @method _clean
+	 * @private
+	 */
+	p._clean = function() {
+		this._tag.onload = null;
+		this._tag.onreadystatechange = null;
+		if (this._addedToDOM && this._tag.parentNode != null) {
+			this._tag.parentNode.removeChild(this._tag);
+		}
+	};
+
+	p._hideTag = function() {
+		this._startTagVisibility = this._tag.style.visibility;
+		this._tag.style.visibility = "hidden";
+	};
+
+	p._showTag = function() {
+		this._tag.style.visibility = this._startTagVisibility;
+	};
+
+	/**
+	 * Handle a stalled audio event. The main place this happens is with HTMLAudio in Chrome when playing back audio
+	 * that is already in a load, but not complete.
+	 * @method _handleStalled
+	 * @private
+	 */
+	p._handleStalled = function () {
+		//Ignore, let the timeout take care of it. Sometimes its not really stopped.
+	};
+
+	createjs.TagRequest = createjs.promote(TagRequest, "AbstractRequest");
+
+}());
+
+//##############################################################################
+// MediaTagRequest.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * An {{#crossLink "TagRequest"}}{{/crossLink}} that loads HTML tags for video and audio.
+	 * @class MediaTagRequest
+	 * @param {LoadItem} loadItem
+	 * @param {HTMLAudioElement|HTMLVideoElement} tag
+	 * @param {String} srcAttribute The tag attribute that specifies the source, such as "src", "href", etc.
+	 * @constructor
+	 */
+	function MediaTagRequest(loadItem, tag, srcAttribute) {
+		this.AbstractRequest_constructor(loadItem);
+
+		// protected properties
+		this._tag = tag;
+		this._tagSrcAttribute = srcAttribute;
+		this._loadedHandler = createjs.proxy(this._handleTagComplete, this);
+	};
+
+	var p = createjs.extend(MediaTagRequest, createjs.TagRequest);
+	var s = MediaTagRequest;
+
+	// public methods
+	p.load = function () {
+		this._tag.onstalled = createjs.proxy(this._handleStalled, this);
+		this._tag.onprogress = createjs.proxy(this._handleProgress, this);
+
+		// This will tell us when audio is buffered enough to play through, but not when its loaded.
+		// The tag doesn't keep loading in Chrome once enough has buffered, and we have decided that behaviour is sufficient.
+		this._tag.addEventListener && this._tag.addEventListener("canplaythrough", this._loadedHandler, false); // canplaythrough callback doesn't work in Chrome, so we use an event.
+
+		this.TagRequest_load();
+	};
+
+	// private methods
+	p._handleReadyStateChange = function () {
+		clearTimeout(this._loadTimeout);
+		// This is strictly for tags in browsers that do not support onload.
+		var tag = this._tag;
+
+		// Complete is for old IE support.
+		if (tag.readyState == "loaded" || tag.readyState == "complete") {
+			this._handleTagComplete();
+		}
+	};
+
+	p._handleStalled = function () {
+		//Ignore, let the timeout take care of it. Sometimes its not really stopped.
+	};
+
+	/**
+	 * An XHR request has reported progress.
+	 * @method _handleProgress
+	 * @param {Object} event The XHR progress event.
+	 * @private
+	 */
+	p._handleProgress = function (event) {
+		if (!event || event.loaded > 0 && event.total == 0) {
+			return; // Sometimes we get no "total", so just ignore the progress event.
+		}
+
+		var newEvent = new createjs.ProgressEvent(event.loaded, event.total);
+		this.dispatchEvent(newEvent);
+	};
+
+	// protected methods
+	p._clean = function () {
+		this._tag.removeEventListener && this._tag.removeEventListener("canplaythrough", this._loadedHandler);
+		this._tag.onstalled = null;
+		this._tag.onprogress = null;
+
+		this.TagRequest__clean();
+	};
+
+	createjs.MediaTagRequest = createjs.promote(MediaTagRequest, "TagRequest");
+
+}());
+
+//##############################################################################
+// XHRRequest.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+// constructor
+	/**
+	 * A preloader that loads items using XHR requests, usually XMLHttpRequest. However XDomainRequests will be used
+	 * for cross-domain requests if possible, and older versions of IE fall back on to ActiveX objects when necessary.
+	 * XHR requests load the content as text or binary data, provide progress and consistent completion events, and
+	 * can be canceled during load. Note that XHR is not supported in IE 6 or earlier, and is not recommended for
+	 * cross-domain loading.
+	 * @class XHRRequest
+	 * @constructor
+	 * @param {Object} item The object that defines the file to load. Please see the {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}}
+	 * for an overview of supported file properties.
+	 * @extends AbstractLoader
+	 */
+	function XHRRequest(item) {
+		this.AbstractRequest_constructor(item);
+
+		// protected properties
+		/**
+		 * A reference to the XHR request used to load the content.
+		 * @property _request
+		 * @type {XMLHttpRequest | XDomainRequest | ActiveX.XMLHTTP}
+		 * @private
+		 */
+		this._request = null;
+
+		/**
+		 * A manual load timeout that is used for browsers that do not support the onTimeout event on XHR (XHR level 1,
+		 * typically IE9).
+		 * @property _loadTimeout
+		 * @type {Number}
+		 * @private
+		 */
+		this._loadTimeout = null;
+
+		/**
+		 * The browser's XHR (XMLHTTPRequest) version. Supported versions are 1 and 2. There is no official way to detect
+		 * the version, so we use capabilities to make a best guess.
+		 * @property _xhrLevel
+		 * @type {Number}
+		 * @default 1
+		 * @private
+		 */
+		this._xhrLevel = 1;
+
+		/**
+		 * The response of a loaded file. This is set because it is expensive to look up constantly. This property will be
+		 * null until the file is loaded.
+		 * @property _response
+		 * @type {mixed}
+		 * @private
+		 */
+		this._response = null;
+
+		/**
+		 * The response of the loaded file before it is modified. In most cases, content is converted from raw text to
+		 * an HTML tag or a formatted object which is set to the <code>result</code> property, but the developer may still
+		 * want to access the raw content as it was loaded.
+		 * @property _rawResponse
+		 * @type {String|Object}
+		 * @private
+		 */
+		this._rawResponse = null;
+
+		this._canceled = false;
+
+		// Setup our event handlers now.
+		this._handleLoadStartProxy = createjs.proxy(this._handleLoadStart, this);
+		this._handleProgressProxy = createjs.proxy(this._handleProgress, this);
+		this._handleAbortProxy = createjs.proxy(this._handleAbort, this);
+		this._handleErrorProxy = createjs.proxy(this._handleError, this);
+		this._handleTimeoutProxy = createjs.proxy(this._handleTimeout, this);
+		this._handleLoadProxy = createjs.proxy(this._handleLoad, this);
+		this._handleReadyStateChangeProxy = createjs.proxy(this._handleReadyStateChange, this);
+
+		if (!this._createXHR(item)) {
+			//TODO: Throw error?
+		}
+	};
+
+	var p = createjs.extend(XHRRequest, createjs.AbstractRequest);
+
+// static properties
+	/**
+	 * A list of XMLHTTP object IDs to try when building an ActiveX object for XHR requests in earlier versions of IE.
+	 * @property ACTIVEX_VERSIONS
+	 * @type {Array}
+	 * @since 0.4.2
+	 * @private
+	 */
+	XHRRequest.ACTIVEX_VERSIONS = [
+		"Msxml2.XMLHTTP.6.0",
+		"Msxml2.XMLHTTP.5.0",
+		"Msxml2.XMLHTTP.4.0",
+		"MSXML2.XMLHTTP.3.0",
+		"MSXML2.XMLHTTP",
+		"Microsoft.XMLHTTP"
+	];
+
+// Public methods
+	/**
+	 * Look up the loaded result.
+	 * @method getResult
+	 * @param {Boolean} [raw=false] Return a raw result instead of a formatted result. This applies to content
+	 * loaded via XHR such as scripts, XML, CSS, and Images. If there is no raw result, the formatted result will be
+	 * returned instead.
+	 * @return {Object} A result object containing the content that was loaded, such as:
+	 * <ul>
+	 *      <li>An image tag (&lt;image /&gt;) for images</li>
+	 *      <li>A script tag for JavaScript (&lt;script /&gt;). Note that scripts loaded with tags may be added to the
+	 *      HTML head.</li>
+	 *      <li>A style tag for CSS (&lt;style /&gt;)</li>
+	 *      <li>Raw text for TEXT</li>
+	 *      <li>A formatted JavaScript object defined by JSON</li>
+	 *      <li>An XML document</li>
+	 *      <li>An binary arraybuffer loaded by XHR</li>
+	 * </ul>
+	 * Note that if a raw result is requested, but not found, the result will be returned instead.
+	 */
+	p.getResult = function (raw) {
+		if (raw && this._rawResponse) {
+			return this._rawResponse;
+		}
+		return this._response;
+	};
+
+	// Overrides abstract method in AbstractRequest
+	p.cancel = function () {
+		this.canceled = true;
+		this._clean();
+		this._request.abort();
+	};
+
+	// Overrides abstract method in AbstractLoader
+	p.load = function () {
+		if (this._request == null) {
+			this._handleError();
+			return;
+		}
+
+		//Events
+		this._request.addEventListener("loadstart", this._handleLoadStartProxy, false);
+		this._request.addEventListener("progress", this._handleProgressProxy, false);
+		this._request.addEventListener("abort", this._handleAbortProxy, false);
+		this._request.addEventListener("error",this._handleErrorProxy, false);
+		this._request.addEventListener("timeout", this._handleTimeoutProxy, false);
+
+		// Note: We don't get onload in all browsers (earlier FF and IE). onReadyStateChange handles these.
+		this._request.addEventListener("load", this._handleLoadProxy, false);
+		this._request.addEventListener("readystatechange", this._handleReadyStateChangeProxy, false);
+
+		// Set up a timeout if we don't have XHR2
+		if (this._xhrLevel == 1) {
+			this._loadTimeout = setTimeout(createjs.proxy(this._handleTimeout, this), this._item.loadTimeout);
+		}
+
+		// Sometimes we get back 404s immediately, particularly when there is a cross origin request.  // note this does not catch in Chrome
+		try {
+			if (!this._item.values || this._item.method == createjs.AbstractLoader.GET) {
+				this._request.send();
+			} else if (this._item.method == createjs.AbstractLoader.POST) {
+				this._request.send(createjs.RequestUtils.formatQueryString(this._item.values));
+			}
+		} catch (error) {
+			this.dispatchEvent(new createjs.ErrorEvent("XHR_SEND", null, error));
+		}
+	};
+
+	p.setResponseType = function (type) {
+		this._request.responseType = type;
+	};
+
+	/**
+	 * Get all the response headers from the XmlHttpRequest.
+	 *
+	 * <strong>From the docs:</strong> Return all the HTTP headers, excluding headers that are a case-insensitive match
+	 * for Set-Cookie or Set-Cookie2, as a single string, with each header line separated by a U+000D CR U+000A LF pair,
+	 * excluding the status line, and with each header name and header value separated by a U+003A COLON U+0020 SPACE
+	 * pair.
+	 * @method getAllResponseHeaders
+	 * @return {String}
+	 * @since 0.4.1
+	 */
+	p.getAllResponseHeaders = function () {
+		if (this._request.getAllResponseHeaders instanceof Function) {
+			return this._request.getAllResponseHeaders();
+		} else {
+			return null;
+		}
+	};
+
+	/**
+	 * Get a specific response header from the XmlHttpRequest.
+	 *
+	 * <strong>From the docs:</strong> Returns the header field value from the response of which the field name matches
+	 * header, unless the field name is Set-Cookie or Set-Cookie2.
+	 * @method getResponseHeader
+	 * @param {String} header The header name to retrieve.
+	 * @return {String}
+	 * @since 0.4.1
+	 */
+	p.getResponseHeader = function (header) {
+		if (this._request.getResponseHeader instanceof Function) {
+			return this._request.getResponseHeader(header);
+		} else {
+			return null;
+		}
+	};
+
+// protected methods
+	/**
+	 * The XHR request has reported progress.
+	 * @method _handleProgress
+	 * @param {Object} event The XHR progress event.
+	 * @private
+	 */
+	p._handleProgress = function (event) {
+		if (!event || event.loaded > 0 && event.total == 0) {
+			return; // Sometimes we get no "total", so just ignore the progress event.
+		}
+
+		var newEvent = new createjs.ProgressEvent(event.loaded, event.total);
+		this.dispatchEvent(newEvent);
+	};
+
+	/**
+	 * The XHR request has reported a load start.
+	 * @method _handleLoadStart
+	 * @param {Object} event The XHR loadStart event.
+	 * @private
+	 */
+	p._handleLoadStart = function (event) {
+		clearTimeout(this._loadTimeout);
+		this.dispatchEvent("loadstart");
+	};
+
+	/**
+	 * The XHR request has reported an abort event.
+	 * @method handleAbort
+	 * @param {Object} event The XHR abort event.
+	 * @private
+	 */
+	p._handleAbort = function (event) {
+		this._clean();
+		this.dispatchEvent(new createjs.ErrorEvent("XHR_ABORTED", null, event));
+	};
+
+	/**
+	 * The XHR request has reported an error event.
+	 * @method _handleError
+	 * @param {Object} event The XHR error event.
+	 * @private
+	 */
+	p._handleError = function (event) {
+		this._clean();
+		this.dispatchEvent(new createjs.ErrorEvent(event.message));
+	};
+
+	/**
+	 * The XHR request has reported a readyState change. Note that older browsers (IE 7 & 8) do not provide an onload
+	 * event, so we must monitor the readyStateChange to determine if the file is loaded.
+	 * @method _handleReadyStateChange
+	 * @param {Object} event The XHR readyStateChange event.
+	 * @private
+	 */
+	p._handleReadyStateChange = function (event) {
+		if (this._request.readyState == 4) {
+			this._handleLoad();
+		}
+	};
+
+	/**
+	 * The XHR request has completed. This is called by the XHR request directly, or by a readyStateChange that has
+	 * <code>request.readyState == 4</code>. Only the first call to this method will be processed.
+	 * @method _handleLoad
+	 * @param {Object} event The XHR load event.
+	 * @private
+	 */
+	p._handleLoad = function (event) {
+		if (this.loaded) {
+			return;
+		}
+		this.loaded = true;
+
+		var error = this._checkError();
+		if (error) {
+			this._handleError(error);
+			return;
+		}
+
+		this._response = this._getResponse();
+		this._clean();
+
+		this.dispatchEvent(new createjs.Event("complete"));
+	};
+
+	/**
+	 * The XHR request has timed out. This is called by the XHR request directly, or via a <code>setTimeout</code>
+	 * callback.
+	 * @method _handleTimeout
+	 * @param {Object} [event] The XHR timeout event. This is occasionally null when called by the backup setTimeout.
+	 * @private
+	 */
+	p._handleTimeout = function (event) {
+		this._clean();
+
+		this.dispatchEvent(new createjs.ErrorEvent("PRELOAD_TIMEOUT", null, event));
+	};
+
+// Protected
+	/**
+	 * Determine if there is an error in the current load. This checks the status of the request for problem codes. Note
+	 * that this does not check for an actual response. Currently, it only checks for 404 or 0 error code.
+	 * @method _checkError
+	 * @return {int} If the request status returns an error code.
+	 * @private
+	 */
+	p._checkError = function () {
+		//LM: Probably need additional handlers here, maybe 501
+		var status = parseInt(this._request.status);
+
+		switch (status) {
+			case 404:   // Not Found
+			case 0:     // Not Loaded
+				return new Error(status);
+		}
+		return null;
+	};
+
+	/**
+	 * Validate the response. Different browsers have different approaches, some of which throw errors when accessed
+	 * in other browsers. If there is no response, the <code>_response</code> property will remain null.
+	 * @method _getResponse
+	 * @private
+	 */
+	p._getResponse = function () {
+		if (this._response != null) {
+			return this._response;
+		}
+
+		if (this._request.response != null) {
+			return this._request.response;
+		}
+
+		// Android 2.2 uses .responseText
+		try {
+			if (this._request.responseText != null) {
+				return this._request.responseText;
+			}
+		} catch (e) {
+		}
+
+		// When loading XML, IE9 does not return .response, instead it returns responseXML.xml
+		try {
+			if (this._request.responseXML != null) {
+				return this._request.responseXML;
+			}
+		} catch (e) {
+		}
+
+		return null;
+	};
+
+	/**
+	 * Create an XHR request. Depending on a number of factors, we get totally different results.
+	 * <ol><li>Some browsers get an <code>XDomainRequest</code> when loading cross-domain.</li>
+	 *      <li>XMLHttpRequest are created when available.</li>
+	 *      <li>ActiveX.XMLHTTP objects are used in older IE browsers.</li>
+	 *      <li>Text requests override the mime type if possible</li>
+	 *      <li>Origin headers are sent for crossdomain requests in some browsers.</li>
+	 *      <li>Binary loads set the response type to "arraybuffer"</li></ol>
+	 * @method _createXHR
+	 * @param {Object} item The requested item that is being loaded.
+	 * @return {Boolean} If an XHR request or equivalent was successfully created.
+	 * @private
+	 */
+	p._createXHR = function (item) {
+		// Check for cross-domain loads. We can't fully support them, but we can try.
+		var crossdomain = createjs.RequestUtils.isCrossDomain(item);
+		var headers = {};
+
+		// Create the request. Fallback to whatever support we have.
+		var req = null;
+		if (window.XMLHttpRequest) {
+			req = new XMLHttpRequest();
+			// This is 8 or 9, so use XDomainRequest instead.
+			if (crossdomain && req.withCredentials === undefined && window.XDomainRequest) {
+				req = new XDomainRequest();
+			}
+		} else { // Old IE versions use a different approach
+			for (var i = 0, l = s.ACTIVEX_VERSIONS.length; i < l; i++) {
+				var axVersion = s.ACTIVEX_VERSIONS[i];
+				try {
+					req = new ActiveXObject(axVersions);
+					break;
+				} catch (e) {}
+			}
+			if (req == null) { return false; }
+		}
+
+		// IE9 doesn't support overrideMimeType(), so we need to check for it.
+		if (item.mimeType && req.overrideMimeType) {
+			req.overrideMimeType(item.mimeType);
+		}
+
+		// Determine the XHR level
+		this._xhrLevel = (typeof req.responseType === "string") ? 2 : 1;
+
+		var src = null;
+		if (item.method == createjs.AbstractLoader.GET) {
+			src = createjs.RequestUtils.buildPath(item.src, item.values);
+		} else {
+			src = item.src;
+		}
+
+		// Open the request.  Set cross-domain flags if it is supported (XHR level 1 only)
+		req.open(item.method || createjs.AbstractLoader.GET, src, true);
+
+		if (crossdomain && req instanceof XMLHttpRequest && this._xhrLevel == 1) {
+			headers["Origin"] = location.origin;
+		}
+
+		// To send data we need to set the Content-type header)
+		if (item.values && item.method == createjs.AbstractLoader.POST) {
+			headers["Content-Type"] = "application/x-www-form-urlencoded";
+		}
+
+		if (!crossdomain && !headers["X-Requested-With"]) {
+			headers["X-Requested-With"] = "XMLHttpRequest";
+		}
+
+		if (item.headers) {
+			for (var n in item.headers) {
+				headers[n] = item.headers[n];
+			}
+		}
+
+		for (n in headers) {
+			req.setRequestHeader(n, headers[n])
+		}
+
+		if (req instanceof XMLHttpRequest && item.withCredentials !== undefined) {
+			req.withCredentials = item.withCredentials;
+		}
+
+		this._request = req;
+
+		return true;
+	};
+
+	/**
+	 * A request has completed (or failed or canceled), and needs to be disposed.
+	 * @method _clean
+	 * @private
+	 */
+	p._clean = function () {
+		clearTimeout(this._loadTimeout);
+
+		this._request.removeEventListener("loadstart", this._handleLoadStartProxy);
+		this._request.removeEventListener("progress", this._handleProgressProxy);
+		this._request.removeEventListener("abort", this._handleAbortProxy);
+		this._request.removeEventListener("error",this._handleErrorProxy);
+		this._request.removeEventListener("timeout", this._handleTimeoutProxy);
+		this._request.removeEventListener("load", this._handleLoadProxy);
+		this._request.removeEventListener("readystatechange", this._handleReadyStateChangeProxy);
+	};
+
+	p.toString = function () {
+		return "[PreloadJS XHRRequest]";
+	};
+
+	createjs.XHRRequest = createjs.promote(XHRRequest, "AbstractRequest");
+
+}());
+
+//##############################################################################
+// LoadQueue.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+/*
+ TODO: WINDOWS ISSUES
+ * No error for HTML audio in IE 678
+ * SVG no failure error in IE 67 (maybe 8) TAGS AND XHR
+ * No script complete handler in IE 67 TAGS (XHR is fine)
+ * No XML/JSON in IE6 TAGS
+ * Need to hide loading SVG in Opera TAGS
+ * No CSS onload/readystatechange in Safari or Android TAGS (requires rule checking)
+ * SVG no load or failure in Opera XHR
+ * Reported issues with IE7/8
+ */
+
+(function () {
+	"use strict";
+
+// constructor
+	/**
+	 * The LoadQueue class is the main API for preloading content. LoadQueue is a load manager, which can preload either
+	 * a single file, or queue of files.
+	 *
+	 * <b>Creating a Queue</b><br />
+	 * To use LoadQueue, create a LoadQueue instance. If you want to force tag loading where possible, set the preferXHR
+	 * argument to false.
+	 *
+	 *      var queue = new createjs.LoadQueue(true);
+	 *
+	 * <b>Listening for Events</b><br />
+	 * Add any listeners you want to the queue. Since PreloadJS 0.3.0, the {{#crossLink "EventDispatcher"}}{{/crossLink}}
+	 * lets you add as many listeners as you want for events. You can subscribe to the following events:<ul>
+	 *     <li>{{#crossLink "AbstractLoader/complete:event"}}{{/crossLink}}: fired when a queue completes loading all
+	 *     files</li>
+	 *     <li>{{#crossLink "AbstractLoader/error:event"}}{{/crossLink}}: fired when the queue encounters an error with
+	 *     any file.</li>
+	 *     <li>{{#crossLink "AbstractLoader/progress:event"}}{{/crossLink}}: Progress for the entire queue has
+	 *     changed.</li>
+	 *     <li>{{#crossLink "LoadQueue/fileload:event"}}{{/crossLink}}: A single file has completed loading.</li>
+	 *     <li>{{#crossLink "LoadQueue/fileprogress:event"}}{{/crossLink}}: Progress for a single file has changes. Note
+	 *     that only files loaded with XHR (or possibly by plugins) will fire progress events other than 0 or 100%.</li>
+	 * </ul>
+	 *
+	 *      queue.on("fileload", handleFileLoad, this);
+	 *      queue.on("complete", handleComplete, this);
+	 *
+	 * <b>Adding files and manifests</b><br />
+	 * Add files you want to load using {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} or add multiple files at a
+	 * time using a list or a manifest definition using {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}. Files are
+	 * appended to the end of the active queue, so you can use these methods as many times as you like, whenever you
+	 * like.
+	 *
+	 *      queue.loadFile("filePath/file.jpg");
+	 *      queue.loadFile({id:"image", src:"filePath/file.jpg"});
+	 *      queue.loadManifest(["filePath/file.jpg", {id:"image", src:"filePath/file.jpg"}]);
+	 *
+	 *      // Use an external manifest
+	 *      queue.loadManifest("path/to/manifest.json");
+	 *      queue.loadManifest({src:"manifest.json", type:"manifest"});
+	 *
+	 * If you pass `false` as the `loadNow` parameter, the queue will not kick of the load of the files, but it will not
+	 * stop if it has already been started. Call the {{#crossLink "AbstractLoader/load"}}{{/crossLink}} method to begin
+	 * a paused queue. Note that a paused queue will automatically resume when new files are added to it with a
+	 * `loadNow` argument of `true`.
+	 *
+	 *      queue.load();
+	 *
+	 * <b>File Types</b><br />
+	 * The file type of a manifest item is auto-determined by the file extension. The pattern matching in PreloadJS
+	 * should handle the majority of standard file and url formats, and works with common file extensions. If you have
+	 * either a non-standard file extension, or are serving the file using a proxy script, then you can pass in a
+	 * <code>type</code> property with any manifest item.
+	 *
+	 *      queue.loadFile({src:"path/to/myFile.mp3x", type:createjs.AbstractLoader.SOUND});
+	 *
+	 *      // Note that PreloadJS will not read a file extension from the query string
+	 *      queue.loadFile({src:"http://server.com/proxy?file=image.jpg", type:createjs.AbstractLoader.IMAGE});
+	 *
+	 * Supported types are defined on the {{#crossLink "AbstractLoader"}}{{/crossLink}} class, and include:
+	 * <ul>
+	 *     <li>{{#crossLink "AbstractLoader/BINARY:property"}}{{/crossLink}}: Raw binary data via XHR</li>
+	 *     <li>{{#crossLink "AbstractLoader/CSS:property"}}{{/crossLink}}: CSS files</li>
+	 *     <li>{{#crossLink "AbstractLoader/IMAGE:property"}}{{/crossLink}}: Common image formats</li>
+	 *     <li>{{#crossLink "AbstractLoader/JAVASCRIPT:property"}}{{/crossLink}}: JavaScript files</li>
+	 *     <li>{{#crossLink "AbstractLoader/JSON:property"}}{{/crossLink}}: JSON data</li>
+	 *     <li>{{#crossLink "AbstractLoader/JSONP:property"}}{{/crossLink}}: JSON files cross-domain</li>
+	 *     <li>{{#crossLink "AbstractLoader/MANIFEST:property"}}{{/crossLink}}: A list of files to load in JSON format, see
+	 *     {{#crossLink "AbstractLoader/loadManifest"}}{{/crossLink}}</li>
+	 *     <li>{{#crossLink "AbstractLoader/SOUND:property"}}{{/crossLink}}: Audio file formats</li>
+	 *     <li>{{#crossLink "AbstractLoader/SPRITESHEET:property"}}{{/crossLink}}: JSON SpriteSheet definiteions. This
+	 *     will also load sub-images, and provide a {{#crossLink "SpriteSheet"}}{{/crossLink}} instance.</li>
+	 *     <li>{{#crossLink "AbstractLoader/SVG:property"}}{{/crossLink}}: SVG files</li>
+	 *     <li>{{#crossLink "AbstractLoader/TEXT:property"}}{{/crossLink}}: Text files - XHR only</li>
+	 *     <li>{{#crossLink "AbstractLoader/XML:property"}}{{/crossLink}}: XML data</li>
+	 * </ul>
+	 *
+	 * <em>Note: Loader types used to be defined on LoadQueue, but have been moved to AbstractLoader for better
+	 * portability of loader classes, which can be used individually now. The properties on LoadQueue still exist, but
+	 * are deprecated.</em>
+	 *
+	 * <b>Handling Results</b><br />
+	 * When a file is finished downloading, a {{#crossLink "LoadQueue/fileload:event"}}{{/crossLink}} event is
+	 * dispatched. In an example above, there is an event listener snippet for fileload. Loaded files are usually a
+	 * formatted object that can be used immediately, including:
+	 * <ul>
+	 *     <li>Binary: The binary loaded result</li>
+	 *     <li>CSS: A &lt;link /&gt; tag</li>
+	 *     <li>Image: An &lt;img /&gt; tag</li>
+	 *     <li>JavaScript: A &lt;script /&gt; tag</li>
+	 *     <li>JSON/JSONP: A formatted JavaScript Object</li>
+	 *     <li>Manifest: A JavaScript object.
+	 *     <li>Sound: An &lt;audio /&gt; tag</a>
+	 *     <li>SpriteSheet: A {{#crossLink "SpriteSheet"}}{{/crossLink}} instance, containing loaded images.
+	 *     <li>SVG: An &lt;object /&gt; tag</li>
+	 *     <li>Text: Raw text</li>
+	 *     <li>XML: An XML DOM node</li>
+	 * </ul>
+	 *
+	 *      function handleFileLoad(event) {
+	 *          var item = event.item; // A reference to the item that was passed in to the LoadQueue
+	 *          var type = item.type;
+	 *
+	 *          // Add any images to the page body.
+	 *          if (type == createjs.LoadQueue.IMAGE) {
+	 *              document.body.appendChild(event.result);
+	 *          }
+	 *      }
+	 *
+	 * At any time after the file has been loaded (usually after the queue has completed), any result can be looked up
+	 * via its "id" using {{#crossLink "LoadQueue/getResult"}}{{/crossLink}}. If no id was provided, then the
+	 * "src" or file path can be used instead, including the `path` defined by a manifest, but <strong>not including</strong>
+	 * a base path defined on the LoadQueue. It is recommended to always pass an id if you want to look up content.
+	 *
+	 *      var image = queue.getResult("image");
+	 *      document.body.appendChild(image);
+	 *
+	 * Raw loaded content can be accessed using the <code>rawResult</code> property of the {{#crossLink "LoadQueue/fileload:event"}}{{/crossLink}}
+	 * event, or can be looked up using {{#crossLink "LoadQueue/getResult"}}{{/crossLink}}, passing `true` as the 2nd
+	 * argument. This is only applicable for content that has been parsed for the browser, specifically: JavaScript,
+	 * CSS, XML, SVG, and JSON objects, or anything loaded with XHR.
+	 *
+	 *      var image = queue.getResult("image", true); // load the binary image data loaded with XHR.
+	 *
+	 * <b>Plugins</b><br />
+	 * LoadQueue has a simple plugin architecture to help process and preload content. For example, to preload audio,
+	 * make sure to install the <a href="http://soundjs.com">SoundJS</a> Sound class, which will help load HTML audio,
+	 * Flash audio, and WebAudio files. This should be installed <strong>before</strong> loading any audio files.
+	 *
+	 *      queue.installPlugin(createjs.Sound);
+	 *
+	 * <h4>Known Browser Issues</h4>
+	 * <ul>
+	 *     <li>Browsers without audio support can not load audio files.</li>
+	 *     <li>Safari on Mac OS X can only play HTML audio if QuickTime is installed</li>
+	 *     <li>HTML Audio tags will only download until their <code>canPlayThrough</code> event is fired. Browsers other
+	 *     than Chrome will continue to download in the background.</li>
+	 *     <li>When loading scripts using tags, they are automatically added to the document.</li>
+	 *     <li>Scripts loaded via XHR may not be properly inspectable with browser tools.</li>
+	 *     <li>IE6 and IE7 (and some other browsers) may not be able to load XML, Text, or JSON, since they require
+	 *     XHR to work.</li>
+	 *     <li>Content loaded via tags will not show progress, and will continue to download in the background when
+	 *     canceled, although no events will be dispatched.</li>
+	 * </ul>
+	 *
+	 * @class LoadQueue
+	 * @param {Boolean} [preferXHR=true] Determines whether the preload instance will favor loading with XHR (XML HTTP
+	 * Requests), or HTML tags. When this is `false`, the queue will use tag loading when possible, and fall back on XHR
+	 * when necessary.
+	 * @param {String} [basePath=""] A path that will be prepended on to the source parameter of all items in the queue
+	 * before they are loaded.  Sources beginning with a protocol such as `http://` or a relative path such as `../`
+	 * will not receive a base path.
+	 * @param {String|Boolean} [crossOrigin=""] An optional flag to support images loaded from a CORS-enabled server. To
+	 * use it, set this value to `true`, which will default the crossOrigin property on images to "Anonymous". Any
+	 * string value will be passed through, but only "" and "Anonymous" are recommended. <strong>Note: The crossOrigin
+	 * parameter is deprecated. Use LoadItem.crossOrigin instead</strong>
+	 *
+	 * @constructor
+	 * @extends AbstractLoader
+	 */
+	function LoadQueue(preferXHR, basePath, crossOrigin) {
+		this.AbstractLoader_constructor();
+		this.init(preferXHR, basePath, crossOrigin);
+	}
+
+	var p = createjs.extend(LoadQueue, createjs.AbstractLoader);
+	var s = LoadQueue;
+
+	/**
+	 * An internal initialization method, which is used for initial set up, but also to reset the LoadQueue.
+	 * @method init
+	 * @param preferXHR
+	 * @param basePath
+	 * @param crossOrigin
+	 * @private
+	 */
+	p.init = function(preferXHR, basePath, crossOrigin) {
+
+		// public properties
+		/**
+		 * @property useXHR
+		 * @type {Boolean}
+		 * @readOnly
+		 * @default true
+		 * @deprecated Use preferXHR instead.
+		 */
+		this.useXHR = true;
+
+		/**
+		 * Try and use XMLHttpRequest (XHR) when possible. Note that LoadQueue will default to tag loading or XHR
+		 * loading depending on the requirements for a media type. For example, HTML audio can not be loaded with XHR,
+		 * and plain text can not be loaded with tags, so it will default the the correct type instead of using the
+		 * user-defined type.
+		 * @type {Boolean}
+		 * @default true
+		 * @since 0.6.0
+		 */
+		this.preferXHR = true; //TODO: Get/Set
+		this._preferXHR = true;
+		this.setPreferXHR(preferXHR);
+
+		/**
+		 * Determines if the LoadQueue will stop processing the current queue when an error is encountered.
+		 * @property stopOnError
+		 * @type {Boolean}
+		 * @default false
+		 */
+		this.stopOnError = false;
+
+		/**
+		 * Ensure loaded scripts "complete" in the order they are specified. Loaded scripts are added to the document head
+		 * once they are loaded. Scripts loaded via tags will load one-at-a-time when this property is `true`, whereas
+		 * scripts loaded using XHR can load in any order, but will "finish" and be added to the document in the order
+		 * specified.
+		 *
+		 * Any items can be set to load in order by setting the {{#crossLink "maintainOrder:property"}}{{/crossLink}}
+		 * property on the load item, or by ensuring that only one connection can be open at a time using
+		 * {{#crossLink "LoadQueue/setMaxConnections"}}{{/crossLink}}. Note that when the `maintainScriptOrder` property
+		 * is set to `true`, scripts items are automatically set to `maintainOrder=true`, and changing the
+		 * `maintainScriptOrder` to `false` during a load will not change items already in a queue.
+		 *
+		 * <h4>Example</h4>
+		 *
+		 *      var queue = new createjs.LoadQueue();
+		 *      queue.setMaxConnections(3); // Set a higher number to load multiple items at once
+		 *      queue.maintainScriptOrder = true; // Ensure scripts are loaded in order
+		 *      queue.loadManifest([
+		 *          "script1.js",
+		 *          "script2.js",
+		 *          "image.png", // Load any time
+		 *          {src: "image2.png", maintainOrder: true} // Will wait for script2.js
+		 *          "image3.png",
+		 *          "script3.js" // Will wait for image2.png before loading (or completing when loading with XHR)
+		 *      ]);
+		 *
+		 * @property maintainScriptOrder
+		 * @type {Boolean}
+		 * @default true
+		 */
+		this.maintainScriptOrder = true;
+
+		/**
+		 * The next preload queue to process when this one is complete. If an error is thrown in the current queue, and
+		 * {{#crossLink "LoadQueue/stopOnError:property"}}{{/crossLink}} is `true`, the next queue will not be processed.
+		 * @property next
+		 * @type {LoadQueue}
+		 * @default null
+		 */
+		this.next = null;
+
+		// protected properties
+		/**
+		 * Whether the queue is currently paused or not.
+		 * @property _paused
+		 * @type {boolean}
+		 * @private
+		 */
+		this._paused = false;
+
+		/**
+		 * A path that will be prepended on to the item's {{#crossLink "LoadItem/src:property"}}{{/crossLink}}. The
+		 * `_basePath` property will only be used if an item's source is relative, and does not include a protocol such
+		 * as `http://`, or a relative path such as `../`.
+		 * @property _basePath
+		 * @type {String}
+		 * @private
+		 * @since 0.3.1
+		 */
+		this._basePath = basePath;
+
+		/**
+		 * An optional flag to set on images that are loaded using PreloadJS, which enables CORS support. Images loaded
+		 * cross-domain by servers that support CORS require the crossOrigin flag to be loaded and interacted with by
+		 * a canvas. When loading locally, or with a server with no CORS support, this flag can cause other security issues,
+		 * so it is recommended to only set it if you are sure the server supports it. Currently, supported values are ""
+		 * and "Anonymous".
+		 * @property _crossOrigin
+		 * @type {String}
+		 * @default ""
+		 * @private
+		 * @since 0.4.1
+		 */
+		this._crossOrigin = crossOrigin;
+
+		/**
+		 * An object hash of callbacks that are fired for each file type before the file is loaded, giving plugins the
+		 * ability to override properties of the load. Please see the {{#crossLink "LoadQueue/installPlugin"}}{{/crossLink}}
+		 * method for more information.
+		 * @property _typeCallbacks
+		 * @type {Object}
+		 * @private
+		 */
+		this._typeCallbacks = {};
+
+		/**
+		 * An object hash of callbacks that are fired for each file extension before the file is loaded, giving plugins the
+		 * ability to override properties of the load. Please see the {{#crossLink "LoadQueue/installPlugin"}}{{/crossLink}}
+		 * method for more information.
+		 * @property _extensionCallbacks
+		 * @type {null}
+		 * @private
+		 */
+		this._extensionCallbacks = {};
+
+		/**
+		 * Determines if the loadStart event was dispatched already. This event is only fired one time, when the first
+		 * file is requested.
+		 * @property _loadStartWasDispatched
+		 * @type {Boolean}
+		 * @default false
+		 * @private
+		 */
+		this._loadStartWasDispatched = false;
+
+		/**
+		 * The number of maximum open connections that a loadQueue tries to maintain. Please see
+		 * {{#crossLink "LoadQueue/setMaxConnections"}}{{/crossLink}} for more information.
+		 * @property _maxConnections
+		 * @type {Number}
+		 * @default 1
+		 * @private
+		 */
+		this._maxConnections = 1;
+
+		/**
+		 * Determines if there is currently a script loading. This helps ensure that only a single script loads at once when
+		 * using a script tag to do preloading.
+		 * @property _currentlyLoadingScript
+		 * @type {Boolean}
+		 * @private
+		 */
+		this._currentlyLoadingScript = null;
+
+		/**
+		 * An array containing the currently downloading files.
+		 * @property _currentLoads
+		 * @type {Array}
+		 * @private
+		 */
+		this._currentLoads = [];
+
+		/**
+		 * An array containing the queued items that have not yet started downloading.
+		 * @property _loadQueue
+		 * @type {Array}
+		 * @private
+		 */
+		this._loadQueue = [];
+
+		/**
+		 * An array containing downloads that have not completed, so that the LoadQueue can be properly reset.
+		 * @property _loadQueueBackup
+		 * @type {Array}
+		 * @private
+		 */
+		this._loadQueueBackup = [];
+
+		/**
+		 * An object hash of items that have finished downloading, indexed by the {{#crossLink "LoadItem"}}{{/crossLink}}
+		 * id.
+		 * @property _loadItemsById
+		 * @type {Object}
+		 * @private
+		 */
+		this._loadItemsById = {};
+
+		/**
+		 * An object hash of items that have finished downloading, indexed by {{#crossLink "LoadItem"}}{{/crossLink}}
+		 * source.
+		 * @property _loadItemsBySrc
+		 * @type {Object}
+		 * @private
+		 */
+		this._loadItemsBySrc = {};
+
+		/**
+		 * An object hash of loaded items, indexed by the ID of the {{#crossLink "LoadItem"}}{{/crossLink}}.
+		 * @property _loadedResults
+		 * @type {Object}
+		 * @private
+		 */
+		this._loadedResults = {};
+
+		/**
+		 * An object hash of un-parsed loaded items, indexed by the ID of the {{#crossLink "LoadItem"}}{{/crossLink}}.
+		 * @property _loadedRawResults
+		 * @type {Object}
+		 * @private
+		 */
+		this._loadedRawResults = {};
+
+		/**
+		 * The number of items that have been requested. This helps manage an overall progress without knowing how large
+		 * the files are before they are downloaded. This does not include items inside of loaders such as the
+		 * {{#crossLink "ManifestLoader"}}{{/crossLink}}.
+		 * @property _numItems
+		 * @type {Number}
+		 * @default 0
+		 * @private
+		 */
+		this._numItems = 0;
+
+		/**
+		 * The number of items that have completed loaded. This helps manage an overall progress without knowing how large
+		 * the files are before they are downloaded.
+		 * @property _numItemsLoaded
+		 * @type {Number}
+		 * @default 0
+		 * @private
+		 */
+		this._numItemsLoaded = 0;
+
+		/**
+		 * A list of scripts in the order they were requested. This helps ensure that scripts are "completed" in the right
+		 * order.
+		 * @property _scriptOrder
+		 * @type {Array}
+		 * @private
+		 */
+		this._scriptOrder = [];
+
+		/**
+		 * A list of scripts that have been loaded. Items are added to this list as <code>null</code> when they are
+		 * requested, contain the loaded item if it has completed, but not been dispatched to the user, and <code>true</true>
+		 * once they are complete and have been dispatched.
+		 * @property _loadedScripts
+		 * @type {Array}
+		 * @private
+		 */
+		this._loadedScripts = [];
+
+		/**
+		 * The last progress amount. This is used to suppress duplicate progress events.
+		 * @property _lastProgress
+		 * @type {Number}
+		 * @private
+		 * @since 0.6.0
+		 */
+		this._lastProgress = NaN;
+
+		/**
+		 * An internal list of all the default Loaders that are included with PreloadJS. Before an item is loaded, the
+		 * available loader list is iterated, in the order they are included, and as soon as a loader indicates it can
+		 * handle the content, it will be selected. The default loader, ({{#crossLink "TextLoader"}}{{/crossLink}} is
+		 * last in the list, so it will be used if no other match is found. Typically, loaders will match based on the
+		 * {{#crossLink "LoadItem/type"}}{{/crossLink}}, which is automatically determined using the file extension of
+		 * the {{#crossLink "LoadItem/src:property"}}{{/crossLink}}.
+		 *
+		 * Loaders can be removed from PreloadJS by simply not including them.
+		 *
+		 * Custom loaders installed using {{#crossLink "registerLoader"}}{{/crossLink}} will be prepended to this list
+		 * so that they are checked first.
+		 * @property _availableLoaders
+		 * @type {Array}
+		 * @private
+		 * @since 0.6.0
+		 */
+		this._availableLoaders = [
+			createjs.ImageLoader,
+			createjs.JavaScriptLoader,
+			createjs.CSSLoader,
+			createjs.JSONLoader,
+			createjs.JSONPLoader,
+			createjs.SoundLoader,
+			createjs.ManifestLoader,
+			createjs.SpriteSheetLoader,
+			createjs.XMLLoader,
+			createjs.SVGLoader,
+			createjs.BinaryLoader,
+			createjs.VideoLoader,
+			createjs.TextLoader,
+		];
+
+		/**
+		 * The number of built in loaders, so they can't be removed by {{#crossLink "unregisterLoader"}}{{/crossLink}.
+		 * @property _defaultLoaderLength
+		 * @type {Number}
+		 * @private
+		 * @since 0.6.0
+		 */
+		this._defaultLoaderLength = this._availableLoaders.length;
+	};
+
+
+// static properties
+	/**
+	 * The time in milliseconds to assume a load has failed. An {{#crossLink "AbstractLoader/error:event"}}{{/crossLink}}
+	 * event is dispatched if the timeout is reached before any data is received.
+	 * @property loadTimeout
+	 * @type {Number}
+	 * @default 8000
+	 * @static
+	 * @since 0.4.1
+	 * @deprecated In favour of LoadItem.loadTimeout
+	 */
+	s.loadTimeout = 8000;
+
+	/**
+	 * The time in milliseconds to assume a load has failed.
+	 * @property LOAD_TIMEOUT
+	 * @type {Number}
+	 * @default 0
+	 * @deprecated in favor of the {{#crossLink "LoadQueue/loadTimeout:property"}}{{/crossLink}} property.
+	 */
+	s.LOAD_TIMEOUT = 0;
+
+// Preload Types
+	/**
+	 * @property BINARY
+	 * @type {String}
+	 * @default binary
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/BINARY:property"}}{{/crossLink}} instead.
+	 */
+	s.BINARY = createjs.AbstractLoader.BINARY;
+
+	/**
+	 * @property CSS
+	 * @type {String}
+	 * @default css
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/CSS:property"}}{{/crossLink}} instead.
+	 */
+	s.CSS = createjs.AbstractLoader.CSS;
+
+	/**
+	 * @property IMAGE
+	 * @type {String}
+	 * @default image
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/CSS:property"}}{{/crossLink}} instead.
+	 */
+	s.IMAGE = createjs.AbstractLoader.IMAGE;
+
+	/**
+	 * @property JAVASCRIPT
+	 * @type {String}
+	 * @default javascript
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/JAVASCRIPT:property"}}{{/crossLink}} instead.
+	 */
+	s.JAVASCRIPT = createjs.AbstractLoader.JAVASCRIPT;
+
+	/**
+	 * @property JSON
+	 * @type {String}
+	 * @default json
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/JSON:property"}}{{/crossLink}} instead.
+	 */
+	s.JSON = createjs.AbstractLoader.JSON;
+
+	/**
+	 * @property JSONP
+	 * @type {String}
+	 * @default jsonp
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/JSONP:property"}}{{/crossLink}} instead.
+	 */
+	s.JSONP = createjs.AbstractLoader.JSONP;
+
+	/**
+	 * @property MANIFEST
+	 * @type {String}
+	 * @default manifest
+	 * @static
+	 * @since 0.4.1
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/MANIFEST:property"}}{{/crossLink}} instead.
+	 */
+	s.MANIFEST = createjs.AbstractLoader.MANIFEST;
+
+	/**
+	 * @property SOUND
+	 * @type {String}
+	 * @default sound
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/JAVASCRIPT:property"}}{{/crossLink}} instead.
+	 */
+	s.SOUND = createjs.AbstractLoader.SOUND;
+
+	/**
+	 * @property VIDEO
+	 * @type {String}
+	 * @default video
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/JAVASCRIPT:property"}}{{/crossLink}} instead.
+	 */
+	s.VIDEO = createjs.AbstractLoader.VIDEO;
+
+	/**
+	 * @property SVG
+	 * @type {String}
+	 * @default svg
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/SVG:property"}}{{/crossLink}} instead.
+	 */
+	s.SVG = createjs.AbstractLoader.SVG;
+
+	/**
+	 * @property TEXT
+	 * @type {String}
+	 * @default text
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/TEXT:property"}}{{/crossLink}} instead.
+	 */
+	s.TEXT = createjs.AbstractLoader.TEXT;
+
+	/**
+	 * @property XML
+	 * @type {String}
+	 * @default xml
+	 * @static
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/XML:property"}}{{/crossLink}} instead.
+	 */
+	s.XML = createjs.AbstractLoader.XML;
+
+	/**
+	 * @property POST
+	 * @type {string}
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/POST:property"}}{{/crossLink}} instead.
+	 */
+	s.POST = createjs.AbstractLoader.POST;
+
+	/**
+	 * @property GET
+	 * @type {string}
+	 * @deprecated Use the AbstractLoader {{#crossLink "AbstractLoader/GET:property"}}{{/crossLink}} instead.
+	 */
+	s.GET = createjs.AbstractLoader.GET;
+
+// events
+	/**
+	 * This event is fired when an individual file has loaded, and been processed.
+	 * @event fileload
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @param {Object} item The file item which was specified in the {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}}
+	 * or {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}} call. If only a string path or tag was specified, the
+	 * object will contain that value as a `src` property.
+	 * @param {Object} result The HTML tag or parsed result of the loaded item.
+	 * @param {Object} rawResult The unprocessed result, usually the raw text or binary data before it is converted
+	 * to a usable object.
+	 * @since 0.3.0
+	 */
+
+	/**
+	 * This {{#crossLink "ProgressEvent"}}{{/crossLink}} that is fired when an an individual file's progress changes.
+	 * @event fileprogress
+	 * @since 0.3.0
+	 */
+
+	/**
+	 * This event is fired when an individual file starts to load.
+	 * @event filestart
+	 * @param {Object} The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @param {Object} item The file item which was specified in the {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}}
+	 * or {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}} call. If only a string path or tag was specified, the
+	 * object will contain that value as a property.
+	 */
+
+// public methods
+	/**
+	 * Register a custom loaders class. New loaders are given precedence over loaders added earlier and default loaders.
+	 * It is recommended that loaders extend {{#crossLink "AbstractLoader"}}{{/crossLink}}. Loaders can only be added
+	 * once, and will be prepended to the list of available loaders.
+	 * @method registerLoader
+	 * @param {Class} The AbstractLoader class to add.
+	 * @since 0.6.0
+	 */
+	p.registerLoader = function (loader) {
+		if (!loader || !loader.canLoadItem) {
+			throw new Error("loader is of an incorrect type.");
+		} else if (this._availableLoaders.indexOf(loader) != -1) {
+			throw new Error("loader already exists."); //LM: Maybe just silently fail here
+		}
+
+		this._availableLoaders.unshift(loader);
+	};
+
+	/**
+	 * Remove a custom loader added usig {{#crossLink "registerLoader"}}{{/crossLink}}. Only custom loaders can be
+	 * unregistered, the default loaders will always be available.
+	 * @method unregisterLoader
+	 * @param {Class} loader The AbstractLoader class to remove
+	 */
+	p.unregisterLoader = function (loader) {
+		var idx = this._availableLoaders.indexOf(loader);
+		if (idx != -1 && idx < this._defaultLoaderLength - 1) {
+			this._availableLoaders.splice(idx, 1);
+		}
+	};
+
+	/**
+	 * @method setUseXHR
+	 * @param {Boolean} value The new useXHR value to set.
+	 * @return {Boolean} The new useXHR value. If XHR is not supported by the browser, this will return false, even if
+	 * the provided value argument was true.
+	 * @since 0.3.0
+	 * @deprecated use the {{#crossLink "preferXHR:property"}}{{/crossLink}} property, or the {{#crossLink "setUseXHR"}}{{/crossLink}}
+	 * method instead.
+	 */
+	p.setUseXHR = function (value) {
+		return this.setPreferXHR(value);
+	};
+
+	/**
+	 * Change the {{#crossLink "preferXHR:property"}}{{/crossLink}} value. Note that if this is set to `true`, it may
+	 * fail, or be ignored depending on the browser's capabilities and the load type.
+	 * @method setPreferXHR
+	 * @param {Boolean} value
+	 * @returns {Boolean} The value of {{#crossLink "preferXHR"}}{{/crossLink}} that was successfully set.
+	 * @since 0.6.0
+	 */
+	p.setPreferXHR = function(value) {
+		// Determine if we can use XHR. XHR defaults to TRUE, but the browser may not support it.
+		//TODO: Should we be checking for the other XHR types? Might have to do a try/catch on the different types similar to createXHR.
+		this.preferXHR = (value != false && window.XMLHttpRequest != null);
+		return this.preferXHR;
+	};
+
+	/**
+	 * Stops all queued and loading items, and clears the queue. This also removes all internal references to loaded
+	 * content, and allows the queue to be used again.
+	 * @method removeAll
+	 * @since 0.3.0
+	 */
+	p.removeAll = function () {
+		this.remove();
+	};
+
+	/**
+	 * Stops an item from being loaded, and removes it from the queue. If nothing is passed, all items are removed.
+	 * This also removes internal references to loaded item(s).
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      queue.loadManifest([
+	 *          {src:"test.png", id:"png"},
+	 *          {src:"test.jpg", id:"jpg"},
+	 *          {src:"test.mp3", id:"mp3"}
+	 *      ]);
+	 *      queue.remove("png"); // Single item by ID
+	 *      queue.remove("png", "test.jpg"); // Items as arguments. Mixed id and src.
+	 *      queue.remove(["test.png", "jpg"]); // Items in an Array. Mixed id and src.
+	 *
+	 * @method remove
+	 * @param {String | Array} idsOrUrls* The id or ids to remove from this queue. You can pass an item, an array of
+	 * items, or multiple items as arguments.
+	 * @since 0.3.0
+	 */
+	p.remove = function (idsOrUrls) {
+		var args = null;
+
+		if (idsOrUrls && !(idsOrUrls instanceof Array)) {
+			args = [idsOrUrls];
+		} else if (idsOrUrls) {
+			args = idsOrUrls;
+		} else if (arguments.length > 0) {
+			return;
+		}
+
+		var itemsWereRemoved = false;
+
+		// Destroy everything
+		if (!args) {
+			this.close();
+			for (var n in this._loadItemsById) {
+				this._disposeItem(this._loadItemsById[n]);
+			}
+			this.init(this.preferXHR, this._basePath);
+
+			// Remove specific items
+		} else {
+			while (args.length) {
+				var item = args.pop();
+				var r = this.getResult(item);
+
+				//Remove from the main load Queue
+				for (i = this._loadQueue.length - 1; i >= 0; i--) {
+					loadItem = this._loadQueue[i].getItem();
+					if (loadItem.id == item || loadItem.src == item) {
+						this._loadQueue.splice(i, 1)[0].cancel();
+						break;
+					}
+				}
+
+				//Remove from the backup queue
+				for (i = this._loadQueueBackup.length - 1; i >= 0; i--) {
+					loadItem = this._loadQueueBackup[i].getItem();
+					if (loadItem.id == item || loadItem.src == item) {
+						this._loadQueueBackup.splice(i, 1)[0].cancel();
+						break;
+					}
+				}
+
+				if (r) {
+					delete this._loadItemsById[r.id];
+					delete this._loadItemsBySrc[r.src];
+					this._disposeItem(r);
+				} else {
+					for (var i = this._currentLoads.length - 1; i >= 0; i--) {
+						var loadItem = this._currentLoads[i].getItem();
+						if (loadItem.id == item || loadItem.src == item) {
+							this._currentLoads.splice(i, 1)[0].cancel();
+							itemsWereRemoved = true;
+							break;
+						}
+					}
+				}
+			}
+
+			// If this was called during a load, try to load the next item.
+			if (itemsWereRemoved) {
+				this._loadNext();
+			}
+		}
+	};
+
+	/**
+	 * Stops all open loads, destroys any loaded items, and resets the queue, so all items can
+	 * be reloaded again by calling {{#crossLink "AbstractLoader/load"}}{{/crossLink}}. Items are not removed from the
+	 * queue. To remove items use the {{#crossLink "LoadQueue/remove"}}{{/crossLink}} or
+	 * {{#crossLink "LoadQueue/removeAll"}}{{/crossLink}} method.
+	 * @method reset
+	 * @since 0.3.0
+	 */
+	p.reset = function () {
+		this.close();
+		for (var n in this._loadItemsById) {
+			this._disposeItem(this._loadItemsById[n]);
+		}
+
+		//Reset the queue to its start state
+		var a = [];
+		for (var i = 0, l = this._loadQueueBackup.length; i < l; i++) {
+			a.push(this._loadQueueBackup[i].getItem());
+		}
+
+		this.loadManifest(a, false);
+	};
+
+	/**
+	 * Register a plugin. Plugins can map to load types (sound, image, etc), or specific extensions (png, mp3, etc).
+	 * Currently, only one plugin can exist per type/extension.
+	 *
+	 * When a plugin is installed, a <code>getPreloadHandlers()</code> method will be called on it. For more information
+	 * on this method, check out the {{#crossLink "SamplePlugin/getPreloadHandlers"}}{{/crossLink}} method in the
+	 * {{#crossLink "SamplePlugin"}}{{/crossLink}} class.
+	 *
+	 * Before a file is loaded, a matching plugin has an opportunity to modify the load. If a `callback` is returned
+	 * from the {{#crossLink "SamplePlugin/getPreloadHandlers"}}{{/crossLink}} method, it will be invoked first, and its
+	 * result may cancel or modify the item. The callback method can also return a `completeHandler` to be fired when
+	 * the file is loaded, or a `tag` object, which will manage the actual download. For more information on these
+	 * methods, check out the {{#crossLink "SamplePlugin/preloadHandler"}}{{/crossLink}} and {{#crossLink "SamplePlugin/fileLoadHandler"}}{{/crossLink}}
+	 * methods on the {{#crossLink "SamplePlugin"}}{{/crossLink}}.
+	 *
+	 * @method installPlugin
+	 * @param {Function} plugin The plugin class to install.
+	 */
+	p.installPlugin = function (plugin) {
+		if (plugin == null) { return; }
+
+		if (plugin.getPreloadHandlers != null) {
+			var map = plugin.getPreloadHandlers();
+			map.scope = plugin;
+
+			if (map.types != null) {
+				for (var i = 0, l = map.types.length; i < l; i++) {
+					this._typeCallbacks[map.types[i]] = map;
+				}
+			}
+
+			if (map.extensions != null) {
+				for (i = 0, l = map.extensions.length; i < l; i++) {
+					this._extensionCallbacks[map.extensions[i]] = map;
+				}
+			}
+		}
+	};
+
+	/**
+	 * Set the maximum number of concurrent connections. Note that browsers and servers may have a built-in maximum
+	 * number of open connections, so any additional connections may remain in a pending state until the browser
+	 * opens the connection. When loading scripts using tags, and when {{#crossLink "LoadQueue/maintainScriptOrder:property"}}{{/crossLink}}
+	 * is `true`, only one script is loaded at a time due to browser limitations.
+	 *
+	 * <h4>Example</h4>
+	 *
+	 *      var queue = new createjs.LoadQueue();
+	 *      queue.setMaxConnections(10); // Allow 10 concurrent loads
+	 *
+	 * @method setMaxConnections
+	 * @param {Number} value The number of concurrent loads to allow. By default, only a single connection per LoadQueue
+	 * is open at any time.
+	 */
+	p.setMaxConnections = function (value) {
+		this._maxConnections = value;
+		if (!this._paused && this._loadQueue.length > 0) {
+			this._loadNext();
+		}
+	};
+
+	/**
+	 * Load a single file. To add multiple files at once, use the {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}
+	 * method.
+	 *
+	 * Files are always appended to the current queue, so this method can be used multiple times to add files.
+	 * To clear the queue first, use the {{#crossLink "AbstractLoader/close"}}{{/crossLink}} method.
+	 * @method loadFile
+	 * @param {LoadItem|Object|String} file The file object or path to load. A file can be either
+	 * <ul>
+	 *     <li>A {{#crossLink "LoadItem"}}{{/crossLink}} instance</li>
+	 *     <li>An object containing properties defined by {{#crossLink "LoadItem"}}{{/crossLink}}</li>
+	 *     <li>OR A string path to a resource. Note that this kind of load item will be converted to a {{#crossLink "LoadItem"}}{{/crossLink}}
+	 *     in the background.</li>
+	 * </ul>
+	 * @param {Boolean} [loadNow=true] Kick off an immediate load (true) or wait for a load call (false). The default
+	 * value is true. If the queue is paused using {{#crossLink "LoadQueue/setPaused"}}{{/crossLink}}, and the value is
+	 * `true`, the queue will resume automatically.
+	 * @param {String} [basePath] A base path that will be prepended to each file. The basePath argument overrides the
+	 * path specified in the constructor. Note that if you load a manifest using a file of type {{#crossLink "AbstractLoader/MANIFEST:property"}}{{/crossLink}},
+	 * its files will <strong>NOT</strong> use the basePath parameter. <strong>The basePath parameter is deprecated.</strong>
+	 * This parameter will be removed in a future version. Please either use the `basePath` parameter in the LoadQueue
+	 * constructor, or a `path` property in a manifest definition.
+	 */
+	p.loadFile = function (file, loadNow, basePath) {
+		if (file == null) {
+			var event = new createjs.ErrorEvent("PRELOAD_NO_FILE");
+			this._sendError(event);
+			return;
+		}
+		this._addItem(file, null, basePath);
+
+		if (loadNow !== false) {
+			this.setPaused(false);
+		} else {
+			this.setPaused(true);
+		}
+	};
+
+	/**
+	 * Load an array of files. To load a single file, use the {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} method.
+	 * The files in the manifest are requested in the same order, but may complete in a different order if the max
+	 * connections are set above 1 using {{#crossLink "LoadQueue/setMaxConnections"}}{{/crossLink}}. Scripts will load
+	 * in the right order as long as {{#crossLink "LoadQueue/maintainScriptOrder"}}{{/crossLink}} is true (which is
+	 * default).
+	 *
+	 * Files are always appended to the current queue, so this method can be used multiple times to add files.
+	 * To clear the queue first, use the {{#crossLink "AbstractLoader/close"}}{{/crossLink}} method.
+	 * @method loadManifest
+	 * @param {Array|String|Object} manifest An list of files to load. The loadManifest call supports four types of
+	 * manifests:
+	 * <ol>
+	 *     <li>A string path, which points to a manifest file, which is a JSON file that contains a "manifest" property,
+	 *     which defines the list of files to load, and can optionally contain a "path" property, which will be
+	 *     prepended to each file in the list.</li>
+	 *     <li>An object which defines a "src", which is a JSON or JSONP file. A "callback" can be defined for JSONP
+	 *     file. The JSON/JSONP file should contain a "manifest" property, which defines the list of files to load,
+	 *     and can optionally contain a "path" property, which will be prepended to each file in the list.</li>
+	 *     <li>An object which contains a "manifest" property, which defines the list of files to load, and can
+	 *     optionally contain a "path" property, which will be prepended to each file in the list.</li>
+	 *     <li>An Array of files to load.</li>
+	 * </ol>
+	 *
+	 * Each "file" in a manifest can be either:
+	 * <ul>
+	 *     <li>A {{#crossLink "LoadItem"}}{{/crossLink}} instance</li>
+	 *     <li>An object containing properties defined by {{#crossLink "LoadItem"}}{{/crossLink}}</li>
+	 *     <li>OR A string path to a resource. Note that this kind of load item will be converted to a {{#crossLink "LoadItem"}}{{/crossLink}}
+	 *     in the background.</li>
+	 * </ul>
+	 *
+	 * @param {Boolean} [loadNow=true] Kick off an immediate load (true) or wait for a load call (false). The default
+	 * value is true. If the queue is paused using {{#crossLink "LoadQueue/setPaused"}}{{/crossLink}} and this value is
+	 * `true`, the queue will resume automatically.
+	 * @param {String} [basePath] A base path that will be prepended to each file. The basePath argument overrides the
+	 * path specified in the constructor. Note that if you load a manifest using a file of type {{#crossLink "LoadQueue/MANIFEST:property"}}{{/crossLink}},
+	 * its files will <strong>NOT</strong> use the basePath parameter. <strong>The basePath parameter is deprecated.</strong>
+	 * This parameter will be removed in a future version. Please either use the `basePath` parameter in the LoadQueue
+	 * constructor, or a `path` property in a manifest definition.
+	 */
+	p.loadManifest = function (manifest, loadNow, basePath) {
+		var fileList = null;
+		var path = null;
+
+		// Array-based list of items
+		if (manifest instanceof Array) {
+			if (manifest.length == 0) {
+				var event = new createjs.ErrorEvent("PRELOAD_MANIFEST_EMPTY");
+				this._sendError(event);
+				return;
+			}
+			fileList = manifest;
+
+			// String-based. Only file manifests can be specified this way. Any other types will cause an error when loaded.
+		} else if (typeof(manifest) === "string") {
+			fileList = [
+				{
+					src: manifest,
+					type: s.MANIFEST
+				}
+			];
+
+		} else if (typeof(manifest) == "object") {
+
+			// An object that defines a manifest path
+			if (manifest.src !== undefined) {
+				if (manifest.type == null) {
+					manifest.type = s.MANIFEST;
+				} else if (manifest.type != s.MANIFEST) {
+					var event = new createjs.ErrorEvent("PRELOAD_MANIFEST_TYPE");
+					this._sendError(event);
+				}
+				fileList = [manifest];
+
+				// An object that defines a manifest
+			} else if (manifest.manifest !== undefined) {
+				fileList = manifest.manifest;
+				path = manifest.path;
+			}
+
+			// Unsupported. This will throw an error.
+		} else {
+			var event = new createjs.ErrorEvent("PRELOAD_MANIFEST_NULL");
+			this._sendError(event);
+			return;
+		}
+
+		for (var i = 0, l = fileList.length; i < l; i++) {
+			this._addItem(fileList[i], path, basePath);
+		}
+
+		if (loadNow !== false) {
+			this.setPaused(false);
+		} else {
+			this.setPaused(true);
+		}
+
+	};
+
+	/**
+	 * Start a LoadQueue that was created, but not automatically started.
+	 * @method load
+	 */
+	p.load = function () {
+		this.setPaused(false);
+	};
+
+	/**
+	 * Look up a {{#crossLink "LoadItem"}}{{/crossLink}} using either the "id" or "src" that was specified when loading it. Note that if no "id" was
+	 * supplied with the load item, the ID will be the "src", including a `path` property defined by a manifest. The
+	 * `basePath` will not be part of the ID.
+	 * @method getItem
+	 * @param {String} value The <code>id</code> or <code>src</code> of the load item.
+	 * @return {Object} The load item that was initially requested using {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}}
+	 * or {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}. This object is also returned via the {{#crossLink "LoadQueue/fileload:event"}}{{/crossLink}}
+	 * event as the `item` parameter.
+	 */
+	p.getItem = function (value) {
+		return this._loadItemsById[value] || this._loadItemsBySrc[value];
+	};
+
+	/**
+	 * Look up a loaded result using either the "id" or "src" that was specified when loading it. Note that if no "id"
+	 * was supplied with the load item, the ID will be the "src", including a `path` property defined by a manifest. The
+	 * `basePath` will not be part of the ID.
+	 * @method getResult
+	 * @param {String} value The <code>id</code> or <code>src</code> of the load item.
+	 * @param {Boolean} [rawResult=false] Return a raw result instead of a formatted result. This applies to content
+	 * loaded via XHR such as scripts, XML, CSS, and Images. If there is no raw result, the formatted result will be
+	 * returned instead.
+	 * @return {Object} A result object containing the content that was loaded, such as:
+	 * <ul>
+	 *      <li>An image tag (&lt;image /&gt;) for images</li>
+	 *      <li>A script tag for JavaScript (&lt;script /&gt;). Note that scripts are automatically added to the HTML
+	 *      DOM.</li>
+	 *      <li>A style tag for CSS (&lt;style /&gt; or &lt;link &gt;)</li>
+	 *      <li>Raw text for TEXT</li>
+	 *      <li>A formatted JavaScript object defined by JSON</li>
+	 *      <li>An XML document</li>
+	 *      <li>A binary arraybuffer loaded by XHR</li>
+	 *      <li>An audio tag (&lt;audio &gt;) for HTML audio. Note that it is recommended to use SoundJS APIs to play
+	 *      loaded audio. Specifically, audio loaded by Flash and WebAudio will return a loader object using this method
+	 *      which can not be used to play audio back.</li>
+	 * </ul>
+	 * This object is also returned via the {{#crossLink "LoadQueue/fileload:event"}}{{/crossLink}} event as the 'item`
+	 * parameter. Note that if a raw result is requested, but not found, the result will be returned instead.
+	 */
+	p.getResult = function (value, rawResult) {
+		var item = this._loadItemsById[value] || this._loadItemsBySrc[value];
+		if (item == null) { return null; }
+		var id = item.id;
+		if (rawResult && this._loadedRawResults[id]) {
+			return this._loadedRawResults[id];
+		}
+		return this._loadedResults[id];
+	};
+
+	/**
+	 * Generate an list of items loaded by this queue.
+	 * @method getItems
+	 * @param {Boolean} loaded Determines if only items that have been loaded should be returned. If false, in-progress
+	 * and failed load items will also be included.
+	 * @returns {Array} A list of objects that have been loaded. Each item includes the {{#crossLink "LoadItem"}}{{/crossLink}},
+	 * result, and rawResult.
+	 * @since 0.6.0
+	 */
+	p.getItems = function(loaded) {
+		var arr = [];
+		for (var i= 0, l=this._loadQueueBackup.length; i<l; i++) {
+			var loader = this._loadQueueBackup[i]
+			var item = loader.getItem();
+			if (loaded === true && !loader.loaded) { continue; }
+			arr.push({
+				item: item,
+				result: this.getResult(item.id),
+				rawResult: this.getResult(item.id, true)
+			 });
+		}
+		return arr;
+	};
+
+	/**
+	 * Pause or resume the current load. Active loads will not be cancelled, but the next items in the queue will not
+	 * be processed when active loads complete. LoadQueues are not paused by default.
+	 *
+	 * Note that if new items are added to the queue using {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} or
+	 * {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}, a paused queue will be resumed, unless the `loadNow`
+	 * argument is `false`.
+	 * @method setPaused
+	 * @param {Boolean} value Whether the queue should be paused or not.
+	 */
+	p.setPaused = function (value) {
+		this._paused = value;
+		if (!this._paused) {
+			this._loadNext();
+		}
+	};
+
+	/**
+	 * Close the active queue. Closing a queue completely empties the queue, and prevents any remaining items from
+	 * starting to download. Note that currently any active loads will remain open, and events may be processed.
+	 *
+	 * To stop and restart a queue, use the {{#crossLink "LoadQueue/setPaused"}}{{/crossLink}} method instead.
+	 * @method close
+	 */
+	p.close = function () {
+		while (this._currentLoads.length) {
+			this._currentLoads.pop().cancel();
+		}
+		this._scriptOrder.length = 0;
+		this._loadedScripts.length = 0;
+		this.loadStartWasDispatched = false;
+		this._itemCount = 0;
+		this._lastProgress = NaN;
+	};
+
+// protected methods
+	/**
+	 * Add an item to the queue. Items are formatted into a usable object containing all the properties necessary to
+	 * load the content. The load queue is populated with the loader instance that handles preloading, and not the load
+	 * item that was passed in by the user. To look up the load item by id or src, use the {{#crossLink "LoadQueue.getItem"}}{{/crossLink}}
+	 * method.
+	 * @method _addItem
+	 * @param {String|Object} value The item to add to the queue.
+	 * @param {String} [path] An optional path prepended to the `src`. The path will only be prepended if the src is
+	 * relative, and does not start with a protocol such as `http://`, or a path like `../`. If the LoadQueue was
+	 * provided a {{#crossLink "_basePath"}}{{/crossLink}}, then it will optionally be prepended after.
+	 * @param {String} [basePath] <strong>Deprecated</strong>An optional basePath passed into a {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}
+	 * or {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} call. This parameter will be removed in a future tagged
+	 * version.
+	 * @private
+	 */
+	p._addItem = function (value, path, basePath) {
+		var item = this._createLoadItem(value, path, basePath); // basePath and manifest path are added to the src.
+		if (item == null) { return; } // Sometimes plugins or types should be skipped.
+		var loader = this._createLoader(item);
+		if (loader != null) {
+			item._loader = loader;
+			this._loadQueue.push(loader);
+			this._loadQueueBackup.push(loader);
+
+			this._numItems++;
+			this._updateProgress();
+
+			// Only worry about script order when using XHR to load scripts. Tags are only loading one at a time.
+			if ((this.maintainScriptOrder
+				 && item.type == createjs.LoadQueue.JAVASCRIPT
+					//&& loader instanceof createjs.XHRLoader //NOTE: Have to track all JS files this way
+				)
+				|| item.maintainOrder === true) {
+				this._scriptOrder.push(item);
+				this._loadedScripts.push(null);
+			}
+		}
+	};
+
+	/**
+	 * Create a refined {{#crossLink "LoadItem"}}{{/crossLink}}, which contains all the required properties. The type of
+	 * item is determined by browser support, requirements based on the file type, and developer settings. For example,
+	 * XHR is only used for file types that support it in new browsers.
+	 *
+	 * Before the item is returned, any plugins registered to handle the type or extension will be fired, which may
+	 * alter the load item.
+	 * @method _createLoadItem
+	 * @param {String | Object | HTMLAudioElement | HTMLImageElement} value The item that needs to be preloaded.
+	 * @param {String} [path] A path to prepend to the item's source. Sources beginning with http:// or similar will
+	 * not receive a path. Since PreloadJS 0.4.1, the src will be modified to include the `path` and {{#crossLink "LoadQueue/_basePath:property"}}{{/crossLink}}
+	 * when it is added.
+	 * @param {String} [basePath] <strong>Deprectated</strong> A base path to prepend to the items source in addition to
+	 * the path argument.
+	 * @return {Object} The loader instance that will be used.
+	 * @private
+	 */
+	p._createLoadItem = function (value, path, basePath) {
+		var item = createjs.LoadItem.create(value);
+		if (item == null) { return null; }
+
+		// Determine Extension, etc.
+		var match = createjs.RequestUtils.parseURI(item.src);
+		if (match.extension) { item.ext = match.extension; }
+		if (item.type == null) {
+			item.type = createjs.RequestUtils.getTypeByExtension(item.ext);
+		}
+
+		// Inject path & basePath
+		var bp = ""; // Store the generated basePath
+		var useBasePath = basePath || this._basePath;
+		var autoId = item.src;
+		if (!match.absolute && !match.relative) {
+			if (path) {
+				bp = path;
+				var pathMatch = createjs.RequestUtils.parseURI(path);
+				autoId = path + autoId;
+				// Also append basePath
+				if (useBasePath != null && !pathMatch.absolute && !pathMatch.relative) {
+					bp = useBasePath + bp;
+				}
+			} else if (useBasePath != null) {
+				bp = useBasePath;
+			}
+		}
+		item.src = bp + item.src;
+		item.path = bp;
+
+		// If there's no id, set one now.
+		if (item.id === undefined || item.id === null || item.id === "") {
+			item.id = autoId;
+		}
+
+		// Give plugins a chance to modify the loadItem:
+		var customHandler = this._typeCallbacks[item.type] || this._extensionCallbacks[item.ext];
+		if (customHandler) {
+			// Plugins are now passed both the full source, as well as a combined path+basePath (appropriately)
+			var result = customHandler.callback.call(customHandler.scope, item, this);
+
+			// The plugin will handle the load, or has canceled it. Ignore it.
+			if (result === false) {
+				return null;
+
+				// Load as normal:
+			} else if (result === true) {
+				// Do Nothing
+
+			// Result is a loader class:
+			} else if (result != null) {
+				item._loader = result;
+			}
+
+			// Update the extension in case the type changed:
+			match = createjs.RequestUtils.parseURI(item.src);
+			if (match.extension != null) {
+				item.ext = match.extension;
+			}
+		}
+
+		// Store the item for lookup. This also helps clean-up later.
+		this._loadItemsById[item.id] = item;
+		this._loadItemsBySrc[item.src] = item;
+
+		if (item.loadTimeout == null) {
+			item.loadTimeout = s.loadTimeout;
+		}
+
+		if (item.crossOrigin == null) {
+			item.crossOrigin = this._crossOrigin;
+		}
+
+		return item;
+	};
+
+	/**
+	 * Create a loader for a load item.
+	 * @method _createLoader
+	 * @param {Object} item A formatted load item that can be used to generate a loader.
+	 * @return {AbstractLoader} A loader that can be used to load content.
+	 * @private
+	 */
+	p._createLoader = function (item) {
+		if (item._loader != null) { // A plugin already specified a loader
+			return item._loader;
+		}
+
+		// Initially, try and use the provided/supported XHR mode:
+		var preferXHR = this.preferXHR;
+
+		for (var i = 0; i < this._availableLoaders.length; i++) {
+			var loader = this._availableLoaders[i];
+			if (loader && loader.canLoadItem(item)) {
+				return new loader(item, preferXHR);
+			}
+		}
+
+		// TODO: Log error (requires createjs.log)
+		return null;
+	};
+
+	/**
+	 * Load the next item in the queue. If the queue is empty (all items have been loaded), then the complete event
+	 * is processed. The queue will "fill up" any empty slots, up to the max connection specified using
+	 * {{#crossLink "LoadQueue.setMaxConnections"}}{{/crossLink}} method. The only exception is scripts that are loaded
+	 * using tags, which have to be loaded one at a time to maintain load order.
+	 * @method _loadNext
+	 * @private
+	 */
+	p._loadNext = function () {
+		if (this._paused) { return; }
+
+		// Only dispatch loadstart event when the first file is loaded.
+		if (!this._loadStartWasDispatched) {
+			this._sendLoadStart();
+			this._loadStartWasDispatched = true;
+		}
+
+		// The queue has completed.
+		if (this._numItems == this._numItemsLoaded) {
+			this.loaded = true;
+			this._sendComplete();
+
+			// Load the next queue, if it has been defined.
+			if (this.next && this.next.load) {
+				this.next.load();
+			}
+		} else {
+			this.loaded = false;
+		}
+
+		// Must iterate forwards to load in the right order.
+		for (var i = 0; i < this._loadQueue.length; i++) {
+			if (this._currentLoads.length >= this._maxConnections) { break; }
+			var loader = this._loadQueue[i];
+
+			// Determine if we should be only loading one tag-script at a time:
+			// Note: maintainOrder items don't do anything here because we can hold onto their loaded value
+			if (!this._canStartLoad(loader)) { continue; }
+			this._loadQueue.splice(i, 1);
+			i--;
+			this._loadItem(loader);
+		}
+	};
+
+	/**
+	 * Begin loading an item. Event listeners are not added to the loaders until the load starts.
+	 * @method _loadItem
+	 * @param {AbstractLoader} loader The loader instance to start. Currently, this will be an XHRLoader or TagLoader.
+	 * @private
+	 */
+	p._loadItem = function (loader) {
+		loader.on("fileload", this._handleFileLoad, this);
+		loader.on("progress", this._handleProgress, this);
+		loader.on("complete", this._handleFileComplete, this);
+		loader.on("error", this._handleError, this);
+		loader.on("fileerror", this._handleFileError, this);
+		this._currentLoads.push(loader);
+		this._sendFileStart(loader.getItem());
+		loader.load();
+	};
+
+	/**
+	 * The callback that is fired when a loader loads a file. This enables loaders like {{#crossLink "ManifestLoader"}}{{/crossLink}}
+	 * to maintain internal queues, but for this queue to dispatch the {{#crossLink "fileload:event"}}{{/crossLink}}
+	 * events.
+	 * @param {Event} The {{#crossLink "AbstractLoader/fileload:event"}}{{/crossLink}} event from the loader.
+	 * @private
+	 * @since 0.6.0
+	 */
+	p._handleFileLoad = function(event) {
+		event.target = null;
+		this.dispatchEvent(event);
+	};
+
+	/**
+	 * The callback that is fired when a loader encounters an error from an internal file load operation. This enables
+	 * loaders like M
+	 * @param event
+	 * @private
+	 */
+	p._handleFileError = function(event) {
+		var newEvent = new createjs.ErrorEvent("FILE_LOAD_ERROR", null, event.item);
+		this._sendError(newEvent);
+	};
+
+	/**
+	 * The callback that is fired when a loader encounters an error. The queue will continue loading unless {{#crossLink "LoadQueue/stopOnError:property"}}{{/crossLink}}
+	 * is set to `true`.
+	 * @method _handleError
+	 * @param {ErrorEvent} event The error event, containing relevant error information.
+	 * @private
+	 */
+	p._handleError = function (event) {
+		var loader = event.target;
+		this._numItemsLoaded++;
+
+		this._finishOrderedItem(loader, true);
+		this._updateProgress();
+
+		var newEvent = new createjs.ErrorEvent("FILE_LOAD_ERROR", null, loader.getItem());
+		// TODO: Propagate actual error message.
+
+		this._sendError(newEvent);
+
+		if (!this.stopOnError) {
+			this._removeLoadItem(loader);
+			this._loadNext();
+		}
+	};
+
+	/**
+	 * An item has finished loading. We can assume that it is totally loaded, has been parsed for immediate use, and
+	 * is available as the "result" property on the load item. The raw text result for a parsed item (such as JSON, XML,
+	 * CSS, JavaScript, etc) is available as the "rawResult" property, and can also be looked up using {{#crossLink "LoadQueue/getResult"}}{{/crossLink}}.
+	 * @method _handleFileComplete
+	 * @param {Event} event The event object from the loader.
+	 * @private
+	 */
+	p._handleFileComplete = function (event) {
+		var loader = event.target;
+		var item = loader.getItem();
+
+		var result = loader.getResult();
+		this._loadedResults[item.id] = result;
+		var rawResult = loader.getResult(true);
+		if (rawResult != null && rawResult !== result) {
+			this._loadedRawResults[item.id] = rawResult;
+		}
+
+		this._saveLoadedItems(loader);
+
+		// Clean up the load item
+		this._removeLoadItem(loader);
+
+		if (!this._finishOrderedItem(loader)) {
+			// The item was NOT managed, so process it now
+			this._processFinishedLoad(item, loader);
+		}
+	};
+
+	/**
+	 * Some loaders might load additional content, other than the item they were passed (such as {{#crossLink "ManifestLoader"}}{{/crossLink}}).
+	 * Any items exposed by the loader using {{#crossLink "AbstractLoader/getLoadItems"}}{{/crossLink}} are added to the
+	 * LoadQueue's look-ups, including {{#crossLink "getItem"}}{{/crossLink}} and {{#crossLink "getResult"}}{{/crossLink}}
+	 * methods.
+	 * @method _saveLoadedItems
+	 * @param {AbstractLoader} loader
+	 * @protected
+	 * @since 0.6.0
+	 */
+	p._saveLoadedItems = function(loader) {
+		// TODO: Not sure how to handle this. Would be nice to expose the items.
+		// Loaders may load sub-items. This adds them to this queue
+		var list = loader.getLoadedItems();
+		if (list === null) { return; }
+
+		for (var i = 0; i < list.length; i++) {
+			var item = list[i].item;
+
+			// Store item lookups
+			this._loadItemsBySrc[item.src] = item;
+			this._loadItemsById[item.id] = item;
+
+			// Store loaded content
+			this._loadedResults[item.id] = list[i].result;
+			this._loadedRawResults[item.id] = list[i].rawResult;
+		}
+	}
+
+	/**
+	 * Flag an item as finished. If the item's order is being managed, then ensure that it is allowed to finish, and if
+	 * so, trigger prior items to trigger as well.
+	 * @method _finishOrderedItem
+	 * @param {AbstractLoader} loader
+	 * @return {Boolean} If the item's order is being managed. This allows the caller to take an alternate
+	 * behaviour if it is.
+	 * @private
+	 */
+	p._finishOrderedItem = function (loader, loadFailed) {
+		var item = loader.getItem();
+
+		if ((this.maintainScriptOrder && item.type == createjs.LoadQueue.JAVASCRIPT)
+			|| item.maintainOrder) {
+
+			//TODO: Evaluate removal of the _currentlyLoadingScript
+			if (loader instanceof createjs.JavaScriptLoader) {
+				this._currentlyLoadingScript = false;
+			}
+
+			var index = createjs.indexOf(this._scriptOrder, item);
+			if (index == -1) { return false; } // This loader no longer exists
+			this._loadedScripts[index] = (loadFailed === true) ? true : item;
+
+			this._checkScriptLoadOrder();
+			return true;
+		}
+
+		return false;
+	};
+
+	/**
+	 * Ensure the scripts load and dispatch in the correct order. When using XHR, scripts are stored in an array in the
+	 * order they were added, but with a "null" value. When they are completed, the value is set to the load item,
+	 * and then when they are processed and dispatched, the value is set to `true`. This method simply
+	 * iterates the array, and ensures that any loaded items that are not preceded by a `null` value are
+	 * dispatched.
+	 * @method _checkScriptLoadOrder
+	 * @private
+	 */
+	p._checkScriptLoadOrder = function () {
+		var l = this._loadedScripts.length;
+
+		for (var i = 0; i < l; i++) {
+			var item = this._loadedScripts[i];
+			if (item === null) { break; } // This is still loading. Do not process further.
+			if (item === true) { continue; } // This has completed, and been processed. Move on.
+
+			var loadItem = this._loadedResults[item.id];
+			if (item.type == createjs.LoadQueue.JAVASCRIPT) {
+				// Append script tags to the head automatically. Tags do this in the loader, but XHR scripts have to maintain order.
+				(document.body || document.getElementsByTagName("body")[0]).appendChild(loadItem);
+			}
+
+			var loader = item._loader;
+			this._processFinishedLoad(item, loader);
+			this._loadedScripts[i] = true;
+		}
+	};
+
+	/**
+	 * A file has completed loading, and the LoadQueue can move on. This triggers the complete event, and kick-starts
+	 * the next item.
+	 * @method _processFinishedLoad
+	 * @param {LoadItem|Object} item
+	 * @param {AbstractLoader} loader
+	 * @protected
+	 */
+	p._processFinishedLoad = function (item, loader) {
+		this._numItemsLoaded++;
+		this._updateProgress();
+		this._sendFileComplete(item, loader);
+		this._loadNext();
+	};
+
+	/**
+	 * Ensure items with `maintainOrder=true` that are before the specified item have loaded. This only applies to
+	 * JavaScript items that are being loaded with a TagLoader, since they have to be loaded and completed <strong>before</strong>
+	 * the script can even be started, since it exist in the DOM while loading.
+	 * @method _canStartLoad
+	 * @param {AbstractLoader} loader The loader for the item
+	 * @return {Boolean} Whether the item can start a load or not.
+	 * @private
+	 */
+	p._canStartLoad = function (loader) {
+		if (!this.maintainScriptOrder || loader.preferXHR) { return true; }
+		var item = loader.getItem();
+		if (item.type != createjs.LoadQueue.JAVASCRIPT) { return true; }
+		if (this._currentlyLoadingScript) { return false; }
+
+		var index = this._scriptOrder.indexOf(item);
+		var i = 0;
+		while (i < index) {
+			var checkItem = this._loadedScripts[i];
+			if (checkItem == null) { return false; }
+			i++;
+		}
+		this._currentlyLoadingScript = true;
+		return true;
+	};
+
+	/**
+	 * A load item is completed or was canceled, and needs to be removed from the LoadQueue.
+	 * @method _removeLoadItem
+	 * @param {AbstractLoader} loader A loader instance to remove.
+	 * @private
+	 */
+	p._removeLoadItem = function (loader) {
+		var item = loader.getItem();
+		delete item._loader;
+
+		var l = this._currentLoads.length;
+		for (var i = 0; i < l; i++) {
+			if (this._currentLoads[i] == loader) {
+				this._currentLoads.splice(i, 1);
+				break;
+			}
+		}
+	};
+
+	/**
+	 * An item has dispatched progress. Propagate that progress, and update the LoadQueue's overall progress.
+	 * @method _handleProgress
+	 * @param {ProgressEvent} event The progress event from the item.
+	 * @private
+	 */
+	p._handleProgress = function (event) {
+		var loader = event.target;
+		this._sendFileProgress(loader.getItem(), loader.progress);
+		this._updateProgress();
+	};
+
+	/**
+	 * Overall progress has changed, so determine the new progress amount and dispatch it. This changes any time an
+	 * item dispatches progress or completes. Note that since we don't always know the actual filesize of items before
+	 * they are loaded. In this case, we define a "slot" for each item (1 item in 10 would get 10%), and then append
+	 * loaded progress on top of the already-loaded items.
+	 *
+	 * For example, if 5/10 items have loaded, and item 6 is 20% loaded, the total progress would be:
+	 * <ul>
+	 *      <li>5/10 of the items in the queue (50%)</li>
+	 *      <li>plus 20% of item 6's slot (2%)</li>
+	 *      <li>equals 52%</li>
+	 * </ul>
+	 * @method _updateProgress
+	 * @private
+	 */
+	p._updateProgress = function () {
+		var loaded = this._numItemsLoaded / this._numItems; // Fully Loaded Progress
+		var remaining = this._numItems - this._numItemsLoaded;
+		if (remaining > 0) {
+			var chunk = 0;
+			for (var i = 0, l = this._currentLoads.length; i < l; i++) {
+				chunk += this._currentLoads[i].progress;
+			}
+			loaded += (chunk / remaining) * (remaining / this._numItems);
+		}
+
+		if (this._lastProgress != loaded) {
+			this._sendProgress(loaded);
+			this._lastProgress = loaded;
+		}
+	};
+
+	/**
+	 * Clean out item results, to free them from memory. Mainly, the loaded item and results are cleared from internal
+	 * hashes.
+	 * @method _disposeItem
+	 * @param {LoadItem|Object} item The item that was passed in for preloading.
+	 * @private
+	 */
+	p._disposeItem = function (item) {
+		delete this._loadedResults[item.id];
+		delete this._loadedRawResults[item.id];
+		delete this._loadItemsById[item.id];
+		delete this._loadItemsBySrc[item.src];
+	};
+
+	/**
+	 * Dispatch a "fileprogress" {{#crossLink "Event"}}{{/crossLink}}. Please see the LoadQueue {{#crossLink "LoadQueue/fileprogress:event"}}{{/crossLink}}
+	 * event for details on the event payload.
+	 * @method _sendFileProgress
+	 * @param {LoadItem|Object} item The item that is being loaded.
+	 * @param {Number} progress The amount the item has been loaded (between 0 and 1).
+	 * @protected
+	 */
+	p._sendFileProgress = function (item, progress) {
+		if (this._isCanceled()) {
+			this._cleanUp();
+			return;
+		}
+		if (!this.hasEventListener("fileprogress")) { return; }
+
+		//LM: Rework ProgressEvent to support this?
+		var event = new createjs.Event("fileprogress");
+		event.progress = progress;
+		event.loaded = progress;
+		event.total = 1;
+		event.item = item;
+
+		this.dispatchEvent(event);
+	};
+
+	/**
+	 * Dispatch a fileload {{#crossLink "Event"}}{{/crossLink}}. Please see the {{#crossLink "LoadQueue/fileload:event"}}{{/crossLink}} event for
+	 * details on the event payload.
+	 * @method _sendFileComplete
+	 * @param {LoadItemObject} item The item that is being loaded.
+	 * @param {AbstractLoader} loader
+	 * @protected
+	 */
+	p._sendFileComplete = function (item, loader) {
+		if (this._isCanceled()) { return; }
+
+		var event = new createjs.Event("fileload");
+		event.loader = loader;
+		event.item = item;
+		event.result = this._loadedResults[item.id];
+		event.rawResult = this._loadedRawResults[item.id];
+
+		// This calls a handler specified on the actual load item. Currently, the SoundJS plugin uses this.
+		if (item.completeHandler) {
+			item.completeHandler(event);
+		}
+
+		this.hasEventListener("fileload") && this.dispatchEvent(event);
+	};
+
+	/**
+	 * Dispatch a filestart {{#crossLink "Event"}}{{/crossLink}} immediately before a file starts to load. Please see
+	 * the {{#crossLink "LoadQueue/filestart:event"}}{{/crossLink}} event for details on the event payload.
+	 * @method _sendFileStart
+	 * @param {LoadItem|Object} item The item that is being loaded.
+	 * @protected
+	 */
+	p._sendFileStart = function (item) {
+		var event = new createjs.Event("filestart");
+		event.item = item;
+		this.hasEventListener("filestart") && this.dispatchEvent(event);
+	};
+
+	p.toString = function () {
+		return "[PreloadJS LoadQueue]";
+	};
+
+	createjs.LoadQueue = createjs.promote(LoadQueue, "AbstractLoader");
+}());
+
+//##############################################################################
+// TextLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for Text files.
+	 * @class TextLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @constructor
+	 */
+	function TextLoader(loadItem) {
+		this.AbstractLoader_constructor(loadItem, true, createjs.AbstractLoader.TEXT);
+	};
+
+	var p = createjs.extend(TextLoader, createjs.AbstractLoader);
+	var s = TextLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader loads items that are of type {{#crossLink "AbstractLoader/TEXT:property"}}{{/crossLink}},
+	 * but is also the default loader if a file type can not be determined.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.TEXT;
+	};
+
+	createjs.TextLoader = createjs.promote(TextLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// BinaryLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for binary files. This is useful for loading web audio, or content that requires an ArrayBuffer.
+	 * @class BinaryLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @constructor
+	 */
+	function BinaryLoader(loadItem) {
+		this.AbstractLoader_constructor(loadItem, true, createjs.AbstractLoader.BINARY);
+		this.on("initialize", this._updateXHR, this);
+	};
+
+	var p = createjs.extend(BinaryLoader, createjs.AbstractLoader);
+	var s = BinaryLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/BINARY:property"}}{{/crossLink}}
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.BINARY;
+	};
+
+	// private methods
+	/**
+	 * Before the item loads, set the response type to "arraybuffer"
+	 * @property _updateXHR
+	 * @param {Event} event
+	 * @private
+	 */
+	p._updateXHR = function (event) {
+		event.loader.setResponseType("arraybuffer");
+	};
+
+	createjs.BinaryLoader = createjs.promote(BinaryLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// CSSLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for CSS files.
+	 * @class CSSLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @param {Boolean} preferXHR
+	 * @constructor
+	 */
+	function CSSLoader(loadItem, preferXHR) {
+		this.AbstractLoader_constructor(loadItem, preferXHR, createjs.AbstractLoader.CSS);
+
+		// public properties
+		this.resultFormatter = this._formatResult;
+
+		// protected properties
+		this._tagSrcAttribute = "href";
+
+		if (preferXHR) {
+			this._tag = document.createElement("style");
+		} else {
+			this._tag = document.createElement("link");
+		}
+
+		this._tag.rel = "stylesheet";
+		this._tag.type = "text/css";
+	};
+
+	var p = createjs.extend(CSSLoader, createjs.AbstractLoader);
+	var s = CSSLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/CSS:property"}}{{/crossLink}}.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.CSS;
+	};
+
+	// protected methods
+	/**
+	 * The result formatter for CSS files.
+	 * @method _formatResult
+	 * @param {AbstractLoader} loader
+	 * @returns {HTMLLinkElement|HTMLStyleElement}
+	 * @private
+	 */
+	p._formatResult = function (loader) {
+		if (this._preferXHR) {
+			var tag = loader.getTag();
+			var head = document.getElementsByTagName("head")[0]; //Note: This is unavoidable in IE678
+			head.appendChild(tag);
+
+			if (tag.styleSheet) { // IE
+				tag.styleSheet.cssText = loader.getResult(true);
+			} else {
+				var textNode = document.createTextNode(loader.getResult(true));
+				tag.appendChild(textNode);
+			}
+		} else {
+			tag = this._tag;
+		}
+
+		return tag;
+	};
+
+	createjs.CSSLoader = createjs.promote(CSSLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// ImageLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for image files.
+	 * @class ImageLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @param {Boolean} preferXHR
+	 * @constructor
+	 */
+	function ImageLoader (loadItem, preferXHR) {
+		this.AbstractLoader_constructor(loadItem, preferXHR, createjs.AbstractLoader.IMAGE);
+
+		// public properties
+		this.resultFormatter = this._formatResult;
+
+		// protected properties
+		this._tagSrcAttribute = "src";
+
+		// Check if the preload item is already a tag.
+		if (createjs.RequestUtils.isImageTag(loadItem)) {
+			this._tag = loadItem;
+		} else if (createjs.RequestUtils.isImageTag(loadItem.src)) {
+			this._tag = loadItem.src;
+		} else if (createjs.RequestUtils.isImageTag(loadItem.tag)) {
+			this._tag = loadItem.tag;
+		}
+
+		if (this._tag != null) {
+			this._preferXHR = false;
+		} else {
+			this._tag = document.createElement("img");
+		}
+
+		this.on("initialize", this._updateXHR, this);
+	};
+
+	var p = createjs.extend(ImageLoader, createjs.AbstractLoader);
+	var s = ImageLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/IMAGE:property"}}{{/crossLink}}.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.IMAGE;
+	};
+
+	// public methods
+	p.load = function () {
+		if (this._tag.src != "" && this._tag.complete) {
+			this._sendComplete();
+			return;
+		}
+
+		var crossOrigin = this._item.crossOrigin;
+		if (crossOrigin == true) { crossOrigin = "Anonymous"; }
+		if (crossOrigin != null && !createjs.RequestUtils.isLocal(this._item.src)) {
+			this._tag.crossOrigin = crossOrigin;
+		}
+
+		this.AbstractLoader_load();
+	};
+
+	// protected methods
+	/**
+	 * Before the item loads, set its mimetype and responseType.
+	 * @property _updateXHR
+	 * @param {Event} event
+	 * @private
+	 */
+	p._updateXHR = function (event) {
+		event.loader.mimeType = 'text/plain; charset=x-user-defined-binary';
+
+		// Only exists for XHR
+		if (event.loader.setResponseType) {
+			event.loader.setResponseType("blob");
+		}
+	};
+
+	/**
+	 * The result formatter for Image files.
+	 * @method _formatResult
+	 * @param {AbstractLoader} loader
+	 * @returns {HTMLImageElement}
+	 * @private
+	 */
+	p._formatResult = function (loader) {
+		var _this = this;
+		return function (done) {
+			var tag = _this._tag;
+			var URL = window.URL || window.webkitURL;
+
+			if (!_this._preferXHR) {
+				//document.body.removeChild(tag);
+			} else if (URL) {
+				var objURL = URL.createObjectURL(loader.getResult(true));
+				tag.src = objURL;
+				tag.onload = function () {
+					URL.revokeObjectURL(_this.src);
+				}
+			} else {
+				tag.src = loader.getItem().src;
+			}
+
+			if (tag.complete) {
+				done(tag);
+			} else {
+				tag.onload = function () {
+					done(this);
+				}
+			}
+		};
+	};
+
+	createjs.ImageLoader = createjs.promote(ImageLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// JavaScriptLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for JavaScript files.
+	 * @class JavaScriptLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @param {Boolean} preferXHR
+	 * @constructor
+	 */
+	function JavaScriptLoader(loadItem, preferXHR) {
+		this.AbstractLoader_constructor(loadItem, preferXHR, createjs.AbstractLoader.JAVASCRIPT);
+
+		// public properties
+		this.resultFormatter = this._formatResult;
+
+		// protected properties
+		this._tagSrcAttribute = "src";
+		this.setTag(document.createElement("script"));
+	};
+
+	var p = createjs.extend(JavaScriptLoader, createjs.AbstractLoader);
+	var s = JavaScriptLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/JAVASCRIPT:property"}}{{/crossLink}}
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.JAVASCRIPT;
+	};
+
+	// protected methods
+	/**
+	 * The result formatter for JavaScript files.
+	 * @method _formatResult
+	 * @param {AbstractLoader} loader
+	 * @returns {HTMLLinkElement|HTMLStyleElement}
+	 * @private
+	 */
+	p._formatResult = function (loader) {
+		var tag = loader.getTag();
+		if (this._preferXHR) {
+			tag.text = loader.getResult(true);
+		}
+		return tag;
+	}
+
+	createjs.JavaScriptLoader = createjs.promote(JavaScriptLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// JSONLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for JSON files. To load JSON cross-domain, use JSONP and the {{#crossLink "JSONPLoader"}}{{/crossLink}}
+	 * instead. To load JSON-formatted manifests, use {{#crossLink "ManifestLoader"}}{{/crossLink}}, and to
+	 * load EaselJS SpriteSheets, use {{#crossLink "SpriteSheetLoader"}}{{/crossLink}}.
+	 * @class JSONLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @constructor
+	 */
+	function JSONLoader(loadItem) {
+		this.AbstractLoader_constructor(loadItem, true, createjs.AbstractLoader.JSON);
+
+		// public properties
+		this.resultFormatter = this._formatResult;
+	};
+
+	var p = createjs.extend(JSONLoader, createjs.AbstractLoader);
+	var s = JSONLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/JSON:property"}}{{/crossLink}}.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.JSON && !item._loadAsJSONP;
+	};
+
+	// protected methods
+	/**
+	 * The result formatter for JSON files.
+	 * @method _formatResult
+	 * @param {AbstractLoader} loader
+	 * @returns {HTMLLinkElement|HTMLStyleElement}
+	 * @private
+	 */
+	p._formatResult = function (loader) {
+		var json = null;
+		try {
+			json = createjs.DataUtils.parseJSON(loader.getResult(true));
+		} catch (e) {
+			var event = new createjs.ErrorEvent("JSON_FORMAT", null, e);
+			this._sendError(event);
+			return e;
+		}
+
+		return json;
+	};
+
+	createjs.JSONLoader = createjs.promote(JSONLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// JSONPLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for JSONP files, which are JSON-formatted text files, wrapped in a callback. To load regular JSON
+	 * without a callback use the {{#crossLink "JSONLoader"}}{{/crossLink}} instead. To load JSON-formatted manifests,
+	 * use {{#crossLink "ManifestLoader"}}{{/crossLink}}, and to load EaselJS SpriteSheets, use
+	 * {{#crossLink "SpriteSheetLoader"}}{{/crossLink}}.
+	 * @class JSONPLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @constructor
+	 */
+	function JSONPLoader(loadItem) {
+		this.AbstractLoader_constructor(loadItem, false, createjs.AbstractLoader.JSONP);
+		this.setTag(document.createElement("script"));
+		this.getTag().type = "text/javascript";
+	};
+
+	var p = createjs.extend(JSONPLoader, createjs.AbstractLoader);
+	var s = JSONPLoader;
+
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/JSONP:property"}}{{/crossLink}}.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.JSONP || item._loadAsJSONP;
+	};
+
+	// public methods
+	p.cancel = function () {
+		this.AbstractLoader_cancel();
+		this._dispose();
+	};
+
+	p.load = function () {
+		if (this._item.callback == null) {
+			throw new Error('callback is required for loading JSONP requests.');
+		}
+
+		// TODO: Look into creating our own iFrame to handle the load
+		// In the first attempt, FF did not get the result
+		//   result instanceof Object did not work either
+		//   so we would need to clone the result.
+		if (window[this._item.callback] != null) {
+			throw new Error(
+				"JSONP callback '" +
+				this._item.callback +
+				"' already exists on window. You need to specify a different callback or re-name the current one.");
+		}
+
+		window[this._item.callback] = createjs.proxy(this._handleLoad, this);
+		window.document.body.appendChild(this._tag);
+
+		// Load the tag
+		this._tag.src = this._item.src;
+	};
+
+	// private methods
+	/**
+	 * Handle the JSON callback, which is a public method defined on `window`.
+	 * @method _handleLoad
+	 * @param {Object} The formatted JSON data.
+	 * @private
+	 */
+	p._handleLoad = function (data) {
+		this._result = this._rawResult = data;
+		this._sendComplete();
+
+		this._dispose();
+	};
+	
+	/**
+	 * Clean up the JSONP load. This clears out the callback and script tag that this loader creates.
+	 * @method _dispose
+	 * @private
+	 */
+	p._dispose = function () {
+		window.document.body.removeChild(this._tag);
+		delete window[this._item.callback];
+	};
+
+	createjs.JSONPLoader = createjs.promote(JSONPLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// ManifestLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for JSON manifests. Items inside the manifest are loaded before the loader completes. To load manifests
+	 * using JSONP, specify a {{#crossLink "LoadItem/callback:property"}}{{/crossLink}} as part of the
+	 * {{#crossLink "LoadItem"}}{{/crossLink}}. Note that the {{#crossLink "JSONLoader"}}{{/crossLink}} and
+	 * {{#crossLink "JSONPLoader"}}{{/crossLink}} are higher priority loaders, so manifests <strong>must</strong>
+	 * set the {{#crossLink "LoadItem"}}{{/crossLink}} {{#crossLink "LoadItem/type:property"}}{{/crossLink}} property
+	 * to {{#crossLink "AbstractLoader/MANIFEST:property"}}{{/crossLink}}.
+	 * @class ManifestLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @constructor
+	 */
+	function ManifestLoader(loadItem) {
+		this.AbstractLoader_constructor(loadItem, null, createjs.AbstractLoader.MANIFEST);
+
+		// protected properties
+		/**
+		 * An internal {{#crossLink "LoadQueue"}}{{/crossLink}} that loads the contents of the manifest.
+		 * @property _manifestQueue
+		 * @type {LoadQueue}
+		 * @private
+		 */
+		this._manifestQueue = null;
+	};
+
+	var p = createjs.extend(ManifestLoader, createjs.AbstractLoader);
+	var s = ManifestLoader;
+
+	// static properties
+	/**
+	 * The amount of progress that the manifest itself takes up.
+	 * @property MANIFEST_PROGRESS
+	 * @type {number}
+	 * @default 0.25 (25%)
+	 * @private
+	 * @static
+	 */
+	s.MANIFEST_PROGRESS = 0.25;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/MANIFEST:property"}}{{/crossLink}}
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.MANIFEST;
+	};
+
+	// public methods
+	p.load = function () {
+		this.AbstractLoader_load();
+	};
+
+	// protected methods
+	p._createRequest = function() {
+		var callback = this._item.callback
+		if (callback != null) {
+			this._request = new createjs.JSONPLoader(this._item);
+		} else {
+			this._request = new createjs.JSONLoader(this._item);
+		}
+	};
+
+	p.handleEvent = function (event) {
+		switch (event.type) {
+			case "complete":
+				this._rawResult = event.target.getResult(true);
+				this._result = event.target.getResult();
+				this._sendProgress(s.MANIFEST_PROGRESS);
+				this._loadManifest(this._result);
+				return;
+			case "progress":
+				event.loaded *= s.MANIFEST_PROGRESS;
+				this.progress = event.loaded / event.total;
+				if (isNaN(this.progress) || this.progress == Infinity) { this.progress = 0; }
+				this._sendProgress(event);
+				return;
+		}
+		this.AbstractLoader_handleEvent(event);
+	};
+
+	p.destroy = function() {
+		this.AbstractLoader_destroy();
+		this._manifestQueue.close();
+	};
+
+	/**
+	 * Create and load the manifest items once the actual manifest has been loaded.
+	 * @method _loadManifest
+	 * @param {Object} json
+	 * @private
+	 */
+	p._loadManifest = function (json) {
+		if (json && json.manifest) {
+			var queue = this._manifestQueue = new createjs.LoadQueue();
+			queue.on("fileload", this._handleManifestFileLoad, this);
+			queue.on("progress", this._handleManifestProgress, this);
+			queue.on("complete", this._handleManifestComplete, this, true);
+			queue.on("error", this._handleManifestError, this, true);
+			queue.loadManifest(json);
+		} else {
+			this._sendComplete();
+		}
+	};
+
+	/**
+	 * An item from the {{#crossLink "_manifestQueue:property"}}{{/crossLink}} has completed.
+	 * @method _handleManifestFileLoad
+	 * @param {Event} event
+	 * @private
+	 */
+	p._handleManifestFileLoad = function (event) {
+		event.target = null;
+		this.dispatchEvent(event);
+	};
+
+	/**
+	 * The manifest has completed loading. This triggers the {{#crossLink "AbstractLoader/complete:event"}}{{/crossLink}}
+	 * {{#crossLink "Event"}}{{/crossLink}} from the ManifestLoader.
+	 * @method _handleManifestComplete
+	 * @param {Event} event
+	 * @private
+	 */
+	p._handleManifestComplete = function (event) {
+		this._loadedItems = this._manifestQueue.getItems(true);
+		this._sendComplete();
+	};
+
+	/**
+	 * The manifest has reported progress.
+	 * @method _handleManifestProgress
+	 * @param {ProgressEvent} event
+	 * @private
+	 */
+	p._handleManifestProgress = function (event) {
+		this.progress = event.progress * (1 - s.MANIFEST_PROGRESS) + s.MANIFEST_PROGRESS;
+		this._sendProgress(this.progress);
+	};
+
+	/**
+	 * The manifest has reported an error with one of the files.
+	 * @method _handleManifestError
+	 * @param {ErrorEvent} event
+	 * @private
+	 */
+	p._handleManifestError = function (event) {
+		var newEvent = new createjs.Event("fileerror");
+		newEvent.item = event.data;
+		this.dispatchEvent(newEvent);
+	};
+
+	createjs.ManifestLoader = createjs.promote(ManifestLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// SoundLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for HTML audio files. PreloadJS can not load WebAudio files, as a WebAudio context is required, which
+	 * should be created by either a library playing the sound (such as <a href="http://soundjs.com">SoundJS</a>, or an
+	 * external framework that handles audio playback. To load content that can be played by WebAudio, use the
+	 * {{#crossLink "BinaryLoader"}}{{/crossLink}}, and handle the audio context decoding manually.
+	 * @class SoundLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @param {Boolean} preferXHR
+	 * @constructor
+	 */
+	function SoundLoader(loadItem, preferXHR) {
+		this.AbstractMediaLoader_constructor(loadItem, preferXHR, createjs.AbstractLoader.SOUND);
+
+		// protected properties
+		if (createjs.RequestUtils.isAudioTag(loadItem)) {
+			this._tag = loadItem;
+		} else if (createjs.RequestUtils.isAudioTag(loadItem.src)) {
+			this._tag = loadItem;
+		} else if (createjs.RequestUtils.isAudioTag(loadItem.tag)) {
+			this._tag = createjs.RequestUtils.isAudioTag(loadItem) ? loadItem : loadItem.src;
+		}
+
+		if (this._tag != null) {
+			this._preferXHR = false;
+		}
+	};
+
+	var p = createjs.extend(SoundLoader, createjs.AbstractMediaLoader);
+	var s = SoundLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/SOUND:property"}}{{/crossLink}}.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.SOUND;
+	};
+
+	// protected methods
+	p._createTag = function (src) {
+		var tag = document.createElement("audio");
+		tag.autoplay = false;
+		tag.preload = "none";
+
+		//LM: Firefox fails when this the preload="none" for other tags, but it needs to be "none" to ensure PreloadJS works.
+		tag.src = src;
+		return tag;
+	};
+
+	createjs.SoundLoader = createjs.promote(SoundLoader, "AbstractMediaLoader");
+
+}());
+
+//##############################################################################
+// VideoLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for video files.
+	 * @class VideoLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @param {Boolean} preferXHR
+	 * @constructor
+	 */
+	function VideoLoader(loadItem, preferXHR) {
+		this.AbstractMediaLoader_constructor(loadItem, preferXHR, createjs.AbstractLoader.VIDEO);
+
+		if (createjs.RequestUtils.isVideoTag(loadItem) || createjs.RequestUtils.isVideoTag(loadItem.src)) {
+			this.setTag(createjs.RequestUtils.isVideoTag(loadItem)?loadItem:loadItem.src);
+
+			// We can't use XHR for a tag that's passed in.
+			this._preferXHR = false;
+		} else {
+			this.setTag(this._createTag());
+		}
+	};
+
+	var p = createjs.extend(VideoLoader, createjs.AbstractMediaLoader);
+	var s = VideoLoader;
+
+	/**
+	 * Create a new video tag
+	 *
+	 * @returns {HTMLElement}
+	 * @private
+	 */
+	p._createTag = function () {
+		return document.createElement("video");
+	};
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/VIDEO:property"}}{{/crossLink}}.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.VIDEO;
+	};
+
+	createjs.VideoLoader = createjs.promote(VideoLoader, "AbstractMediaLoader");
+
+}());
+
+//##############################################################################
+// SpriteSheetLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for EaselJS SpriteSheets. Images inside the spritesheet definition are loaded before the loader
+	 * completes. To load SpriteSheets using JSONP, specify a {{#crossLink "LoadItem/callback:property"}}{{/crossLink}}
+	 * as part of the {{#crossLink "LoadItem"}}{{/crossLink}}. Note that the {{#crossLink "JSONLoader"}}{{/crossLink}}
+	 * and {{#crossLink "JSONPLoader"}}{{/crossLink}} are higher priority loaders, so SpriteSheets <strong>must</strong>
+	 * set the {{#crossLink "LoadItem"}}{{/crossLink}} {{#crossLink "LoadItem/type:property"}}{{/crossLink}} property
+	 * to {{#crossLink "AbstractLoader/SPRITESHEET:property"}}{{/crossLink}}.
+	 * @class SpriteSheetLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @constructor
+	 */
+	function SpriteSheetLoader(loadItem) {
+		this.AbstractLoader_constructor(loadItem, null, createjs.AbstractLoader.SPRITESHEET);
+
+		// protected properties
+		/**
+		 * An internal queue which loads the SpriteSheet's images.
+		 * @method _manifestQueue
+		 * @type {LoadQueue}
+		 * @private
+		 */
+		this._manifestQueue = null;
+	}
+
+	var p = createjs.extend(SpriteSheetLoader, createjs.AbstractLoader);
+	var s = SpriteSheetLoader;
+
+	// static properties
+	/**
+	 * The amount of progress that the manifest itself takes up.
+	 * @property SPRITESHEET_PROGRESS
+	 * @type {number}
+	 * @default 0.25 (25%)
+	 * @private
+	 * @static
+	 */
+	s.SPRITESHEET_PROGRESS = 0.25;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/SPRITESHEET:property"}}{{/crossLink}}
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.SPRITESHEET;
+	};
+
+	// public methods
+	p.destroy = function() {
+		this.AbstractLoader_destroy;
+		this._manifestQueue.close();
+	};
+
+	// protected methods
+	p._createRequest = function() {
+		var callback = this._item.callback
+		if (callback != null && callback instanceof Function) {
+			this._request = new createjs.JSONPLoader(this._item);
+		} else {
+			this._request = new createjs.JSONLoader(this._item);
+		}
+	};
+
+	p.handleEvent = function (event) {
+		switch (event.type) {
+			case "complete":
+				this._rawResult = event.target.getResult(true);
+				this._result = event.target.getResult();
+				this._sendProgress(s.SPRITESHEET_PROGRESS);
+				this._loadManifest(this._result);
+				return;
+			case "progress":
+				event.loaded *= s.SPRITESHEET_PROGRESS;
+				this.progress = event.loaded / event.total;
+				if (isNaN(this.progress) || this.progress == Infinity) { this.progress = 0; }
+				this._sendProgress(event);
+				return;
+		}
+		this.AbstractLoader_handleEvent(event);
+	};
+
+	/**
+	 * Create and load the images once the SpriteSheet JSON has been loaded.
+	 * @method _loadManifest
+	 * @param {Object} json
+	 * @private
+	 */
+	p._loadManifest = function (json) {
+		if (json && json.images) {
+			var queue = this._manifestQueue = new createjs.LoadQueue();
+			queue.on("complete", this._handleManifestComplete, this, true);
+			queue.on("fileload", this._handleManifestFileLoad, this);
+			queue.on("progress", this._handleManifestProgress, this);
+			queue.on("error", this._handleManifestError, this, true);
+			queue.loadManifest(json.images);
+		}
+	};
+
+	/**
+	 * An item from the {{#crossLink "_manifestQueue:property"}}{{/crossLink}} has completed.
+	 * @method _handleManifestFileLoad
+	 * @param {Event} event
+	 * @private
+	 */
+	p._handleManifestFileLoad = function (event) {
+		var image = event.result;
+		if (image != null) {
+			var images = this.getResult().images;
+			var pos = images.indexOf(event.item.src);
+			images[pos] = image;
+		}
+	};
+
+	/**
+	 * The images have completed loading. This triggers the {{#crossLink "AbstractLoader/complete:event"}}{{/crossLink}}
+	 * {{#crossLink "Event"}}{{/crossLink}} from the SpriteSheetLoader.
+	 * @method _handleManifestComplete
+	 * @param {Event} event
+	 * @private
+	 */
+	p._handleManifestComplete = function (event) {
+		this._result = new createjs.SpriteSheet(this._result);
+		this._loadedItems = this._manifestQueue.getItems(true);
+		this._sendComplete();
+	};
+
+	/**
+	 * The images {{#crossLink "LoadQueue"}}{{/crossLink}} has reported progress.
+	 * @method _handleManifestProgress
+	 * @param {ProgressEvent} event
+	 * @private
+	 */
+	p._handleManifestProgress = function (event) {
+		this.progress = event.progress * (1 - s.SPRITESHEET_PROGRESS) + s.SPRITESHEET_PROGRESS;
+		this._sendProgress(this.progress);
+	};
+
+	/**
+	 * An image has reported an error.
+	 * @method _handleManifestError
+	 * @param {ErrorEvent} event
+	 * @private
+	 */
+	p._handleManifestError = function (event) {
+		var newEvent = new createjs.Event("fileerror");
+		newEvent.item = event.data;
+		this.dispatchEvent(newEvent);
+	};
+
+	createjs.SpriteSheetLoader = createjs.promote(SpriteSheetLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// SVGLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for SVG files.
+	 * @class SVGLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @param {Boolean} preferXHR
+	 * @constructor
+	 */
+	function SVGLoader(loadItem, preferXHR) {
+		this.AbstractLoader_constructor(loadItem, preferXHR, createjs.AbstractLoader.SVG);
+
+		// public properties
+		this.resultFormatter = this._formatResult;
+
+		// protected properties
+		this._tagSrcAttribute = "data";
+
+		if (preferXHR) {
+			this.setTag(document.createElement("svg"));
+		} else {
+			this.setTag(document.createElement("object"));
+			this.getTag().type = "image/svg+xml";
+		}
+
+		this.getTag().style.visibility = "hidden";
+	};
+
+	var p = createjs.extend(SVGLoader, createjs.AbstractLoader);
+	var s = SVGLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/SVG:property"}}{{/crossLink}}
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.SVG;
+	};
+
+	// protected methods
+	/**
+	 * The result formatter for SVG files.
+	 * @method _formatResult
+	 * @param {AbstractLoader} loader
+	 * @returns {Object}
+	 * @private
+	 */
+	p._formatResult = function (loader) {
+		// mime should be image/svg+xml, but Opera requires text/xml
+		var xml = createjs.DataUtils.parseXML(loader.getResult(true), "text/xml");
+		var tag = loader.getTag();
+
+		if (!this._preferXHR && document.body.contains(tag)) {
+			document.body.removeChild(tag);
+		}
+
+		if (xml.documentElement != null) {
+			tag.appendChild(xml.documentElement);
+			tag.style.visibility = "visible";
+			return tag;
+		} else { // For browsers that don't support SVG, just give them the XML. (IE 9-8)
+			return xml;
+		}
+	}
+
+	createjs.SVGLoader = createjs.promote(SVGLoader, "AbstractLoader");
+
+}());
+
+//##############################################################################
+// XMLLoader.js
+//##############################################################################
+
+this.createjs = this.createjs || {};
+
+(function () {
+	"use strict";
+
+	// constructor
+	/**
+	 * A loader for CSS files.
+	 * @class XMLLoader
+	 * @param {LoadItem|Object} loadItem
+	 * @constructor
+	 */
+	function XMLLoader(loadItem) {
+		this.AbstractLoader_constructor(loadItem, true, createjs.AbstractLoader.XML);
+
+		// public properties
+		this.resultFormatter = this._formatResult;
+	};
+
+	var p = createjs.extend(XMLLoader, createjs.AbstractLoader);
+	var s = XMLLoader;
+
+	// static methods
+	/**
+	 * Determines if the loader can load a specific item. This loader can only load items that are of type
+	 * {{#crossLink "AbstractLoader/XML:property"}}{{/crossLink}}.
+	 * @method canLoadItem
+	 * @param {LoadItem|Object} item The LoadItem that a LoadQueue is trying to load.
+	 * @returns {Boolean} Whether the loader can load the item.
+	 * @static
+	 */
+	s.canLoadItem = function (item) {
+		return item.type == createjs.AbstractLoader.XML;
+	};
+
+	// protected methods
+	/**
+	 * The result formatter for XML files.
+	 * @method _formatResult
+	 * @param {AbstractLoader} loader
+	 * @returns {XMLDocument}
+	 * @private
+	 */
+	p._formatResult = function (loader) {
+		return createjs.DataUtils.parseXML(loader.getResult(true), "text/xml");
+	};
+
+	createjs.XMLLoader = createjs.promote(XMLLoader, "AbstractLoader");
+
+}());
 Static(function Utils() {
     
     var _self = this;
@@ -12056,100 +19195,6 @@ Static(function Utils() {
 
 });
 // window.Utils = new $utils();
-Static(function Config() {
-    
-    var _self = this;
-
-    this.COLORS = {
-        black: '#000000',
-        white: '#ffffff',
-        test: '#8181DE'
-    };
-
-    this.ASPECT = 1080 / 1920;
-    this.BGASPECT = 1200 / 1920;
-
-    this.S3 = 'https://s3.amazonaws.com/flipeleven/';
-
-    this.PROXY = _self.S3;
-
-    this.ASSETS = {
-        path: '/assets',
-        images: '/assets/images',
-        bgs: '/assets/images/backgrounds',
-        home: '/assets/images/home',
-        work: '/assets/images/work',
-        common: '/assets/images/common'
-    };
-
-    // font, weights, and letter spacings
-    this.FONT = {
-        name: 'Raleway',
-        xlight: '200',
-        light: '300',
-        normal: '400',
-        semibold: '600',
-        spacing: {
-            normal: 0,
-            subtitles: 0.2,
-            titles: 0.768
-        }
-    };
-
-    this.EASING = {
-        type: 'Quad',
-        in: 'Quad.easeIn',
-        out: 'Quad.easeOut',
-        inout: 'Quad.easeInOut',
-        outback: 'Back.easeOut'
-    };
-
-    this.MAXROTATE = {x: 20, y: 20}; // maximum number of degrees to rotate an elment with a CSS 3D transform
-    this.MAXTRANSLATE = {x: 0.025, y: 0.025}; // maximum distance to translate an element, as a multiple of current stage width or height
-    this.LERPAMT = 0.04;
-
-    if (Device.mobile.phone){
-        this.PRELOAD = [
-            _self.ASSETS.bgs + '/chike-bad-sm.png',
-            _self.ASSETS.bgs + '/chike-good-sm.png',
-            _self.ASSETS.bgs + '/city-bad-sm.jpg',
-            _self.ASSETS.bgs + '/city-good-sm.jpg',
-            _self.ASSETS.bgs + '/texture-bad-sm.png',
-            _self.ASSETS.bgs + '/texture-good-sm.png',
-            _self.ASSETS.bgs + '/city-bright-sm.jpg',
-            _self.ASSETS.bgs + '/city-bright-blur-sm.jpg'
-        ];
-    }else{
-        this.PRELOAD = [
-            _self.ASSETS.bgs + '/chike-bad.png',
-            _self.ASSETS.bgs + '/chike-good.png',
-            _self.ASSETS.bgs + '/city-bad.jpg',
-            _self.ASSETS.bgs + '/city-good.jpg',
-            _self.ASSETS.bgs + '/texture-bad.png',
-            _self.ASSETS.bgs + '/texture-good.png',
-            _self.ASSETS.bgs + '/city-bright.jpg',
-            _self.ASSETS.bgs + '/city-bright-blur.jpg'
-        ];
-    }
-
-    this.margin = function(){
-        var _marginsize = 30;
-        return Stage.width*(_marginsize/1920);
-    };
-
-    this.DEBUG = {
-        all: false,
-        statemodel: false,
-        markup: false,
-        home: false,
-        navitem: false,
-        bitobject: false,
-        slide: false,
-        fullbg: false,
-        fullbgimage: false,
-        scroll: false,
-    }
-});
 (function(){
     $.fn.bg = function(background) {
         var _self = this;
@@ -13447,14 +20492,83 @@ Static(function GATracker() {
         }
     };
 });
-function MMDevice() {
+// Global site-specific config
+
+Static(function Config() {
+    
+    var _self = this;
+
+    // color values
+    this.COLORS = {
+        black: '#000000',
+        white: '#ffffff',
+        test: '#ff0000'
+    };
+
+    // aspect ratio for scaling images and videos 
+    this.ASPECT = 1080 / 1920;
+
+    // CDN URL
+    this.S3 = 'https://s3.amazonaws.com/flipeleven/';
+    this.PROXY = _self.S3;
+
+    // paths to various asset folders
+    this.ASSETS = {
+        path: '/assets',
+        images: '/assets/images',
+        videos: '/assets/videos',
+        fonts: '/assets/fonts'
+    };
+
+    // font, weights, and letter spacings
+    this.FONTS = {
+        name: 'Arial',
+        normal: 'normal',
+        bold: 'bold',
+        spacing: {
+            // spacings are a multiple of font size
+            titles: 0.768,
+            subtitles: 0.2,
+            normal: 0
+        }
+    };
+
+    // default easing methods
+    this.EASING = {
+        type: 'Quad',
+        in: 'Quad.easeIn',
+        out: 'Quad.easeOut',
+        inout: 'Quad.easeInOut',
+        outback: 'Back.easeOut'
+    };
+
+    // array of assets to pass to the preloader
+    this.PRELOAD = [
+        // _self.ASSETS.images + 'image.png',
+    ];
+
+    // array of preloaded assets, stored here and retrieved when needed
+    // see site/markup/ids/Loader.js for object structure or console.log this
+    this.LOADED = [];
+
+    // debug options central on/off switches
+    // it's up to you to use these appropriately in the code
+    this.DEBUG = {
+        all: false,
+        bitobject: false,
+        state: false,
+        markup: false,
+        scroll: false,
+        touch: false
+    };
+});
+function SiteDevice() {
     
     Inherit(this, Device);
 
     var _self = this;
     
-    // implementation for device specific functionality relating to the
-    // Mirror Me website
+    // implementation for device specific functionality relating to the site
     (function () {
         
     })();
@@ -13633,7 +20747,7 @@ function HomeModel(_data) {
         _self.category  = split_state[4];
         _self.detail    = split_state[5];
 
-        if (Config.DEBUG.all || Config.DEBUG.statemodel) {
+        if (Config.DEBUG.all || Config.DEBUG.state) {
             console.log('==========================');
             console.log('STATE MODEL :: INIT');
             console.log(split_state);
@@ -13671,2768 +20785,6 @@ function HomeModel(_data) {
 
     };
 };
-function Borders() {
-
-    Inherit(this, $class);
-
-    var _self = this,
-        _elem = _self.element,
-        _bordersize,
-        _in = false,
-        _inverted = false;
-
-    Global.BORDERS = this;
-
-    (function() {
-        _init();
-        _setSize();
-        _events();
-        _animateIn();
-    })();
-
-    function _init() {
-        _elem.setProps({
-            borderColor: '#090a0a',
-            borderStyle: 'solid',
-            opacity: 0
-        }).setZ(99);
-    }
-
-    function _events(){
-        Evt.resize(_setSize);
-    }
-
-    function _setSize(){
-        _bordersize = Math.round(Stage.width * 0.01);
-
-        _elem.size(Stage.width, Stage.height).setProps({
-            borderWidth: _in ? _bordersize+'px' : '0px'
-        });
-    }
-
-    function _animateIn(){
-        _elem.tween({
-            borderWidth: _bordersize+'px',
-            opacity: 0.3
-        }, 0.75, Config.EASING.out, 0.5, function(){
-            _in = true;
-        });
-    }
-
-    this.invert = function(){
-        var transtime = 0.5;
-        var oldcolor = '#090a0a';
-        var newcolor = Config.COLORS.white;
-        var oldopacity = 0.3;
-        var newopacity = 0.5;
-
-        if (_inverted){
-            oldcolor = Config.COLORS.white;
-            newcolor = '#090a0a';
-            oldopacity = 0.3;
-            newopacity = 0.5;
-        }
-
-        _inverted = !_inverted;
-
-        _elem.setProps({
-            borderColor: oldcolor,
-            opacity: oldopacity
-        }).tween({
-            borderColor: newcolor,
-            opacity: newopacity
-        }, transtime, Config.EASING.inout);
-    };
-}
-/**
- * @param string _text  The text label to go on the button.
- * @param string _iconclass  The FontAwesome icon class to display.
- * @param string _direction  The direction to animate the icon on rollover. 'up', 'down', 'left', 'right'
- * @param function _clickCallback  Function to run on click. Not intended for doing animation, instead use this to go to a URL or something.
- */
-
-function Button(_text, _iconclass, _direction, _clickCallback) {
-
-    Inherit(this, $class);
-
-    var _self = this,
-        _elem = _self.element,
-        _label,
-        _icon,
-        _iconshift = 3,
-        _time = 0.33,
-        _circle;
-
-    (function() {
-        _init();
-        _buttonText();
-        _icon();
-        _hoverCircle();
-        _setSize();
-        _events();
-    })();
-
-    function _init() {
-        _elem.setProps({
-            border: '4px solid '+Config.COLORS.white,
-            backgroundColor: 'rgba(0,0,0,0.66)',
-            overflow: 'hidden'
-        });
-        _elem.interact(_onOver, _onOut, _onClick);
-    }
-
-    function _buttonText(){
-        _label = _elem.create('.text');
-        _label.size('100%', '100%').setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            textAlign: 'center',
-            color: Config.COLORS.white
-        }).setZ(30);
-
-        _label.text(_text.toUpperCase());
-    }
-
-    function _icon(){
-        _icon = _label.create('.fa', 'span');
-        _icon.setProps({
-            fontFamily: 'FontAwesome',
-            color: Config.COLORS.white,
-            marginLeft: '0.33em'
-        }).setZ(20);
-        _icon.div.attributes.class.value += ' static ' + _iconclass;
-    }
-
-    function _hoverCircle(){
-        _circle = _elem.create('.circle');
-        _circle.setProps({
-            borderRadius: '50%',
-            scale: 0
-        }).bg(Config.COLORS.white).setZ(10);
-    }
-
-    function _onOver(){
-        _circle.setProps({
-            scale: 0,
-            opacity: 0
-        }).tween({
-            scale: 1,
-            opacity: 1
-        }, _time, Config.EASING.in);
-
-        _label.tween({
-            color: Config.COLORS.black
-        }, _time, Config.EASING.in);
-
-        _icon.tween({
-            color: Config.COLORS.black
-        }, _time, Config.EASING.in);
-
-        switch (_direction){
-            case 'up':
-            _icon.setProps({
-                x: 0,
-                y: 0
-            }).tween({
-                y: -_iconshift
-            }, _time, Config.EASING.outback);
-            break;
-
-            case 'down':
-            _icon.setProps({
-                x: 0,
-                y: 0
-            }).tween({
-                y: _iconshift
-            }, _time, Config.EASING.outback);
-            break;
-
-            case 'left':
-            _icon.setProps({
-                x: 0,
-                y: 0
-            }).tween({
-                x: -_iconshift
-            }, _time, Config.EASING.outback);
-            break;
-
-            case 'right':
-            _icon.setProps({
-                x: 0,
-                y: 0
-            }).tween({
-                x: _iconshift
-            }, _time, Config.EASING.outback);
-            break;
-        }
-    }
-
-    function _onOut(){
-        _circle.tween({
-            opacity: 0
-        }, _time, Config.EASING.out, null, function(){
-            _circle.setProps({
-                scale: 0
-            });
-        });
-
-        _label.tween({
-            color: Config.COLORS.white
-        }, _time, Config.EASING.out);
-
-        _icon.tween({
-            color: Config.COLORS.white
-        }, _time, Config.EASING.out);
-
-        _icon.tween({
-            x: 0,
-            y: 0
-        }, _time, Config.EASING.out);
-    }
-
-    function _onClick(){
-
-        if (typeof _clickCallback == 'function'){
-            _clickCallback();
-        }
-    }
-
-    function _events(){
-        Evt.resize(_setSize);
-    }
-
-    function _setSize(){
-        var border = Math.round(Math.max((Math.min(Stage.height * 0.0022, Stage.width * 0.0013)), 1));
-        var paddingLeft = Stage.width * 0.076;
-        var containerWidth = (Stage.width/2) - (paddingLeft + Math.min(Stage.width*0.117, Stage.height*0.187));
-        var buttonwidth = containerWidth/2;
-        var buttonheight = containerWidth*0.1;
-        var fontsize = buttonheight*0.33;
-        var circlewidth = buttonwidth*1.05;
-
-        _elem.setProps({
-            width: buttonwidth,
-            height: buttonheight,
-            border: border + 'px solid ' + Config.COLORS.white
-        });
-
-        _label.setProps({
-            lineHeight: buttonheight+'px',
-            fontSize: fontsize+'px',
-            letterSpacing: fontsize * Config.FONT.spacing.subtitles + 'px',
-            textIndent: fontsize * Config.FONT.spacing.subtitles + 'px'
-        });
-
-        _circle.setProps({
-            width: circlewidth,
-            height: circlewidth,
-            x: ((buttonwidth - circlewidth)/2) - border,
-            y: ((buttonheight - circlewidth)/2) - border
-        });
-    }
-}
-function Buttons() {
-
-    Inherit(this, $class);
-
-    var _self = this,
-        _elem = _self.element,
-        _pdfbutton,
-        _videobutton;
-
-    var _mouse = {
-            x: Stage.width/2,
-            y: Stage.height/2,
-            vx: 0,
-            vy: 0
-        },
-        _translate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        },
-        _rotate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        };
-
-    var _multiple = 0.75;
-
-    (function() {
-        _init();
-        _setSize();
-        _events();
-    })();
-
-    function _init() {
-        _elem.setZ(999);
-
-        _pdfbutton = _self.initClass(Button, 'OVERVIEW PDF', 'fa-arrow-down', 'down', _pdfCallback);
-        _videobutton = _self.initClass(Button, 'THE PROLOGUE', 'fa-play', 'right', _videoCallback);
-    }
-
-    function _pdfCallback(){
-        getURL(Config.ASSETS.path + '/docs/MirrorMe-Overview.pdf');
-    }
-
-    function _videoCallback(){
-        // Flip11_Reel_103114
-        // console.log('clicked video');
-        Global.FULLBG.video.play('mirrorme-prologue');
-    }
-
-    function _events(){
-        Evt.resize(_setSize);
-
-        // track mouse movement
-        if (!Device.mobile){
-            document.addEventListener('mousemove', _onMouseMove);
-        }
-    }
-
-    function _onMouseMove(event){
-        Render.startRender(_updateObj);
-        _updateCoords(event);
-    }
-
-    function _updateCoords(event){
-        // get mouse coords
-        _mouse.x = event.clientX || event.pageX; 
-        _mouse.y = event.clientY || event.pageY;
-
-        // normalize mouse position values based on Stage center
-        _mouse.vx = ((_mouse.x/(Stage.width - (Stage.width/2))) - 1).toFixed(2);
-        _mouse.vy = ((_mouse.y/(Stage.height - (Stage.height/2))) - 1).toFixed(2);
-
-        // figure out how much to translate elements
-        _translate.x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiple)) * _mouse.vx).toFixed(2);
-        _translate.y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiple)) * _mouse.vy).toFixed(2);
-
-        // figure out how much to rotate elements
-        // we switch these because the rotateX function actually rotates AROUND the X axis
-        // if you want it to 'look at' the mouse, we have to invert the Y value as well so it makes sense visually
-        _rotate.y = -(Config.MAXROTATE.x * _mouse.vx).toFixed(2);
-        _rotate.x = (Config.MAXROTATE.y * _mouse.vy).toFixed(2);
-    }
-
-    function _updateObj(){
-        var lerpX = Utils.lerp(Config.LERPAMT, _translate.prevx, _translate.x);
-        var lerpY = Utils.lerp(Config.LERPAMT, _translate.prevy, _translate.y);
-        var pos_x = Stage.width * 0.076;
-        var pos_y = Stage.height - ((Stage.height * (63/1200)) + (Stage.height * (90/1200)));
-
-        // update previous values
-        _translate.prevx = lerpX;
-        _translate.prevy = lerpY;
-
-        // update transform values on element
-        _elem.setProps({
-            transform: 'translate('+(lerpX + pos_x)+'px, '+(lerpY + pos_y)+'px)'
-        });
-    }
-
-    function _setSize(){
-        var border = Math.round(Math.max((Math.min(Stage.height * 0.0022, Stage.width * 0.0013)), 1));
-        var paddingLeft = Stage.width * 0.076;
-        var paddingBottom = Stage.height * (90/1200);
-        var buttonWidth = (Stage.width/2) - (paddingLeft + Math.min(Stage.width*0.117, Stage.height*0.187));
-        var buttonHeight = buttonWidth*0.1;
-
-        _elem.size(buttonWidth, buttonHeight).setProps({
-            x: paddingLeft,
-            y: Stage.height - (buttonHeight + paddingBottom)
-        });
-
-        _videobutton.element.setProps({
-            left: 0,
-            top: 0
-        });
-
-        _pdfbutton.element.setProps({
-            left: (buttonWidth/2) - border,
-            top: 0
-        });
-    }
-}
-function FullBackgroundImage() {
-
-	Inherit(this, $class);
-
-	var _self = this,
-		_elem = _self.element,
-		_curr = 0
-		_slidesLoaded = false,
-		_slides = [],
-		_z = 1;
-	
-
-	(function() {
-		_init();
-	})();
-
-	function _init() {
-		_elem.size('100%');
-	}
-
-	this.loadSlides = function(data, id) {
-		
-		if (!_slidesLoaded) {
-			_slides = [];
-			_slidesLoaded = true;
-		}
-
-		// create slide elements
-		var _slide = _self.initClass(FullBackgroundImageSlide, id);
-		_slide.hide();
-
-		_slides.push(_slide);
-	};
-
-	this.getFirst = function(){
-		_curr = 0;
-		_slides[_curr].show(_z);
-	};
-
-	this.getNext = function() {
-		_slides[_curr].stop();
-
-		_curr++;
-		_z++;
-
-		if (_curr > _slides.length - 1) {
-			_curr = _slides.length - 1;
-		}
-
-		_slides[_curr].show(_z);
-	};
-
-
-	this.getPrev = function() {
-		_slides[_curr].stop();
-		
-		_curr--;
-		_z++;
-
-		if (_curr < 0) {
-			_curr = 0;
-		}
-
-		_slides[_curr].show(_z);
-	};
-
-	this.removeSlides = function() {
-		_self.delayedCall(function() {
-			_elem.css({
-				top: 0
-			});
-
-			for (var i = 0; i < _slides.length; i++) {
-				_slides[i]._parent.removeChild(_slides[i]);
-			}
-
-			_slides = null;
-			_slidesLoaded = false;
-		}, 1000);
-	};
-};
-function FullBackgroundImageSlide(index) {
-
-    Inherit(this, $class);
-
-    var _self = this,
-        _elem = _self.element,
-        _data,
-        _layerindex = 0,
-        _bg,
-        _tex,
-        _fg,
-        _data = Data.HOME[index];
-
-    var _mouse = {
-            x: Stage.width/2,
-            y: Stage.height/2,
-            vx: 0,
-            vy: 0
-        },
-        _translate = {
-            bg_x: 0,
-            bg_y: 0,
-            bg_prevx: 0,
-            bg_prevy: 0,
-            tex_x: 0,
-            tex_y: 0,
-            tex_prevx: 0,
-            tex_prevy: 0,
-            fg_x: 0,
-            fg_y: 0,
-            fg_prevx: 0,
-            fg_prevy: 0
-        };
-
-    var _multiples = {
-        bg: 0.45,
-        tex: 0.33,
-        fg: (_data.type == 'contact') ? 0.75 : 0.6
-    };
-    
-
-    (function() {
-        _init();
-        Render.startRender(_loadBackgrounds);
-    })();
-
-    function _init() {
-        _elem.size('100%').setProps({
-            overflow: 'hidden',
-            opacity: 1
-        }).setZ(_z);
-
-        _bg = _elem.create('.background');
-        _tex = _elem.create('.texture');
-        _fg = _elem.create('.foreground');
-
-    }
-
-    function _loadBackgrounds(){
-        switch (_layerindex){
-            case 0:
-            _bg.css({
-                backgroundSize: "100% 100%",
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-            }).bg(_data.bg).setZ(10);
-            break;
-
-            case 1:
-            _tex.css({
-                backgroundSize: "100% 100%",
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-            }).bg(_data.tex).setZ(20);
-            break;
-
-            case 2:
-            if (_data.type == 'contact'){
-                _fg.css({
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    borderRadius: '50%',
-                    // border: '1px solid #0000ff'
-                }).bg(_data.fg).setZ(30);
-            }else{
-                _fg.css({
-                    backgroundSize: "100% 100%",
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat'
-                }).bg(_data.fg).setZ(30);
-            }
-
-            _stopBackgroundLoading();
-            break;
-        }
-
-        _layerindex++;
-    }
-
-    function _stopBackgroundLoading(){
-        Render.stopRender(_loadBackgrounds);
-        _layerindex = 0;
-
-        // tell the whole world that this background is loaded
-        Evt.fireEvent(null, Evt.BG_LOADED, index);
-
-        _setSizeAndPosition();
-        _events();
-    }
-
-    function _setSizeAndPosition() {
-        var _wdth = ~~ Stage.width;
-        var _hght = ~~ (_wdth * Config.BGASPECT);
-
-        if (_hght < Stage.height) {
-            _hght = Stage.height;
-            _wdth = _hght / Config.BGASPECT;
-        }
-
-        _wdth = ~~_wdth;
-        _hght = ~~_hght;
-
-        _bg.size(_wdth, _hght).setProps({
-            top: (Stage.height - _hght)/2,
-            left: (Stage.width - _wdth)/2,
-            scale: 1 + Config.MAXTRANSLATE.x // ensure that we always scale up enough to avoid seeing the edges
-        });
-
-        _tex.size(_wdth, _hght).setProps({
-            top: (Stage.height - _hght)/2,
-            left: (Stage.width - _wdth)/2,
-            scale: 1 + Config.MAXTRANSLATE.x // ensure that we always scale up enough to avoid seeing the edges
-        });
-
-        if (_data.type == 'contact'){
-            var basesize = Math.min(Stage.width * 0.371, Stage.height * 0.66);
-            var circle_size = Device.mobile.phone ? Stage.height * 0.95 : basesize * 1.18;
-
-            _fg.size(circle_size, circle_size).setProps({
-                backgroundSize: (Stage.width * (1 + Config.MAXTRANSLATE.x)) + 'px ' + (Stage.height * (1 + Config.MAXTRANSLATE.y)) + 'px',
-                x: (Stage.width - circle_size)/2,
-                y: (Stage.height - (circle_size*1.07))/2
-            });
-        }else{
-            _fg.size(_wdth, _hght).setProps({
-                top: (Stage.height - _hght)/2,
-                left: (Stage.width - _wdth)/2,
-                scale: 1 + Config.MAXTRANSLATE.x // ensure that we always scale up enough to avoid seeing the edges
-            });
-        }
-    }
-    
-    function _events() {
-        Evt.resize(_setSizeAndPosition);
-    }
-
-    function _updateCoords(event){
-        // get mouse coords
-        if (!Device.mobile) {
-            _mouse.x = event.clientX || event.pageX; 
-            _mouse.y = event.clientY || event.pageY;
-
-            // normalize mouse position values based on Stage center
-            _mouse.vx = ((_mouse.x/(Stage.width - (Stage.width/2))) - 1).toFixed(2);
-            _mouse.vy = ((_mouse.y/(Stage.height - (Stage.height/2))) - 1).toFixed(2);
-
-            // figure out how much to translate elements
-            _translate.bg_x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiples.bg)) * _mouse.vx).toFixed(2);
-            _translate.bg_y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiples.bg)) * _mouse.vy).toFixed(2);
-            _translate.tex_x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiples.tex)) * _mouse.vx).toFixed(2);
-            _translate.tex_y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiples.tex)) * _mouse.vy).toFixed(2);
-            _translate.fg_x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiples.fg)) * _mouse.vx).toFixed(2);
-            _translate.fg_y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiples.fg)) * _mouse.vy).toFixed(2);
-        } else {
-
-            // accelerationX = event.accelerationIncludingGravity.x;
-            // accelerationY = event.accelerationIncludingGravity.y;
-            // accelerationZ = event.accelerationIncludingGravity.z;
-
-            _mouse.x = event.accelerationIncludingGravity.x; 
-            _mouse.y = event.accelerationIncludingGravity.y;
-
-            
-
-            // normalize mouse position values based on Stage center
-            _mouse.vx = ((_mouse.x/(Stage.width - (Stage.width/2))) - 1).toFixed(2);
-            _mouse.vy = ((_mouse.y/(Stage.height - (Stage.height/2))) - 1).toFixed(2);
-
-            // figure out how much to translate elements
-            _translate.bg_x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiples.bg)) * _mouse.vx).toFixed(2);
-            _translate.bg_y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiples.bg)) * _mouse.vy).toFixed(2);
-            _translate.tex_x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiples.tex)) * _mouse.vx).toFixed(2);
-            _translate.tex_y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiples.tex)) * _mouse.vy).toFixed(2);
-            _translate.fg_x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiples.fg)) * _mouse.vx).toFixed(2);
-            _translate.fg_y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiples.fg)) * _mouse.vy).toFixed(2);
-
-        }
-    }
-
-    function _updateObj(){
-        // find lerp values
-        var bg_lerpX = Utils.lerp(Config.LERPAMT, _translate.bg_prevx, _translate.bg_x);
-        var bg_lerpY = Utils.lerp(Config.LERPAMT, _translate.bg_prevy, _translate.bg_y);
-        var tex_lerpX = Utils.lerp(Config.LERPAMT, _translate.tex_prevx, _translate.tex_x);
-        var tex_lerpY = Utils.lerp(Config.LERPAMT, _translate.tex_prevy, _translate.tex_y);
-        var fg_lerpX = Utils.lerp(Config.LERPAMT, _translate.fg_prevx, _translate.fg_x);
-        var fg_lerpY = Utils.lerp(Config.LERPAMT, _translate.fg_prevy, _translate.fg_y);
-
-        // update previous values
-        _translate.bg_prevx = bg_lerpX;
-        _translate.bg_prevy = bg_lerpY;
-        _translate.tex_prevx = tex_lerpX;
-        _translate.tex_prevy = tex_lerpY;
-        _translate.fg_prevx = fg_lerpX;
-        _translate.fg_prevy = fg_lerpY;
-
-        // update transform values on elements
-        _bg.setProps({
-            transform: 'scale('+(1 + Config.MAXTRANSLATE.x)+') translate('+bg_lerpX+'px, '+bg_lerpY+'px)'
-        });
-
-        _tex.setProps({
-            transform: 'scale('+(1 + Config.MAXTRANSLATE.x)+') translate('+tex_lerpX+'px, '+tex_lerpY+'px)'
-        });
-
-        if (_data.type == 'contact'){
-            var circle_size = Math.min(Stage.width * 0.371, Stage.height * 0.66) * 1.18;
-            var _x = (Stage.width - circle_size)/2;
-            var _y = (Stage.height - (circle_size*1.07))/2;
-
-            _fg.setProps({
-                transform: 'translate('+(fg_lerpX + _x)+'px, '+(fg_lerpY + _y)+'px)'
-            });
-        }else{
-            _fg.setProps({
-                transform: 'scale('+(1 + Config.MAXTRANSLATE.x)+') translate('+fg_lerpX+'px, '+fg_lerpY+'px)'
-            });
-        }
-    }
-
-    function _onMouseMove(event){
-        _updateCoords(event);
-        Render.startRender(_updateObj);
-    }
-    function _onDeviceMove(event) {
-
-        _updateCoords(event);
-        Render.startRender(_updateObj);
-    }
-
-    this.show = function(_z){
-        _elem.setProps({
-            opacity: 0
-        }).tween({
-            opacity: 1
-        }, 0.5, Config.EASING.out).setZ(_z);
-
-        // start tracking mouse movement
-        if (!Device.mobile){
-            document.addEventListener('mousemove', _onMouseMove);
-        } else {
-
-            document.addEventListener('ondevicemotion', _onDeviceMove);
-
-        }
-    };
-
-    this.hide = function(){
-        _elem.tween({
-            opacity: 0
-        }, 0.1, Config.EASING.out);
-    };
-
-    this.stop = function(){
-        if (!Device.mobile){
-            Render.stopRender(_updateObj);
-            document.removeEventListener('mousemove', _onMouseMove);
-        }
-    };
-};
-
-function FullBackgroundVideo() {
-
-    Inherit(this, $class);
-
-    var _self = this;
-    var _elem, _video, _img;
-    var _seek, _playpause, _fullscreen, _close, 
-        _vidtime, _scrubbar, _scrubline, _startX, _diff,
-        _fadecontrols;
-    
-    var _isPlaying      = false;
-    var _isAmbient      = false;
-    var _seekDown       = false;
-    var _scrollamount   = 100;
-    var _seekvalue      = 0;
-    var _ppWidth        = 100;
-    var _fsWidth        = 100;
-    var _clWidth        = 100;
-    var _skWidth        = 100;
-
-    var _isTransition;
-
-
-    (function() {
-
-        // console.log('FULL BG VIDEO');
-
-        _init();
-        // _positionBackground();
-        _eventSubscription();
-
-        // console.log(Mobile);
-        // console.log('OS: '+Mobile.os);
-        // console.log('Version: '+Mobile.version);
-
-    })();
-
-    function _init() {
-        _elem = _self.element;
-        _elem.size('100%').css({
-
-            backgroundRepeat: 'no-repeat',
-            overflow: 'hidden',
-            opacity: 0
-            
-        }).bg('#000000');
-
-        _video = _elem.create('.video', 'video');
-
-        _video.size('100%').transform({
-            scale: 1
-        }).css({
-            opacity: 0
-        });
-    }
-
-    function _ambient(filename) {
-        
-        // console.log('AMBIENT')
-
-        Evt.removeEvent(_video.div, 'canplay', _onFullVideoPlay);
-        Evt.removeEvent(_video.div, 'ended', _onFullVideoEnd);
-
-        _video.div.src      = !filename ? Utils.getAsset('Flip11_Reel_103114', 'video') : Utils.getAsset(filename, 'video');
-
-        
-        if (Config.DEBUG.all || Config.DEBUG.fullbg) {
-            console.log(_video.div.src);
-            console.log('========================');
-        }
-
-        _video.div.volume   = 0;
-        _video.div.autoplay = true;
-        _video.div.loop     = true;
-        _video.div.controls = false;
-
-        Evt.subscribe(_video.div, 'canplay', _onAmbientVideoPlay);
-
-
-        _positionBackground();
-    }
-
-    function _onAmbientVideoPlay() {
-        // if (!_isPlaying) {
-        // _isPlaying = true;
-        if (!_isAmbient) {
-
-            _isAmbient = _self.AMBIENT = true;
-            _isPlaying = false;
-            
-            // Global.FULLBG.coverOut();
-
-            if (Config.DEBUG.all || Config.DEBUG.fullbg) {
-                console.log('VIDEO BG :: _ambient : canplay');
-            }
-
-            // animate it in anyways since safari
-            // waits to swap z-index
-            _video.tween({
-                opacity: 1
-            }, 1, 'Quart.EaseOut');
-            // }
-        }
-    }
-
-    function _onFullVideoPlay() {
-
-        // console.log('_onFullVideoPlay :: _isPlaying: '+_isPlaying);
-
-        // _isPlaying = false;
-
-        if (!_isPlaying) {
-
-            _isPlaying = true;
-            _isAmbient = _self.AMBIENT = false;
-
-            if (_isTransition) {
-                _self.delayedCall(_closeVideo, 4500);
-            }
-
-            if (_elem) {
-                // Device.mobile ? _elem.css({ opacity: 1 }) : _elem.css({ opacity: 0 });
-                _elem.css({ opacity: 0 });
-            }
-            if (_video) {
-                _video.css({ opacity: 1 });
-            }
-            if (_close) {
-                _close.css({ opacity: 0 });
-            }
-            if (_playpause) {
-                _playpause.css({ opacity: 0 });
-            }
-            if (_seek) {
-                _seek.css({ opacity: 0 });
-            }
-            if (_scrubbar) {
-                _scrubbar.css({ opacity: 0 });
-            }
-            if (_fullscreen) {
-                _fullscreen.css({ opacity: 0 });
-            }
-            if (Config.DEBUG.all || Config.DEBUG.fullbg) {
-                console.log('VIDEO BG :: play : canplay');
-            }
-
-            _elem.tween({
-                opacity: 1
-            }, 0.6, 'Quart.EaseOut', null, function() {
-
-                // Animate Out
-                //Transition.instance().animateOut();
-                // Evt.removeEvent(_video.div, 'ended', _onFullVideoEnd);
-                if (_close) {
-                    _close.tween({ opacity: 0.4 }, 0.6, 'Quart.EaseOut');
-                }
-                if (_playpause) { 
-                    _playpause.tween({ opacity: 0.4 }, 0.6, 'Quart.EaseOut');
-                }
-                if (_seek) {
-                    _seek.tween({ opacity: 0.4 }, 0.6, 'Quart.EaseOut');
-                }
-                if (_scrubbar) {
-                    _scrubbar.tween({ opacity: 0.4 }, 0.6, 'Quart.EaseOut');
-                }
-                if (_fullscreen) {
-                    _fullscreen.tween({ opacity: 0.4 }, 0.6, 'Quart.EaseOut');
-                }
-
-            });
-        }
-
-
-        
-    }
-    function _onFullVideoEnd(e) {
-
-        // console.log(e);
-        // console.log('VIDEO ENDED');
-        _self.delayedCall(_closeVideo, 2000);
-        // _isPlaying = false;
-        
-
-    }
-
-    function _positionBackground() {
-
-        var _wdth;
-        var _hght;
-        
-
-        switch(_isTransition) {
-            case true:
-                
-                // This is for the transition/bg video
-                _wdth       = ~~ (Stage.width * 1.25);
-                _hght       = ~~ (_wdth * Config.ASPECT);
-
-                if (_hght < Stage.height) {
-                    // _hght   = Stage.height * (Mobile.os == "Android" ? 1.2 : 1);
-                    _hght   = Stage.height;
-                    _wdth   = _hght / Config.ASPECT;
-                }
-
-                _wdth       = ~~_wdth;
-                _hght       = ~~_hght;
-
-                _video.size(_wdth, _hght).css({
-                    top: 0,
-                    left: Stage.width / 2 - _wdth / 2,
-                    backgroundSize: '100% 100%',
-
-                });
-
-            break;
-            case false:
-
-                // This is for the video player
-                if ((Stage.height/Stage.width) < Config.ASPECT) {
-
-                    _hght       = Stage.height;
-                    _wdth       = ~~ (_hght * 1920/1080);
-
-                    _wdth       = ~~_wdth;
-                    _hght       = ~~_hght;
-
-                    _video.size(_wdth, _hght).css({
-                        top: Stage.height / 2 - _hght / 2,
-                        left: Stage.width / 2 - _wdth / 2,
-
-                    });
-
-                } else {
-                    
-                    _wdth       = Stage.width;
-                    _hght       = ~~ (_wdth * Config.ASPECT);
-
-                    _wdth       = ~~_wdth;
-                    _hght       = ~~_hght;
-
-                    _video.size(_wdth, _hght).css({
-                        top: Stage.height / 2 - _hght / 2,
-                        left: Stage.width / 2 - _wdth / 2,
-
-                    });
-                }
-
-            break;
-        }
-        
-    }
-    
-    function _onResize() {
-
-        _positionBackground();
-
-        if (_playpause !== undefined) {
-
-            _playpause.css({
-                top: Stage.height - _ppWidth,
-            });
-        }
-
-        if (_close !== undefined) {
-
-            _close.css({
-                left: Stage.width - _clWidth,
-            });
-        }
-
-        if (_seek !== undefined) {
-
-
-            _seek.css({
-                left: _ppWidth,
-                top: Stage.height - _skWidth,
-            });
-        }
-
-        if (_scrubbar !== undefined) {
-
-            _scrubbar.size(Stage.width - (_ppWidth + (_skWidth/2) + (_fsWidth/2)), 100).css({
-                top: Stage.height - _ppWidth,
-            });
-            
-        }
-
-        if (_fullscreen !== undefined) {
-            _fullscreen.css({
-                top: Stage.height - _fsWidth,
-                left: Stage.width - _fsWidth,
-            });
-        }
-    }
-    function _activateVideo() {
-        // var imgPath = '/jd/healthalliance/assets/images/';
-        if (!_isTransition) {
-
-            if (!Device.mobile) {
-
-                _playpause = _elem.create('.playpause');
-                _playpause.size(_ppWidth, 100).bg(Config.ASSETS.path + '/images/videoplayer/pause_button.png').setZ(10000).css({
-                    top: Stage.height - _ppWidth,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'center',
-                    opacity: 0,
-                    // border: '1px solid white'
-                });
-
-                _fullscreen = _elem.create('.fullscreen');
-                // _fullscreen.size(_ppWidth, 100).bg(Config.ASSETS.path + '/images/videoplayer/pause_button.png').setZ(10000).css({
-                _fullscreen.size(_fsWidth, 100).bg(Config.ASSETS.path + '/images/videoplayer/expand_button.png').setZ(10000).css({
-                    top: Stage.height - _fsWidth,
-                    left: Stage.width - _fsWidth,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'center',
-                    opacity: 0,
-                    // border: '1px solid white'
-                });
-
-                _close = _elem.create('.close');
-                _close.size(_clWidth, 100).bg(Config.ASSETS.path + '/images/videoplayer/cancel_button.png').css({
-                    left: Stage.width - _clWidth,
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    opacity: 0,
-                    cursor: "pointer",
-                    // border: '1px solid white'
-                }).setZ(10000);
-
-                _seek = _elem.create('.seek');
-                _seek.size(_skWidth, 100).bg(Config.ASSETS.path + '/images/videoplayer/scrubber.png').css({
-                    left: _ppWidth - (_skWidth/2),
-                    top: Stage.height - _skWidth,
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    // opacity: 0.4
-                    opacity: 0
-                    // border: '1px solid white'
-                }).setZ(10001);
-
-                _scrubbar = _elem.create('.scrubbar');
-                _scrubbar.size(Stage.width - (_ppWidth + (_skWidth/2) + (_fsWidth/2)), 100).css({
-                    left: _ppWidth,
-                    top: Stage.height - 100,
-                    opacity: 0,
-                    overflow: 'hidden'
-                    // border: '1px solid red'
-                }).setZ(10000);
-
-                _scrubline = _scrubbar.create('.line');
-                _scrubline.size(Stage.width - (_ppWidth + (_skWidth/2) + (_fsWidth/2)), 4).bg('white').css({
-                    top: 50-2,
-                    // borderRight: '1px solid #666666',
-                    borderBottom: '1px solid #666666'
-                    // opacity: 0.4,
-                    // border: '1px solid red'
-                });
-
-                // Evt.subscribe(_close.div, Evt.CLICK, _closeVideo);
-                // Evt.subscribe(_close.div, Evt.MOUSE_OVER, _onButtonOver);
-                // Evt.subscribe(_close.div, Evt.MOUSE_OUT, _onButtonOut);
-                _close.interact(_onButtonOver, _onButtonOut, _closeVideo);
-
-
-                Evt.subscribe(_elem, Evt.MOUSE_MOVE, _onMouseMove);
-
-                Evt.subscribe(_fullscreen.div, Evt.CLICK, _onFullscreenClick);
-
-                // console.log('_video.div');
-                // console.log(_video.div);
-
-                Evt.subscribe(_fullscreen.div, Evt.MOUSE_OVER, _onButtonOver);
-                Evt.subscribe(_fullscreen.div, Evt.MOUSE_OUT, _onButtonOut);
-                
-                Evt.subscribe(_playpause.div, Evt.CLICK, _onPlayPauseClick);
-                Evt.subscribe(_playpause.div, Evt.MOUSE_OVER, _onButtonOver);
-                Evt.subscribe(_playpause.div, Evt.MOUSE_OUT, _onButtonOut);
-
-                // Event listener for the seek bar
-                Evt.subscribe(_video.div, 'timeupdate', _updateSeek);
-
-                Evt.subscribe(_seek.div, Evt.CHANGE, _onSeekChange);
-                Evt.subscribe(_seek.div, Evt.MOUSE_DOWN, _onSeekDown);
-                Evt.subscribe(_seek.div, Evt.MOUSE_MOVE, _onSeekDrag);
-                Evt.subscribe(_seek.div, Evt.MOUSE_UP, _onSeekRelease);
-
-                Evt.subscribe(_seek.div, Evt.MOUSE_OVER, _onButtonOver);
-                Evt.subscribe(_seek.div, Evt.MOUSE_OUT, _onButtonOut);
-
-                // Evt.subscribe(_video.div, 'ended', _onFullVideoEnd);
-
-            } else {
-
-                // Evt.subscribe(_video.div, 'timeupdate', function() {
-                //     if (_video.div.paused === true || _video.div.ended === true) {
-                //         // _isPlaying = true;
-                //         console.log(_isPlaying);
-                //     } else {
-                //         // _isPlaying = false;
-                //         console.log(_isPlaying);
-                //     }
-                // });
-                
-
-                _video.div.controls = true;
-
-                _close = _elem.create('.close');
-                _close.size(_clWidth, 100).bg(Config.ASSETS.path + '/images/videoplayer/cancel_button.png').css({
-                    left: Stage.width - _clWidth,
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    opacity: 0,
-                    cursor: "pointer",
-                    // border: '1px solid white'
-                }).setZ(100000);
-
-                _close.interact(_onButtonOver, _onButtonOut, _closeVideo);
-
-
-                    // Evt.subscribe(_close.div, Evt.MOUSE_OVER, _onButtonOver);
-                    // Evt.subscribe(_close.div, Evt.MOUSE_OUT, _onButtonOut);
-                    // Evt.subscribe(_elem, Evt.MOUSE_MOVE, _onMouseMove);
-                // }
-
-
-            }
-
-            
-
-        }
-
-    }
-    function _eventSubscription() {
-
-        Evt.resize(_onResize);
-
-        Evt.subscribe(window, Evt.BROWSER_FOCUS, function(e) {
-            // console.log('hello');
-            if (_video !== undefined) {
-                switch(e.type) {
-                    case 'blur':
-                        _self.onBlur();
-                    break;
-                    case 'focus':
-                        // _video.div.play();
-                        _self.onFocus();
-                    break;
-                }
-            }
-        });
-
-    }
-    function _onMouseMove() {
-
-        _playpause.tween({ opacity: 0.4 }, 0.8, 'Quart.EaseOut');
-        _seek.tween({ opacity: 0.4 }, 0.8, 'Quart.EaseOut');
-        _scrubbar.tween({ opacity: 0.4 }, 0.8, 'Quart.EaseOut');
-        _close.tween({ opacity: 0.4 }, 0.8, 'Quart.EaseOut');
-        _fullscreen.tween({ opacity: 0.4 }, 0.8, 'Quart.EaseOut');
-
-        clearInterval(_fadecontrols);
-        _fadecontrols = setInterval(function() {
-            
-            _playpause.tween({ opacity: 0 }, 0.4, 'Quart.EaseOut');
-            _seek.tween({ opacity: 0 }, 0.4, 'Quart.EaseOut');
-            _scrubbar.tween({ opacity: 0 }, 0.4, 'Quart.EaseOut');
-            _close.tween({ opacity: 0 }, 0.4, 'Quart.EaseOut');
-            _fullscreen.tween({ opacity: 0 }, 0.4, 'Quart.EaseOut');
-
-            clearInterval(_fadecontrols);
-
-        }, 4000);
-    }
-    function _onButtonOver(e) {
-        // console.log(e);
-
-        e.target.$bitObject.tween({
-            opacity: 1
-        }, 1, 'Quart.EaseOut');
-    }
-
-    function _onButtonOut(e) {
-        e.target.$bitObject.tween({
-            opacity: 0.4
-        }, 1, 'Quart.EaseOut');
-    }
-
-    function _onPlayPauseClick(e) {
-
-        if (_video.div.paused === true || _video.div.ended === true) {
-            // Play the video
-            _video.div.play();
-            // Update the button image to 'Play'
-            _playpause.bg(Config.ASSETS.path + '/images/videoplayer/pause_button.png');
-            _isPlaying = true;
-
-        } else {
-            // Pause the video
-            _video.div.pause();
-            // Update the button image to 'Pause'
-            _playpause.bg(Config.ASSETS.path + '/images/videoplayer/play_button.png');
-            _isPlaying = false;
-
-        }
-    }
-    function _onFullscreenClick(e) {
-
-
-        // Global.FULLSCREEN = true;
-        // Device.openFullscreen(_elem);
-        // console.log(Device.getFullscreen());
-        // console.log(_close);
-        // _close.hide();
-        // Device.getFullscreen()
-        // console.log('_onFullscreenClick: '+Device.getFullscreen());
-
-        if (Device.getFullscreen()) {
-            Device.closeFullscreen();
-            
-            Global.FULLSCREEN = false;
-
-            // _elem.size('100%');
-            // _video.transform({
-            //     scale: 1.05
-            // });
-            _close.visible();
-
-            _fullscreen.bg(Config.ASSETS.path + '/images/videoplayer/expand_button.png');
-            // _fullscreen.css({
-            //     top: Stage.height - _fsWidth,
-            //     left: Stage.width - _fsWidth,
-            // });
-            // clearInterval(q);
-            // g.show();
-            
-            // _close.setZ(10000);
-            _onResize();
-            // _video.div.controls = false;
-            // c.css({
-            //     top: ""
-            // });
-        } else {
-            Device.openFullscreen(_elem);
-
-            // _elem.size('100%');
-            // _video.transform({
-            //     scale: 0.95
-            // });
-
-            Global.FULLSCREEN = true;
-
-            _fullscreen.bg(Config.ASSETS.path + '/images/videoplayer/exit_full_screen_button.png');
-
-            _elem.css({
-                top: 0
-            });
-            // console.log(_close)
-            _close.invisible();
-
-            _scrubbar.size(Stage.width - (_ppWidth + (_skWidth/2) + (_fsWidth/2)), 100).css({
-                left: _ppWidth,
-                top: Stage.height - 100,
-            });
-
-            _scrubline.size('100%', 4).bg('white').css({
-                top: 50-2,
-            });
-        }
-    }
-    function _onSeekChange(e) {
-        // Calculate the new time
-        _vidtime = _video.div.duration * (_seekvalue / 100);
-
-        // Update the video time
-        _video.div.currentTime = _vidtime;
-    }
-    function _updateSeek(e) {
-
-        // Update the seek bar as the video plays
-        // Calculate the slider value
-        _seekvalue = (((Stage.width - (_ppWidth + (_skWidth/2) + (_fsWidth/2))) / _video.div.duration) * _video.div.currentTime) + (_ppWidth/2);
-
-        _seek.css({
-            left: _seekvalue,
-            // opacity: 0.4
-        });
-
-        
-    }
-    function _checkForEnd() {
-        // console.log(_video.div.ended);
-        if (_video.div.ended) {
-            // _closeVideo();
-        }
-    }
-
-    function _onSeekDown(e) {
-
-        // Pause the video when the slider handle is starting to be dragged
-        _video.div.pause();
-        _seekDown = true;
-        _startX = e.clientX;
-
-        _seekvalue = _video.div.duration * ((e.clientX-(_skWidth/2)) / 100);
-
-    }
-
-    function _onSeekDrag(e) {
-
-        if (_seekDown){
-
-            _diff = (e.clientX - _startX) / (Stage.width - _skWidth) * 100;
-
-            if (Math.abs(_diff) > 1){
-
-                if (e.clientX < Stage.width - _skWidth && e.clientX > (_skWidth/2)) {
-                    
-                    _seek.css({
-                        left: e.clientX - (_skWidth/2)
-                    });
-        
-                }
-            }
-
-            Evt.subscribe(_scrubbar.div, Evt.MOUSE_MOVE, _onSeekDrag);
-
-        }
-    }
-
-    function _onSeekRelease(e) {
-        
-        // Play the video when the slider handle is dropped
-        // console.log('paused: '+_video.div.paused);
-        if (_isPlaying) {
-            _video.div.play();
-        } else {
-            _video.div.pause();
-        }
-        _seekDown = false;
-        if (_diff !== undefined) {
-            _video.div.currentTime += _diff;
-        }
-        Evt.removeEvent(_scrubbar.div, Evt.MOUSE_MOVE, _onSeekDrag);
-    }
-
-    function _closeVideo() {
-
-        if (!_isTransition && !Device.mobile) {
-
-            _close.tween({
-                opacity: 0
-            }, 0.5, 'Quart.EaseOut');
-
-            _playpause.tween({
-                opacity: 0
-            }, 0.5, 'Quart.EaseOut');
-            
-            _seek.tween({
-                opacity: 0
-            }, 0.5, 'Quart.EaseOut');
-        }
-
-        _elem.tween({
-            opacity: 0
-        }, 1, 'Quart.EaseOut');
-
-        _video.tween({
-            opacity: 0
-        }, 0.5, 'Quart.EaseOut', null, function() {
-            // _elem.setZ(0);
-            // _ambient();
-            // if (!_isTransition) {
-            
-            _isPlaying = false;
-
-            if (!_isTransition && !Device.mobile) {
-                
-                
-
-                // Evt.removeEvent(_close.div, Evt.CLICK, _closeVideo);
-                // Evt.removeEvent(_close.div, Evt.MOUSE_OVER, _onButtonOver);
-                // Evt.removeEvent(_close.div, Evt.MOUSE_OUT, _onButtonOut);
-                _close.removeInteract(_onButtonOver, _onButtonOut, _closeVideo);
-
-                Evt.removeEvent(_fullscreen.div, Evt.CLICK, _onFullscreenClick);
-                Evt.removeEvent(_fullscreen.div, Evt.MOUSE_OVER, _onButtonOver);
-                Evt.removeEvent(_fullscreen.div, Evt.MOUSE_OUT, _onButtonOut);
-
-                Evt.removeEvent(_playpause.div, Evt.CLICK, _onPlayPauseClick);
-                Evt.removeEvent(_playpause.div, Evt.MOUSE_OVER, _onButtonOver);
-                Evt.removeEvent(_playpause.div, Evt.MOUSE_OUT, _onButtonOut);
-
-                // Event listener for the seek bar
-                Evt.removeEvent(_video.div, 'timeupdate', _updateSeek);
-
-                Evt.removeEvent(_seek.div, Evt.CHANGE, _onSeekChange);
-                Evt.removeEvent(_seek.div, Evt.MOUSE_DOWN, _onSeekDown);
-                Evt.removeEvent(_seek.div, Evt.MOUSE_MOVE, _onSeekDrag);
-                Evt.removeEvent(_seek.div, Evt.MOUSE_UP, _onSeekRelease);
-                Evt.removeEvent(_seek.div, Evt.MOUSE_OVER, _onButtonOver);
-                Evt.removeEvent(_seek.div, Evt.MOUSE_OUT, _onButtonOut);
-
-                _fullscreen.div.remove();
-                _playpause.div.remove();
-                _close.div.remove();
-                _seek.div.remove();
-                _scrubbar.div.remove();
-
-            } else {
-
-                // _isPlaying = false;
-                // Evt.removeEvent(_video.div, 'timeupdate', _checkForEnd);
-
-                // pause before we remove so the built in controls return to the play position
-                if (Device.mobile.tablet) {
-                    _video.div.pause();
-                }
-                
-
-                _close.removeInteract(_onButtonOver, _onButtonOut, _closeVideo);
-
-
-                // console.log(_isPlaying);
-                // Evt.removeEvent(_video.div, 'timeupdate', function() {
-
-                //     if (_video.div.paused === true || _video.div.ended === true) {
-
-                //         _isPlaying = true;
-
-                //     } else {
-
-                //         _isPlaying = false;
-
-                //     }
-
-                // });
-
-                _elem.setZ(0);
-                _elem.css({
-                    opacity: 0
-                });
-            }
-
-        });
-
-        
-        
-        // if (Global.FULLSCREEN) {
-        //     // Global.FULLBG.coverOut();
-        //     if (!Device.getFullscreen()) {
-        //         _elem.setZ(2);
-        //         _video.div.src = '';
-        //     } else {
-        //         _onFullscreenClick();
-        //         _ambient();
-        //     }
-        // }
-
-        _self.delayedCall(function(){
-            _elem.setZ(0);
-            _video.div.src = '';
-        }, 1000);
-        
-    }
-    this.onFocus = function() {
-        if(_isPlaying) {
-            _video.div.play();
-        }
-    };
-    this.onBlur = function() {
-        if(_isPlaying) {
-            _video.div.pause();
-        }
-    };
-    this.ambient = function(video) {
-        if (video) {
-            _ambient(video);
-        } else {
-            _ambient();
-        }
-    }
-    this.swapZ = function() {
-
-        _elem.setZ(9999);
-
-    }
-
-    this.play = function(video) {
-
-        // this.AMBIENT = false;
-
-        _isTransition = (video == 'mirrorme-portal') ? true : false;
-
-        // Transition.instance().animateIn();
-        // console.log('PLAY');
-
-        _positionBackground();
-
-        _video.div.src      =  Utils.getAsset(video, 'video');
-        // _video.div.volume   = _videoname == 'mirrorme-portal' ? 0 : 1;
-        _video.div.volume   = _isTransition ? 1 : 1;
-        _video.div.autoplay = true;
-        _video.div.loop     = false;
-        // _video.div.controls = Device.mobile.tablet ? true : false;
-        _video.div.controls = false;
-
-        // Device.mobile ? console.log('is mobile') : console.log('is not mobile');
-        // Device.mobile.tablet ? console.log('tablet') : console.log('not a tablet');
-
-        
-
-        if (Device.mobile) {
-            
-            _onFullVideoPlay();
-
-
-        } else {
-
-            Evt.removeEvent(_video.div, 'canplay', _onAmbientVideoPlay);
-            Evt.removeEvent(_video.div, 'canplay', _onFullVideoPlay);
-
-            Evt.subscribe(_video.div, 'canplay', _onFullVideoPlay);
-        }
-        // Evt.subscribe(_video.div, 'ended', function(e) { console.log('ended'); });
-        
-
-        _activateVideo();
-        // });
-        _elem.setZ(9999);
-    };
-};
-
-function Logo() {
-
-	Inherit(this, $class);
-
-	var _self = this,
-		_elem;
-
-	(function() {
-		_init();
-		_events();
-		_setSize();
-	})();
-
-	function _init() {
-		_elem = _self.element;
-		_elem.bg(Config.COLORS.test);
-
-		_elem.interact(_onOver, _onOut, _onClick);
-	}
-
-	function _events(){
-		Evt.resize(_setSize);
-	}
-
-	function _onOver(){
-
-	}
-
-	function _onOut(){
-
-	}
-
-	function _onClick(){
-		if (Global.PAGE.toLowerCase() != 'home') {
-			Evt.fireEvent(_elem, Evt.NAV_SELECT, {
-				page: '/'
-			});
-		}
-	}
-
-	function _setSize(){
-		var _width = Stage.width*0.2;
-		var _height = _width*0.15;
-
-		_elem.size(_width, _height).setProps({
-			x: Config.margin(),
-			y: Config.margin()
-		});
-	}
-}
-function ScrollArrow(show_text, is_intro) {
-
-    Inherit(this, $class);
-
-    var _self = this,
-        _elem = _self.element,
-        _arrowbox,
-        _arrows_wrap,
-        _arrow1,
-        _arrow2,
-        _scroll,
-        _down,
-        _in = false,
-        _arrow_width,
-        _arrow_height,
-        _arrow_thick;
-
-    var _mouse = {
-            x: Stage.width/2,
-            y: Stage.height/2,
-            vx: 0,
-            vy: 0
-        },
-        _translate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        },
-        _rotate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        };
-
-    var _multiple = 0.75;
-
-    _self.inverted = false;
-
-    (function() {
-        _init();
-
-        if (show_text === true){
-            _addText();
-        }
-        
-        _setSize();
-        _events();
-        _animateIn();
-    })();
-
-    function _init(){
-        _elem.setZ(999);
-
-        _arrowbox = _elem.create('.arrowbox');
-        _arrows_wrap = _arrowbox.create('.arrows-wrap');
-
-        // big arrow
-        _arrow1 = _arrows_wrap.create('.arrow1');
-        _arrow1.leftside = _arrow1.create('.left');
-        _arrow1.rightside = _arrow1.create('.right');
-
-        _arrow1.leftside.setProps({
-            backgroundColor: _self.inverted ? Config.COLORS.black : Config.COLORS.white
-        });
-
-        _arrow1.rightside.setProps({
-            backgroundColor: _self.inverted ? Config.COLORS.black : Config.COLORS.white
-        });
-
-        // small arrow
-        _arrow2 = _arrows_wrap.create('.arrow2');
-        _arrow2.leftside = _arrow2.create('.left');
-        _arrow2.rightside = _arrow2.create('.right');
-
-        _arrow2.leftside.setProps({
-            backgroundColor: _self.inverted ? Config.COLORS.black : Config.COLORS.white
-        });
-
-        _arrow2.rightside.setProps({
-            backgroundColor: _self.inverted ? Config.COLORS.black : Config.COLORS.white
-        });
-
-        _arrowbox.interact(_onOver, _onOut, _onClick);
-    }
-
-    function _addText(){
-        _scroll = _elem.create('.scroll');
-        _scroll.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            color: _self.inverted ? Config.COLORS.black : Config.COLORS.white
-        });
-        _scroll.text('SCROLL');
-
-        _down = _elem.create('.down');
-        _down.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            color: _self.inverted ? Config.COLORS.black : Config.COLORS.white
-        });
-        _down.text('DOWN');
-    }
-
-    function _events(){
-        Evt.resize(_setSize);
-
-        // track mouse movement
-        if (!Device.mobile){
-            document.addEventListener('mousemove', _onMouseMove);
-        }
-    }
-
-    function _onMouseMove(event){
-        Render.startRender(_updateObj);
-        _updateCoords(event);
-    }
-
-    function _updateCoords(event){
-        // get mouse coords
-        _mouse.x = event.clientX || event.pageX; 
-        _mouse.y = event.clientY || event.pageY;
-
-        // normalize mouse position values based on Stage center
-        _mouse.vx = ((_mouse.x/(Stage.width - (Stage.width/2))) - 1).toFixed(2);
-        _mouse.vy = ((_mouse.y/(Stage.height - (Stage.height/2))) - 1).toFixed(2);
-
-        // figure out how much to translate elements
-        _translate.x = -((Stage.width * (Config.MAXTRANSLATE.x * _multiple)) * _mouse.vx).toFixed(2);
-        _translate.y = -((Stage.height * (Config.MAXTRANSLATE.y * _multiple)) * _mouse.vy).toFixed(2);
-
-        // figure out how much to rotate elements
-        // we switch these because the rotateX function actually rotates AROUND the X axis
-        // if you want it to 'look at' the mouse, we have to invert the Y value as well so it makes sense visually
-        _rotate.y = -(Config.MAXROTATE.x * _mouse.vx).toFixed(2);
-        _rotate.x = (Config.MAXROTATE.y * _mouse.vy).toFixed(2);
-    }
-
-    function _updateObj(){
-        var lerpX = Utils.lerp(Config.LERPAMT, _translate.prevx, _translate.x);
-        var lerpY = Utils.lerp(Config.LERPAMT, _translate.prevy, _translate.y);
-        var pos_x = (Stage.width - _arrow_width)/2;
-        var pos_y = Stage.height - (_arrow_height*2.5);
-
-        // update previous values
-        _translate.prevx = lerpX;
-        _translate.prevy = lerpY;
-
-        // update transform values on element
-        _elem.setProps({
-            transform: 'translate('+(lerpX + pos_x)+'px, '+(lerpY + pos_y)+'px)'
-        });
-    }
-
-    function _setSize(){
-        _arrow_width = Math.min(Stage.width*0.117, Stage.height*0.187);
-        _arrow_height = Stage.height*0.05;
-        _arrow_thick = Math.round(Math.max(_arrow_width*0.013, 1));
-
-        _elem.size(_arrow_width, _arrow_height).setProps({
-            x: (Stage.width - _arrow_width)/2,
-            y: Stage.height - (_arrow_height*2.5)
-        });
-
-        _arrowbox.size(_arrow_width, _arrow_height);
-        _arrows_wrap.size(_arrow_width, _arrow_height);
-
-        // scale and position arrow parts
-        _arrow1.leftside.size(_arrow_width*0.565, _arrow_thick).setProps({
-            borderRadius: _arrow_thick+'px',
-            transform: 'translate(-'+(_arrow_width * 0.0315)+'px, '+(_arrow_height * 0.47)+'px) rotate(26.5deg)',
-        });
-        _arrow1.rightside.size(_arrow_width*0.565, _arrow_thick).setProps({
-            borderRadius: _arrow_thick+'px',
-            transform: 'translate('+(_arrow_width * 0.4684)+'px, '+(_arrow_height * 0.47)+'px) rotate(-26.5deg)',
-        });
-
-        _arrow2.leftside.size((_arrow_width*0.565)/5, _arrow_thick).setProps({
-            borderRadius: _arrow_thick+'px',
-            transform: 'translate('+(_arrow_width * 0.3966)+'px, '+(_arrow_height * 0.083)+'px) rotate(26.5deg)',
-        });
-        _arrow2.rightside.size((_arrow_width*0.565)/5, _arrow_thick).setProps({
-            borderRadius: _arrow_thick+'px',
-            transform: 'translate('+(_arrow_width * 0.4905)+'px, '+(_arrow_height * 0.083)+'px) rotate(-26.5deg)',
-        });
-
-        if (show_text === true){
-            _sizeText();
-        }
-    }
-
-    function _sizeText(){
-        // scale and position text
-        var fontsize = Math.min(Stage.width*0.011, Stage.height*0.017);
-        _scroll.setProps({
-            fontSize: fontsize+'px',
-            lineHeight: fontsize+'px',
-            letterSpacing: fontsize * Config.FONT.spacing.subtitles + 'px',
-            bottom: 0,
-            left: -(fontsize*5)
-        });
-
-        _down.setProps({
-            fontSize: fontsize+'px',
-            lineHeight: fontsize+'px',
-            letterSpacing: fontsize * Config.FONT.spacing.subtitles + 'px',
-            bottom: 0,
-            right: -(fontsize*4.1)
-        });
-    }
-
-    function _onOver(){
-        _arrowbox.tween({
-            y: _self.inverted ? -7 : 7
-        }, 0.5, Config.EASING.outback);
-    }
-
-    function _onOut(){
-        _arrowbox.tween({
-            y: 0
-        }, 0.5, Config.EASING.inout);
-    }
-
-    function _onClick(){
-        if (is_intro){
-            Global.INTRO.animateOut();
-        }else{
-            if (_self.inverted){
-                Global.HOME.getUp();
-            }else{
-                Global.HOME.getDown();
-            }
-        }
-    }
-
-    function _animateIn(){
-        /*_elem.tween({
-            borderWidth: _bordersize+'px',
-            opacity: 0.3
-        }, 0.75, Config.EASING.out, 1);*/
-    }
-
-    function _animateOut(){
-        
-    }
-
-    // tween arrows from white to black or vice-versa, and rotate them
-    function _invert(){
-        var transtime = 0.5;
-        var oldcolor = Config.COLORS.white;
-        var newcolor = Config.COLORS.black;
-        var oldrotate = 0;
-        var newrotate = 180;
-
-        if (_self.inverted){
-            oldcolor = Config.COLORS.black;
-            newcolor = Config.COLORS.white;
-            oldrotate = 180;
-            newrotate = 0;
-        }
-
-        _self.inverted = !_self.inverted;
-
-        _arrow1.leftside.setProps({
-            backgroundColor: oldcolor
-        }).tween({
-            backgroundColor: newcolor
-        }, transtime, Config.EASING.inout);
-
-        _arrow1.rightside.setProps({
-            backgroundColor: oldcolor
-        }).tween({
-            backgroundColor: newcolor
-        }, transtime, Config.EASING.inout);
-
-        _arrow2.leftside.setProps({
-            backgroundColor: oldcolor
-        }).tween({
-            backgroundColor: newcolor
-        }, transtime, Config.EASING.inout);
-
-        _arrow2.rightside.setProps({
-            backgroundColor: oldcolor
-        }).tween({
-            backgroundColor: newcolor
-        }, transtime, Config.EASING.inout);
-
-        if (show_text){
-            _scroll.setProps({
-                color: oldcolor
-            }).tween({
-                color: newcolor
-            }, transtime, Config.EASING.inout);
-
-            _down.setProps({
-                color: oldcolor
-            }).tween({
-                color: newcolor
-            }, transtime, Config.EASING.inout);
-        }
-
-        _arrows_wrap.setProps({
-            rotationX: oldrotate
-        }).tween({
-            rotationX: newrotate
-        }, transtime, Config.EASING.inout);
-    }
-
-    this.animateIn = function(){
-        _animateIn();
-    };
-
-    this.animateOut = function(){
-        _animateOut();
-    };
-
-    this.invert = function(){
-        _invert();
-    };
-
-    this.stop = function(){
-        if (!Device.mobile){
-            Render.stopRender(_updateObj);
-            document.removeEventListener('mousemove', _onMouseMove);
-        }
-    };
-}
-function Slide(data, index) {
-
-    Inherit(this, $class);
-    
-    var _self = this,
-        _elem = _self.element,
-        _cont,
-        _title,
-        _sidebar,
-        _form,
-        _padding = {
-            top: Stage.height * 0.072,
-            right: Stage.width * 0.076,
-            bottom: Stage.height * 0.122,
-            left: Stage.width * 0.076
-        },
-        _is_showing = false;
-
-    var _mouse = {
-            x: Stage.width/2,
-            y: Stage.height/2,
-            vx: 0,
-            vy: 0
-        },
-        _translate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        },
-        _rotate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        };
-
-    (function() {
-
-        // console.log(data);
-        
-        _init();
-
-        if (data.type == 'normal' || data.type == 'contact'){
-            _addTitle();
-        }
-        
-        if (data.type == 'normal'){
-            _addSidebar();
-        }
-
-        if (data.type == 'contact'){
-            _addForm();
-        }
-
-        _setSize();
-        _events();
-    })();
-
-    function _init(){
-        _elem.css({
-            overflow: 'hidden'
-        });
-        _cont = _elem.create('.container');
-    }
-
-    function _addTitle(){
-        _title = _self.initClass(SlideTitle, index);
-        _cont.add(_title);
-    }
-
-    function _addSidebar(){
-        _sidebar = _self.initClass(SlideSidebar, index);
-        _cont.add(_sidebar);
-    }
-
-    function _addForm(){
-        _form = _cont.create('.form');
-        _form.title = _form.create('.title');
-        _form.paragraph = _form.create('.text');
-        _form.container = _form.create('.container');
-        _form.label = _form.container.create('.label');
-        _form.label.colon = _form.container.create('.colon');
-        _form.field = _form.container.create('.field', 'input');
-        _form.button = _form.container.create('.button');
-        _form.response = _form.container.create('.response');
-
-        /*_form.setProps({
-            border: "1px solid red"
-        });*/
-
-        _form.title.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            textAlign: 'center',
-            color: Config.COLORS.black
-        });
-        _form.title.text(data.subtitle.toUpperCase());
-
-        _form.paragraph.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.normal,
-            textAlign: 'center',
-            lineHeight: '1.4em',
-            color: Config.COLORS.black
-        });
-        _form.paragraph.text(data.text);
-
-        /*_form.container.css({
-            border: "1px solid #000000"
-        });*/
-
-        _form.label.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            textAlign: 'right',
-            lineHeight: '1.3em',
-            color: Config.COLORS.black
-        });
-        _form.label.text('DONATE OR<br/>GET INVOLVED');
-
-        _form.label.colon.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            color: Config.COLORS.black
-        });
-        _form.label.colon.text(':');
-
-        if (Device.mobile.phone){
-            _form.label.colon.setProps({ display: "none" });
-        }
-
-        _form.field.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.light,
-            color: Config.COLORS.white,
-            backgroundColor: Config.COLORS.black,
-            opacity: 0.75,
-            paddingLeft: '1em',
-            paddingRight: '1em'
-        });
-
-        _form.field.div.placeholder = "YOUR EMAIL HERE";
-
-        _form.button.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            color: Config.COLORS.black,
-            backgroundColor: Config.COLORS.white,
-            textAlign: 'center',
-            opacity: 0.75
-        });
-        _form.button.text('SIGN UP');
-
-        _form.button.interact(_onOver, _onOut, _onClick);
-
-
-        _form.response.setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.semibold,
-            color: Config.COLORS.black,
-            textAlign: 'right',
-            opacity: 0,
-            y: 10
-        });
-
-
-        if (Device.mobile){
-            /*_form.inputhit = _form.container.create('.inputhit');
-            _form.inputhit.interact(null, null, function(){
-                _form.field.div.focus();
-            });*/
-        }
-    }
-
-    function _events(){
-        Evt.resize(_setSize);
-
-        /*if (data.type == 'contact'){
-            _form.field.div.onkeyup = function(event){
-                // console.log(event.which);
-                _form.field.div.focus();
-            }
-        }*/
-    }
-
-    function _onOver(){
-        _form.button.setProps({
-            opacity: 0.75
-        }).tween({
-            opacity: 1
-        }, 0.5, Config.EASING.inout);
-    }
-
-    function _onOut(){
-        _form.button.setProps({
-            opacity: 1
-        }).tween({
-            opacity: 0.75
-        }, 0.5, Config.EASING.inout);
-    }
-
-    function _onClick(){
-        var _email = _form.field.div.value;
-
-        // do AJAX form submission
-        var response = Utils.ajax('/sendemail.php', { email: _email }, 'GET', _onAJAXresponse);
-    }
-
-    function _onAJAXresponse(response){
-        if (response == 'success'){
-            _form.response.text('THANKS FOR YOUR INTEREST!');
-        }else if (response == 'no email'){
-            _form.response.text('PLEASE ENTER YOUR EMAIL.');
-        }else{
-            _form.response.text('UH-OH. THERE WAS A PROBLEM.');
-        }
-
-        _form.response.setProps({
-            opacity: 0,
-            y: 10
-        }).tween({
-            opacity: 1,
-            y: 0
-        }, 0.5, Config.EASING.inout);
-    }
-
-    function _onMouseMove(event){
-        _updateCoords(event);
-        Render.startRender(_updateObj);
-    }
-
-    function _setSize(){
-        _elem.size(Stage.width, Stage.height);
-
-        if (_is_showing === true && Device.mobile){
-            _elem.setProps({
-                y: 0
-            });
-        }
-
-        // scale the content container
-        _padding = {
-            top: Stage.height * 0.072,
-            right: Stage.width * 0.076,
-            bottom: Stage.height * 0.122,
-            left: Stage.width * 0.076
-        };
-
-        var cont_w = Stage.width - (_padding.right + _padding.left);
-        var cont_h = Stage.height - (_padding.top + _padding.bottom);
-
-        _cont.size(cont_w, cont_h).setProps({
-            x: _padding.left,
-            y: _padding.top
-        });
-
-        if (data.type == 'contact'){
-            var form_size = Device.mobile.phone ? cont_h : Math.min(cont_w * 0.438, cont_h * 0.87);
-
-            _form.size(form_size, form_size).setProps({
-                x: (cont_w - form_size)/2,
-                y: (cont_h - form_size)/2
-            });
-
-            var fontsz = Device.mobile.phone ? Stage.width * 0.015 : Math.min(Stage.height*0.027, Stage.width * 0.015);
-
-            _form.title.setProps({
-                width: '100%',
-                height: fontsz * 2,
-                fontSize: fontsz + 'px',
-                lineHeight: '1em',
-                letterSpacing: (fontsz * Config.FONT.spacing.subtitles) + 'px',
-                textIndent: (fontsz * Config.FONT.spacing.subtitles) + 'px',
-                y: Device.mobile.phone ? Stage.height * 0.2 : fontsz*6.5
-            });
-
-            _form.paragraph.setProps({
-                width: '100%',
-                height: 'auto',
-                fontSize: Device.mobile.phone ? (Stage.height * 0.024) + 'px' : (fontsz*0.667) + 'px',
-                y: Device.mobile.phone ? Stage.height * 0.3 : fontsz*9.5
-            });
-
-            var fcwidth = form_size * 0.82;
-            var fcheight = form_size * 0.33;
-            _form.container.size(fcwidth, fcheight).setProps({
-                x: (form_size - fcwidth)/2,
-                y: form_size - fcheight
-            });
-
-            _form.label.setProps({
-                fontSize: (fontsz*0.63)+'px',
-                letterSpacing: ((fontsz*0.63) * Config.FONT.spacing.subtitles) + 'px',
-                top: fontsz*0.2
-            });
-
-            _form.label.colon.setProps({
-                fontSize: (fontsz*1.8)+'px',
-                top: -(fontsz*0.172),
-                left: fcwidth * 0.294
-            });
-
-            _form.field.setProps({
-                width: fcwidth*0.66,
-                height: fontsz*2,
-                fontSize: (fontsz*0.75)+'px',
-                right: 0,
-                letterSpacing: ((fontsz*0.75) * Config.FONT.spacing.subtitles) + 'px',
-                textIndent: ((fontsz*0.75) * Config.FONT.spacing.subtitles) + 'px'
-            });
-
-            _form.button.setProps({
-                width: fcwidth*0.25,
-                height: fontsz*2,
-                fontSize: (fontsz*0.75)+'px',
-                right: 0,
-                top: fontsz*2.5,
-                border: Math.max(Math.round(fontsz*0.11), 1) + 'px solid ' + Config.COLORS.black,
-                lineHeight: (fontsz*1.9) + 'px',
-                letterSpacing: ((fontsz*0.75) * Config.FONT.spacing.subtitles) + 'px',
-                textIndent: ((fontsz*0.75) * Config.FONT.spacing.subtitles) + 'px'
-            });
-
-            _form.response.setProps({
-                width: fcwidth*0.7,
-                height: fontsz*2,
-                fontSize: (fontsz*0.66)+'px',
-                top: fontsz*2.5,
-                lineHeight: (fontsz*2.33) + 'px',
-                letterSpacing: ((fontsz*0.66) * Config.FONT.spacing.subtitles) + 'px'
-            });
-
-            if (Device.mobile){
-                /*_form.inputhit.setProps({
-                    width: fcwidth*0.66,
-                    height: fontsz*2,
-                    right: 0
-                });*/
-            }
-        }
-    }
-
-    function _updateCoords(event){
-        // get mouse coords
-        _mouse.x = event.clientX || event.pageX; 
-        _mouse.y = event.clientY || event.pageY;
-
-        // normalize mouse position values based on Stage center
-        _mouse.vx = ((_mouse.x/(Stage.width - (Stage.width/2))) - 1).toFixed(2);
-        _mouse.vy = ((_mouse.y/(Stage.height - (Stage.height/2))) - 1).toFixed(2);
-
-        // figure out how much to translate elements
-        _translate.x = -((Stage.width * Config.MAXTRANSLATE.x) * _mouse.vx).toFixed(2);
-        _translate.y = -((Stage.height * Config.MAXTRANSLATE.y) * _mouse.vy).toFixed(2);
-
-        // figure out how much to rotate elements
-        // we switch these because the rotateX function actually rotates AROUND the X axis
-        // if you want it to 'look at' the mouse, we have to invert the Y value as well so it makes sense visually
-        _rotate.y = -(Config.MAXROTATE.x * _mouse.vx).toFixed(2);
-        _rotate.x = (Config.MAXROTATE.y * _mouse.vy).toFixed(2);
-    }
-
-    function _updateObj(){
-        var lerpX = Utils.lerp(Config.LERPAMT, _translate.prevx, _translate.x);
-        var lerpY = Utils.lerp(Config.LERPAMT, _translate.prevy, _translate.y);
-
-        // update previous values
-        _translate.prevx = lerpX;
-        _translate.prevy = lerpY;
-
-        // update transform values on element
-        _cont.setProps({
-            transform: 'translate('+(lerpX+_padding.left)+'px, '+(lerpY+_padding.top)+'px)'
-        });
-    }
-
-    // move the slide up or down
-    // @param integer _dir  The direction to move, either 1 (down) or -1 (up)
-    // @param boolean _show  Whether to show the slide or not (i.e. show the slide as it enters the frame, hide as it leaves)
-    // @param function _callback  Function to run after animation is complete
-
-    // http://cssdeck.com/labs/motion-blur
-    // http://codepen.io/ChrisHoman/pen/BDKzx/
-    this.move = function(_dir, _show, _callback){
-        var startY = 0;
-
-        if (_show === true){
-            if (_dir == -1){
-                startY = Stage.height;
-            }else{
-                startY = -Stage.height;
-            }
-
-            _self.start();
-            _is_showing = true;
-        }else{
-            _is_showing = false;
-        }
-
-        _elem.setProps({
-            y: startY,
-            opacity: _show ? 0 : 1
-        }).tween({
-            y: _show ? 0 : Stage.height * _dir,
-            opacity: _show ? 1 : 0,
-        }, 0.6, Config.EASING.out, null, function(){
-            if (typeof _callback == 'function'){
-                _callback();
-            }
-        });
-    };
-
-    this.show = function(){
-        _elem.setProps({
-            y: 0,
-            opacity: 1
-        });
-
-        _is_showing = true;
-    };
-
-    this.start = function(){
-        // start tracking mouse movement
-        if (!Device.mobile){
-            document.addEventListener('mousemove', _onMouseMove);
-        }
-    };
-
-    this.stop = function(){
-        if (!Device.mobile){
-            Render.stopRender(_updateObj);
-            document.removeEventListener('mousemove', _onMouseMove);
-        }
-    };
-
-    this.destroy = function() {
-        this.__destroy();
-    };
-}
-function SlideSidebar(index) {
-
-    Inherit(this, $class);
-    
-    var _self = this,
-        _elem = _self.element,
-        _data,
-        _subtitle,
-        _para;
-
-    (function() {
-        _init();
-        _setSize();
-        _events();
-    })();
-
-    function _init(){
-        _data = Data.HOME[index];
-
-        _subtitle = _elem.create('.subtitle');
-        _subtitle.size('100%', 'auto').setProps({
-            color: Config.COLORS.white,
-            fontWeight: Config.FONT.semibold
-        });
-        _subtitle.div.attributes.class.value += ' static';
-        _subtitle.text(_data.subtitle.toUpperCase());
-
-        _para = _elem.create('.content');
-        _para.size('100%', 'auto').setProps({
-            color: Config.COLORS.white,
-            fontWeight: Config.FONT.normal
-        });
-        _para.div.attributes.class.value += ' static static-content';
-        _para.text(_data.text);
-    }
-
-    function _events(){
-        Evt.resize(_setSize);
-    }
-
-    function _setSize(){
-        var titlefontsize = Device.mobile.phone ? Stage.width * 0.017 : Math.min(Stage.height * 0.027, Stage.width * 0.017);
-        var fontsize = Device.mobile.phone ? titlefontsize * 0.75 : titlefontsize * 0.667;
-        var buttonheight = (Math.min(Stage.height * 0.018, Stage.width * 0.011)) * 3.93;
-
-        _elem.setProps({
-            width: Device.mobile.phone ? Stage.width * 0.28 : Stage.width * 0.208,
-            height: Stage.height * 0.611,
-            left: 0,
-            bottom: 0
-        });
-
-        _subtitle.setProps({
-            fontSize: titlefontsize + 'px',
-            lineHeight: titlefontsize + 'px',
-            letterSpacing: titlefontsize * Config.FONT.spacing.subtitles + 'px',
-            marginBottom: (titlefontsize * 0.667) + 'px'
-        });
-
-        _para.setProps({
-            fontSize: fontsize + 'px',
-            lineHeight: (fontsize * 1.4) + 'px'
-        });
-    }
-}
-function SlideTitle(index) {
-
-    Inherit(this, $class);
-    
-    var _self = this,
-        _elem = _self.element,
-        _data,
-        _title,
-        _line;
-
-    (function() {
-        _init();
-        _setSize();
-        _events();
-    })();
-
-    function _init(){
-        _data = Data.HOME[index];
-
-        _title = _elem.create('.title');
-        _title.size('100%', 'auto').setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.xlight,
-            textAlign: 'center',
-            color: (_data.type == 'contact') ? Config.COLORS.black : Config.COLORS.white
-        });
-
-        _title.text(_data.title.toUpperCase());
-
-
-        _line = _elem.create('.line');
-
-        if (_data.type == 'contact'){
-            _line.setProps({
-                opacity: 0.8
-            }).bg(Config.COLORS.black);
-        }else{
-            _line.setProps({
-                opacity: 0.4
-            }).bg(Config.COLORS.white);
-        }
-    }
-
-    function _events(){
-        Evt.resize(_setSize);
-    }
-
-    function _setSize(){
-        var height = Stage.height * 0.15;
-        var fontsize = Device.mobile.phone ? Stage.width * 0.05 : Math.min(height*0.57, Stage.width * 0.053);
-
-        _elem.setProps({
-            width: '100%',
-            height: height
-        });
-
-        _title.setProps({
-            lineHeight: fontsize+'px',
-            fontSize: fontsize+'px',
-            letterSpacing: fontsize * Config.FONT.spacing.titles + 'px',
-            textIndent: fontsize * Config.FONT.spacing.titles + 'px'
-        });
-
-        _line.setProps({
-            width: '100%',
-            height: Math.round(Math.max((Math.min(Stage.height * 0.0022, Stage.width * 0.0013)), 1)),
-            left: 0,
-            bottom: 0
-        });
-    }
-}
-function BruceLee() {
-
-	Inherit(this, $id);
-	
-	var _self = this,
-		_elem,
-		_content,
-		_quote,
-		_button,
-		_buttontext;
-
-	var _testBox,
-		_testlayerA,
-		_testlayerB,
-		_testText,
-		_maxrotate = {x: 20, y: 20},
-		_mouse = {
-			x: Stage.width/2,
-			y: Stage.height/2,
-			vx: 0,
-			vy: 0
-		},
-		_rotateY = 0,
-		_rotateX = 0,
-		_prevRotateY = 0,
-		_prevRotateX = 0;
-
-	Global.INTRO = this;
-
-	(function(){
-		_init();
-		_addQuote();
-		_addButton();
-		_addTest();
-		_setSize();
-		_events();
-		_animateIn();
-	})();
-
-	function _init(){
-		console.log('INTRO INIT');
-
-		_elem = _self.element;
-
-		_content = _elem.create('.content');
-		// _content.interact(null, null, _onClick);
-	}
-
-	function _addTest(){
-		_testBox = _elem.create('.testbox');
-		_testlayerA = _testBox.create('.testlayer');
-		_testlayerB = _testBox.create('.testlayer');
-		_testText = _testBox.create('.output');
-
-		_testBox.size(500, 500).setProps({
-			x: (Stage.width - 500)/2,
-			y: (Stage.height - 500)/2,
-			z: 1,
-			perspective: 2000
-		});
-
-		_testlayerA.size(500, 500).setProps({
-			x: 0,
-			y: 0,
-			transform: 'rotateX( 0deg ) rotateY( 0deg )',
-			backgroundColor: 'rgba(128,0,0,0.8)'
-		});
-
-		console.log(Config.ASSETS)
-
-		_testlayerB.size(500, 500).setProps({
-			x: 0,
-			y: 0,
-			transform: 'rotateX( 0deg ) rotateY( 0deg ) translateZ( 100px )',
-			// backgroundColor: 'rgba(0,64,128,0.5)'
-			opacity: 0.7
-		}).bg(Config.ASSETS.images+'/brucelee/bruce_1.jpg');
-
-		_testText.size(200, 50).setProps({
-			x: 20,
-			y: 20,
-			z: 999,
-			fontSize: '20px',
-			color: Config.COLORS.black
-		}).bg(Config.COLORS.white);
-		_testText.text(_mouse.x + ', ' + _mouse.y);
-
-		// track mouse movement
-		document.addEventListener('mousemove', function(event){
-			Render.startRender(_updateObj);
-			_updateCoords(event);
-		}, false);
-	}
-
-	function _updateCoords(event){
-		// get mouse coords
-	    _mouse.x = event.clientX || event.pageX; 
-	    _mouse.y = event.clientY || event.pageY;
-
-	    // normalize mouse position values based on Stage center
-	    _mouse.vx = ((_mouse.x/(Stage.width - (Stage.width/2))) - 1).toFixed(2);
-	    _mouse.vy = ((_mouse.y/(Stage.height - (Stage.height/2))) - 1).toFixed(2);
-
-		// figure out how much to rotate boxes
-		// we switch these because the rotateX function actually rotates AROUND the X axis
-		// we have to invert the Y value as well so it makes sense visually
-		_rotateY = -(_maxrotate.x * _mouse.vx).toFixed(2);
-		_rotateX = (_maxrotate.y * _mouse.vy).toFixed(2);
-
-		// log coords into test text box
-		_testText.text(_mouse.vx + ', ' + _mouse.vy + '<br />' + _rotateX + ', ' + _rotateY);
-	}
-
-	function _updateObj(){
-		var lerpX = Utils.lerp(0.05, _prevRotateX, _rotateX);
-		var lerpY = Utils.lerp(0.05, _prevRotateY, _rotateY);
-
-		// update previous values
-		_prevRotateX = lerpX;
-		_prevRotateY = lerpY;
-
-		// update rotation values on test object
-		_testlayerA.setProps({
-			transform: 'rotateX( '+lerpX+'deg ) rotateY( '+lerpY+'deg )'
-		});
-
-		_testlayerB.setProps({
-			transform: 'rotateX( '+lerpX+'deg ) rotateY( '+lerpY+'deg ) translateZ( 100px )'
-		});
-
-	}
-
-	function _addQuote(){
-		_quote = _content.create('.quote');
-		_quote.size('100%', 'auto').setProps({
-			opacity: 0,
-			scale: 0.75,
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.normal,
-            textAlign: 'center',
-            color: Config.COLORS.white
-        });
-
-        var str = '"Hot dogs are nice as long as you don\'t think too much about them."';
-
-        _quote.text(str.toUpperCase());
-	}
-
-	function _addButton(){
-		_button = _content.create('.enterbutton');
-		_button.setProps({
-            opacity: 0,
-            scale: 0.75
-		}).bg(Config.COLORS.white);
-		// _button.interact(_onOver, _onOut, _onClick);
-
-		_buttontext = _button.create('.text');
-		_buttontext.size('100%', '100%').setProps({
-            fontFamily: Config.FONT.name,
-            fontWeight: Config.FONT.normal,
-            textAlign: 'center'
-        });
-
-        _buttontext.text('SKIP INTRO');
-	}
-
-	function _events(){
-        Evt.resize(_setSize);
-    }
-
-    function _onOver(){
-
-    }
-
-    function _onOut(){
-
-    }
-
-    function _onClick(){
-
-    }
-
-    function _setSize(){
-    	_elem.size(Stage.width, Stage.height);
-
-    	var _contentWidth = Stage.width * 0.75;
-    	var _contentHeight = Stage.height*0.5;
-    	var _quotefontsize = _contentWidth * 0.042;
-    	var _buttonwidth = Stage.width*0.2;
-        var _buttonheight = _buttonwidth*0.15;
-        var _buttonfontsize = _buttonheight*0.5;
-
-        _content.size(_contentWidth, _contentHeight).setProps({
-        	x: (Stage.width - _contentWidth)/2,
-        	y: (Stage.height - _contentHeight)/2
-        });
-
-    	_quote.setProps({
-    		y: (_contentHeight - (_quotefontsize*3.5))/2,
-    		fontSize: _quotefontsize+'px',
-    		letterSpacing: _quotefontsize * Config.FONT.spacing.titles + 'px'
-    	});
-
-    	_button.size(_buttonwidth, _buttonheight).setProps({
-    		x: (_contentWidth - _buttonwidth)/2,
-    		y: _contentHeight - _buttonheight
-    	});
-
-    	_buttontext.setProps({
-            lineHeight: _buttonheight+'px',
-            fontSize: _buttonfontsize+'px',
-            letterSpacing: _buttonfontsize * Config.FONT.spacing.titles + 'px'
-        });
-    }
-
-    function _animateIn(){
-    	_quote.tween({
-    		opacity: 1,
-    		scale: 1
-    	}, Config.EASING.time, Config.EASING.inout);
-
-    	_button.tween({
-    		opacity: 1,
-    		scale: 1
-    	}, Config.EASING.time, Config.EASING.inout, 1);
-    }
-}
 Singleton(function Container() {
 
     Inherit(this, $id);
@@ -16645,818 +20997,40 @@ Singleton(function Container() {
         }
     };
 });
-function Cover(){
-
-	Inherit(this, $id);
-	
-	var _self = this,
-		_elem = _self.element,
-		_title,
-		_text;
-
-	(function(){
-		// console.log('Cover :: ')
-		_init();
-		_setSize();
-		_events();
-	})();
-
-	function _init(){
-		_elem.size("100%", "100%").bg(Config.COLORS.black).setZ(999999);
-
-		_title = _elem.create('.covertitle');
-		_title.size("90%", "auto").css({
-			fontFamily: Config.FONT.name,
-			fontWeight: Config.FONT.normal,
-			color: Config.COLORS.white,
-			left: "5%",
-			top: "42%",
-			textAlign: "center"
-		});
-
-		_title.text('MIRROR ME');
-
-		_text = _elem.create('.covermessage');
-		_text.size("90%", "auto").css({
-			fontFamily: Config.FONT.name,
-			fontWeight: Config.FONT.normal,
-			color: Config.COLORS.white,
-			left: "5%",
-			top: "50%",
-			textAlign: "center",
-			lineHeight: "1.2em"
-		});
-
-		if (Mobile.version == 7.1) {
-			_text.text("Please ugrade your mobile operating system or visit our site on your desktop browser.");
-		} else {
-			_text.text("Please make your browser window bigger.<br />Visit us on your mobile device to see the mobile optimized site.");
-		}
-	}
-
-	function _events(){
-		Evt.resize(_setSize);
-	}
-
-	function _setSize(){
-		var titlesize = Stage.width*(22/400);
-		var textsize = Stage.width*(15/400);
-
-		_title.css({
-			fontSize: titlesize+'px',
-			letterSpacing: titlesize * Config.FONT.spacing.titles + 'px',
-            textIndent: titlesize * Config.FONT.spacing.titles + 'px'
-		});
-
-		_text.size("90%", "auto").css({
-			fontSize: textsize+'px'
-		});
-
-
-		if (!Device.mobile){
-			if (Stage.width < 640 || Stage.height < 400){
-				_elem.css({
-					visibility: "visible",
-					opacity: 1
-				});
-			} else{
-				_elem.css({
-					visibility: "hidden",
-					opacity: 0
-				});
-			}
-			
-		} else {
-
-			if (Mobile.os == 'Android') {
-				if (Mobile.version < 4.4) {
-					_elem.css({
-						visibility: "visible",
-						opacity: 1
-					});
-				} else {
-					_elem.css({
-						visibility: "hidden",
-						opacity: 0
-					});
-				}
-			}
-
-			if (Mobile.os == 'iOS') {
-				if (Mobile.version < 7.1) {
-					_elem.css({
-						visibility: "visible",
-						opacity: 1
-					});
-				} else {
-					_elem.css({
-						visibility: "hidden",
-						opacity: 0
-					});
-				}
-			}
-
-			if (Mobile.os != 'Android' && Mobile.os != 'iOS') {
-				_elem.css({
-					visibility: "visible",
-					opacity: 1
-				});
-			}
-
-			if (Stage.width < Stage.height){
-				_text.text("Please rotate your device horizontal.");
-				_elem.css({
-					visibility: "visible",
-					opacity: 1
-				});
-			}
-			
-		}
-	}
-}
-function FullBackground() {
-
-    Inherit(this, $id);
-
-    var _self = this,
-        _elem,
-        _video,
-        _image,
-        _isUp = false,
-        _isDown = false,
-        _scrollamount = 100;
-
-    Global.FULLBG = this;
-
-
-    (function() {
-        _init();
-        _events();
-    })();
-
-    function _init() {
-        _elem = _self.element;
-
-        _elem.size('100%').css({
-            backgroundRepeat: 'no-repeat',
-            overflow: 'hidden'
-        });
-
-        // if (!Device.mobile) {
-            _self.video = _video = _self.initClass(FullBackgroundVideo);
-        // }
-
-        _self.image = _image = _self.initClass(FullBackgroundImage);
-    }
-
-    
-    function _onResize() {
-        var _top = _isUp ? -_scrollamount : 0;
-    }
-    
-    function _events() {
-
-        Evt.resize(_onResize);
-
-        // Evt.subscribe(Global.CONTAINER.element, Evt.NAV_SELECT, _onNavSelect);
-        
-        if (Device.mobile) {
-            Evt.subscribe(_elem, 'touchstart', function(e) {
-                e.preventDefault();
-            });
-            Evt.subscribe(_elem, 'touchmove', function(e) {
-                e.preventDefault();
-            });
-            Evt.subscribe(_elem, 'touchend', function(e) {
-                e.preventDefault();
-            });
-        }
-
-    }
-
-    function _swapBG() {
-
-        if (Config.DEBUG.all || Config.DEBUG.fullbg) {
-            // console.log('==========================');
-            console.log(Data.STATE.page.toLowerCase());
-            console.log(_self.video.div.style.zIndex);
-
-            console.log('==========================');
-        }
-
-        if (!Device.mobile) {
-            _self.video.element.css({opacity: 0});
-        }
-        _self.image.element.css({opacity: 0});
-
-        switch (Data.STATE.page.toLowerCase()) {
-            case 'home':
-            case '/':
-                if (!Device.mobile) {
-                    if (_self.video.AMBIENT) {
-                        _self.video.element.css({opacity: 1});
-                    } else {
-                        _self.video.element.css({opacity: 0});
-                    }
-                    _self.video.element.setZ(2);
-                }
-                
-                _self.image.element.setZ(1);
-            break;
-            case 'work':
-                _self.image.element.css({opacity: 1});
-                _self.image.element.setZ(2);
-                if (!Device.mobile) {
-                    _self.video.element.setZ(1);
-                }
-
-            break;
-            case 'contact':
-                _self.image.element.css({opacity: 1});
-                _self.image.element.setZ(2);
-                if (!Device.mobile) {
-                    _self.video.element.setZ(1);
-                }
-
-            break;
-        }
-    }
-
-    this.up = function() {
-        _isUp = true;
-
-    };
-
-    this.down = function() {
-        _isUp = false;
-    };
-};
-
-function Home() {
-
-    Inherit(this, $id);
-    
-    var _self = this,
-        _elem,
-        _arrow,
-        _buttons;
-
-    var _scrolltick     = null;
-    
-    var _isAnimating    = true;
-    var _z              = 99;
-    var _slideIndex     = 0;
-    var _slides         = [];
-    var _isScrolling    = false;
-    // -1 because user has to scroll down to start
-    var _currdir        = -1;
-
-    Global.HOME         = this;
-    this.hasAnimateOut  = true;
-
-
-    (function() {
-        _init();
-        _getSlides();
-        _addArrow();
-        _addButtons();
-        _events();
-    })();
-
-
-    function _init() {
-
-        _elem = _self.element;
-
-        _elem.size(Stage.width, Stage.height).css({
-            opacity: 1,
-        }).setZ(100);
-    }
-    
-    function _getSlides() {
-
-        // run the loop through requestAnimationFrame, which is 
-        // built into TweenLite.ticker. This is the key to having
-        // the full 16.67ms to load layout items in between frames
-        // TweenLite.ticker.addEventListener('tick', _loadSlides);
-        Render.startRender(_loadSlides);
-
-    }
-
-    function _loadSlides() {
-
-        if (_slideIndex == Data.HOME.length) {
-
-            // reset slideindex and stop loading
-            _slideIndex = 0;
-            Render.stopRender(_loadSlides);
-
-            // activate first slide and move others offscreen
-            for (var _s = 0; _s < _slides.length; _s++) {
-
-                if (_s == 0){
-                    _slides[_s].show();
-                    _slides[_s].start();
-                }else{
-                    _slides[_s].move(1, false);
-                }
-            }
-            
-            // get background for first slide
-            Global.FULLBG.image.getFirst();
-
-            return;
-        }
-
-        // load slides in sequence
-        var _slide = _self.initClass(Slide, Data.HOME[_slideIndex], _slideIndex);
-        _slides.push(_slide);
-
-        // load background images in sequence
-        Global.FULLBG.image.loadSlides(Data.HOME[_slideIndex], _slideIndex);
-
-        // turn animation to false to allow for scrollHandler
-        _isAnimating = false;
-
-        _slideIndex++;
-    }
-
-
-    function _addArrow(){
-        _arrow = _self.initClass(ScrollArrow);
-    }
-
-    function _addButtons(){
-        _buttons = _self.initClass(Buttons);
-    }
-
-
-    function _events() {
-        Evt.resize(_onResize);
-    }
-
-    function _bindScroll(){
-        if (Device.mobile){
-            TouchUtil.bind(_elem, _directionHandler);
-        }else{
-            ScrollUtil.bind(_elem, _directionHandler);
-        }
-    }
-
-    this.bindScroll = function(){
-        _bindScroll();
-    };
-
-
-    function _directionHandler(e) {
-        // HOME
-        var _delta = Math.abs(e.wheelDelta);
-
-        // detect the end of scrolling and reset the _isScrolling variable
-        clearTimeout(_scrolltick);
-        _scrolltick = setTimeout(function(){
-            // console.log('scrolling stopped');
-            _isScrolling = false;
-        }, 100);
-
-        // reset is scrolling to false if the user changes the direction of scroll
-        if (_currdir != e.direction) {
-            _isScrolling = false;
-        }
-        _currdir = e.direction;
-
-        // console.log(e.amount)
-        // reset is scrolling to false if user is hammering on scroll and animation is complete
-        // if (!_isAnimating && Math.abs(e.amount) > 1.2) {
-        //     _isScrolling = false;
-        // }
-
-        // curb multiple firings of implementation
-        if (!_isScrolling) {
-
-            _isScrolling = true;
-
-            switch (e.direction) {
-                case 'up':
-                    if (!Device.mobile) {
-                        _getUp();
-                        Global.FULLBG.down();
-                    } else {
-                        _getDown();
-                        Global.FULLBG.up();
-                    }
-
-                break;
-                case 'down':
-
-                    if (!Device.mobile) {
-                        _getDown();
-                        Global.FULLBG.up();
-                    } else {
-                        _getUp();
-                        Global.FULLBG.down();
-                    }
-
-                break;
-            }
-        }
-    }
-
-
-    // get previous slide
-    function _getUp() {
-        if (_isAnimating === false) {
-            if (_slideIndex !== 0) {
-                // check if we were at the last slide
-                if (_slideIndex == _slides.length - 1){
-                    _arrow.invert();
-                }
-
-                _isAnimating = true;
-
-                _slides[_slideIndex].move(1, false);
-                _slides[_slideIndex].stop();
-
-                _slideIndex--;
-
-                if (_slideIndex == _slides.length - 2){
-                    // video transition back?
-                    // console.log('VIDEO TRANSITION BACK?????');
-                    
-                    _slides[_slideIndex].move(1, true, function(){
-                        _isAnimating = false;
-                    });
-
-                    Global.FULLBG.image.getPrev();
-                    Global.BORDERS.invert();
-                }else{
-                    // normal transition
-                    _slides[_slideIndex].move(1, true, function(){
-                        _isAnimating = false;
-                    });
-
-                    Global.FULLBG.image.getPrev();
-                }
-            }
-        }
-    }
-
-
-    // get next slide
-    function _getDown() {
-        if (_isAnimating === false) {
-            if (_slideIndex != _slides.length - 1) {
-                _isAnimating = true;
-
-                _slides[_slideIndex].move(-1, false);
-                _slides[_slideIndex].stop();
-
-                _slideIndex++;
-
-                if (_slideIndex == _slides.length - 1){
-                    // video transition
-                    // console.log('CREATE OVERLAY VIDEO');
-                    if (!Device.mobile){
-                        Global.FULLBG.video.play('mirrorme-portal');
-                        Global.FULLBG.video.swapZ();
-
-                        _self.delayedCall(function(){
-                            // get next slide while video transition is running
-                            // hopefully this does not lag the video
-                            _slides[_slideIndex].move(-1, true, function(){
-                                _isAnimating = false;
-                            });
-
-                            Global.FULLBG.image.getNext();
-                            Global.BORDERS.invert();
-                        }, 2000);
-                    }else{
-                        _slides[_slideIndex].move(-1, true, function(){
-                            _isAnimating = false;
-                        });
-
-                        Global.FULLBG.image.getNext();
-                        Global.BORDERS.invert();
-                    }
-                }else{
-                    // normal transition
-                    _slides[_slideIndex].move(-1, true, function(){
-                        _isAnimating = false;
-                    });
-
-                    Global.FULLBG.image.getNext();
-                }
-
-                // check if we're at the last slide
-                if (_slideIndex == _slides.length - 1){
-                    _arrow.invert();
-                }
-            }
-        }
-    }
-
-    function _onResize() {
-        
-        _elem.size(Stage.width, Stage.height);
-
-        for (var i = 0; i < _slides.length; i++) {
-
-            _slides[i].element.size(Stage.width, Stage.height);
-
-            if (i < _slideIndex){
-                _slides[i].element.setProps({
-                    y: -Stage.height
-                });
-            }else if (i > _slideIndex){
-                _slides[i].element.setProps({
-                    y: Stage.height
-                });
-            }
-
-        }
-
-    }
-
-    this.getUp = function(){
-        _getUp();
-    };
-
-    this.getDown = function(){
-        _getDown();
-    };
-
-    this.destroy = function() {
-
-        if (Device.mobile) {
-            // unbind seems to be causing issues on mobile, so don't unbind
-            // TouchUtil.unbind(_elem);
-        } else {
-            ScrollUtil.unbind(_elem);
-        }
-
-        this.__destroy();
-    };
-
-    this.animateOut = function(callback) {
-        _elem.transform({
-            transformOrigin: Stage.width/2 - 100
-        }).tween({
-             opacity: 0
-        }, 0.2, 'Quart.EaseOut', null, function() {
-            callback();
-            Global.FULLBG.image.removeSlides();
-        });
-    };
-}
-
-function Intro(callback) {
-
-	Inherit(this, $id);
-	
-	var _self = this,
-		_elem = _self.element,
-		_scrollCallback = callback,
-		_text,
-		_arrowbox,
-		_arrow,
-		_fontsize,
-		_width,
-		_height;
-
-	var _mouse = {
-            x: Stage.width/2,
-            y: Stage.height/2,
-            vx: 0,
-            vy: 0
-        },
-        _translate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        },
-        _rotate = {
-            x: 0,
-            y: 0,
-            prevx: 0,
-            prevy: 0
-        };
-
-	Global.INTRO = this;
-
-	(function(){
-		_init();
-		_addText();
-		_addArrow();
-		_animateIn();
-		_setSize();
-		_events();
-	})();
-
-	function _init(){
-		// console.log('INTRO INIT');
-		_elem.size(Stage.width, Stage.height).setProps({
-			scale: 0.5
-		}).setZ(250);
-	}
-
-	function _addText(){
-		_text = _elem.create('.intro-text');
-		_text.setProps({
-			fontFamily: Config.FONT.name,
-			color: Config.COLORS.white,
-			textAlign: 'center',
-			lineHeight: '1.33em',
-			opacity: 0
-		});
-		_text.text(Data.LOADER.text.toUpperCase());
-	}
-
-	function _addArrow(){
-		_arrowbox = _elem.create('.arrow-container');
-		_arrowbox.setProps({
-			opacity: 0
-		});
-
-        _arrow = _self.initClass(ScrollArrow, true, true);
-        _arrowbox.add(_arrow);
-    }
-
-    function _events(){
-		Evt.resize(_setSize);
-
-		// track mouse movement
-		if (!Device.mobile){
-        	document.addEventListener('mousemove', _onMouseMove);
-        }
-	}
-
-	function _bindScroll(){
-		if (Device.mobile){
-            TouchUtil.bind(_elem, _directionHandler);
-        }else{
-            ScrollUtil.bind(_elem, _directionHandler);
-        }
-	}
-
-	function _setSize(){
-		_fontsize = Math.min(Stage.height * 0.04, Stage.width * 0.025);
-		_width = Stage.width;
-		_height = _fontsize*4;
-
-		_elem.size(Stage.width, Stage.height);
-
-		_text.setProps({
-			width: _width,
-			height: _height,
-			x: (Stage.width - _width)/2,
-			y: (Stage.height - _height)/2,
-            fontSize: _fontsize + 'px',
-            letterSpacing: _fontsize * Config.FONT.spacing.subtitles + 'px'
-        });
-	}
-
-	function _onMouseMove(event){
-        _updateCoords(event);
-        Render.startRender(_updateObj);
-    }
-
-    function _updateCoords(event){
-        // get mouse coords
-        _mouse.x = event.clientX || event.pageX; 
-        _mouse.y = event.clientY || event.pageY;
-
-        // normalize mouse position values based on Stage center
-        _mouse.vx = ((_mouse.x/(Stage.width - (Stage.width/2))) - 1).toFixed(2);
-        _mouse.vy = ((_mouse.y/(Stage.height - (Stage.height/2))) - 1).toFixed(2);
-
-        // figure out how much to translate elements
-        _translate.x = -((Stage.width * Config.MAXTRANSLATE.x) * _mouse.vx).toFixed(2);
-        _translate.y = -((Stage.height * Config.MAXTRANSLATE.y) * _mouse.vy).toFixed(2);
-
-        // figure out how much to rotate elements
-        // we switch these because the rotateX function actually rotates AROUND the X axis
-        // if you want it to 'look at' the mouse, we have to invert the Y value as well so it makes sense visually
-        // _rotate.y = -(Config.MAXROTATE.x * _mouse.vx).toFixed(2);
-        // _rotate.x = (Config.MAXROTATE.y * _mouse.vy).toFixed(2);
-    }
-
-    function _updateObj(){
-        var lerpX = Utils.lerp(Config.LERPAMT, _translate.prevx, _translate.x);
-        var lerpY = Utils.lerp(Config.LERPAMT, _translate.prevy, _translate.y);
-        var pos_x = (Stage.width - _width)/2;
-        var pos_y = (Stage.height - _height)/2;
-
-        // update previous values
-        _translate.prevx = lerpX;
-        _translate.prevy = lerpY;
-
-        // update transform values on element
-        _text.setProps({
-            transform: 'translate('+(lerpX + pos_x)+'px, '+(lerpY + pos_y)+'px)'
-        });
-    }
-
-    function _directionHandler(event) {
-    	// console.log(event);
-
-    	if (!Device.mobile){
-    		if (event.direction == 'down'){
-	    		_animateOut();
-	    	}
-    	}else{
-    		if (event.direction == 'up'){
-	    		_animateOut();
-	    	}
-    	}
-    }
-
-    function _animateIn(){
-		var time = 5;
-
-		_elem.tween({
-			scale: 1
-		}, time, Config.EASING.out);
-
-		_text.tween({
-			opacity: 1
-		}, time, Config.EASING.inout);
-
-		_self.delayedCall(_bindScroll, 3000);
-
-		_self.delayedCall(_showArrow, (time*1000)+500);
-	}
-
-	function _showArrow(){
-		_arrowbox.tween({
-			opacity: 1
-		}, 2, Config.EASING.out);
-	}
-
-	function _animateOut() {
-		_stop();
-
-		_elem.tween({
-			y: -Stage.height,
-			opacity: 0
-		}, 1.25, Config.EASING.inout, null, function(){
-			_elem.setZ(0);
-
-			if (typeof _scrollCallback == 'function'){
-				_scrollCallback();
-			}else{
-				throw Error('Intro callback is not a function');
-			}
-		});
-	}
-
-	// clean up animations and events
-	function _stop(){
-		TouchUtil.unbind(_elem);
-		
-		if (!Device.mobile){
-			ScrollUtil.unbind(_elem);
-	        Render.stopRender(_updateObj);
-	        document.removeEventListener('mousemove', _onMouseMove);
-	    }
-
-		_arrow.stop();
-    };
-
-    this.animateIn = function(){
-		_animateIn();
-	};
-
-	this.animateOut = function(){
-		_animateOut();
-	};
-}
 function Loader(callback) {
-
+	 
 	Inherit(this, $id);
 
 	var _self = this,
 		_elem = _self.element,
-		_text,
 		_preload,
-		_images = Config.PRELOAD,
-		_loadCallback = callback,
+		_loader,
+		_loaderBar,
 		_loaderView,
-		_initialScale = 0.85,
-		_initialOpacity = 0.25,
-		_hidden,
-		_is_in = false,
-		_loader_out = false;
+		_loaderMark,
+		_loaderText,
+		_loaderDot,
+		_sizes = {},
+		_images = Config.PRELOAD,
+		_hidden;
 
 	Global.LOADER = this;
 
 	(function() {
 		_init();
-		_renderFonts();
+		_events();
 	})();
 
 	function _init() {
-		_elem.size(Stage.width, Stage.height).setZ(200);
+		// console.log('RUN LOADER');
+
+		_elem.setZ(200);
+
+		_hidden = _elem.create(".hidden");
+
+		_hidden.css({
+			opacity: 0
+		});
 
 		// instantiate new PreloadJS
 		_preload = new createjs.LoadQueue();
@@ -17464,72 +21038,63 @@ function Loader(callback) {
 		_preload.on("progress", _handleOverallProgress);
 		_preload.setMaxConnections(5);
 
-		// _preload.on("fileload", _onFileLoaded);
+		_preload.on("fileload", _onFileLoaded);
 		// _preload.on("fileprogress", _handleFileProgress);
 		// _preload.on("error", _handleFileError);
 
-		_addLoaderView();
+		_renderFonts();
+
+		_addLoader();
+		_setSize();
 		_animateIn();
-
-		_loadAll();
-
-		Render.startRender(_checkAnimateOut);
 	}
 
-	function _addLoaderView(){
-		var _fontsize = Device.mobile.phone ? Stage.width * 0.03 : Math.min(Stage.height * 0.04, Stage.width * 0.025);
-		var _width = Stage.width;
-		var _height = _fontsize*4;
-
-		_text = _elem.create('.intro-text');
-		_text.setProps({
-			width: _width,
-			height: _height,
-			x: (Stage.width - _width)/2,
-			y: Device.mobile.phone ? Stage.height * 0.28 : (Stage.height - _height)/2,
-            fontSize: _fontsize + 'px',
-            letterSpacing: _fontsize * Config.FONT.spacing.subtitles + 'px',
-			fontFamily: Config.FONT.name,
-			// color: Config.COLORS.white,
-			color: "transparent",
-			textAlign: 'center',
-			lineHeight: '1.33em',
-			opacity: 0,
-			textShadow: "0px 0px 15px " + Config.COLORS.white
-		});
-		_text.text(Data.LOADER.text.toUpperCase());
-
-
-		var fontsize = Device.mobile.phone ? Stage.width * 0.03 : Stage.height * (48/1200);
-
-		_loaderView = _elem.create('.loaderview');
-
-		_loaderView.setProps({
-			width: fontsize*4,
-			height: fontsize*4,
-			borderRadius: '50%',
-			textShadow: "0px 0px 15px " + Config.COLORS.white,
-			x: (Stage.width - (fontsize*4))/2,
-			y: (Stage.height - (fontsize*4))*0.6,
-			scale: _initialScale,
+	function _addLoader(){
+		_loader = _elem.create('.loader');
+		_loader.setProps({
 			opacity: 0
 		});
-		// }).bg('#181818');
 
-		_loaderText = _loaderView.create('.percent');
-
-		_loaderText.setProps({
-			fontFamily: Config.FONT.name,
-			fontWeight: Config.FONT.light,
-			color: "transparent",
-			fontSize: fontsize+'px',
-			lineHeight: '1em',
-			width: '100%',
-			height: fontsize,
-			textAlign: 'center',
-			x: 0,
-			y: (fontsize*3)/2
+		_loaderBar = _loader.create('.loaderbar');
+		_loaderBar.bg(Config.ASSETS.images+'timeline.png').setProps({
+			backgroundSize: '100% 100%'
 		});
+
+		_loaderView = _loader.create('.view');
+		_loaderView.setProps({
+        	x: 0,
+        	y: 0
+        });
+
+		_loaderText = _loaderView.create('.loader-text');
+		_loaderText.setProps({
+			fontFamily: Config.FONTS.headings.name,
+			color: Config.COLORS.white,
+			textAlign: 'center',
+			backgroundSize: '100% 100%'
+		}).bg(Config.ASSETS.images+'tag-bg.png').setZ(20);
+
+		_loaderMark = _loaderView.create('.mark');
+		_loaderMark.bg(Config.ASSETS.images+'timeline-mark.png').setProps({
+			backgroundSize: '100% 100%'
+		}).setZ(10);
+
+		_loaderDot = _loaderView.create('.dot');
+		_loaderDot.bg(Config.COLORS.red).css({
+			borderRadius: '50%'
+		}).setZ(30);
+		_loaderDot.innerDot = _loaderDot.create('.innerdot');
+		_loaderDot.innerDot.bg(Config.COLORS.yellow).css({
+			borderRadius: '50%'
+		});
+	}
+
+	function _animateIn(){
+		_loader.tween({
+			opacity: 1
+		}, 0.5, Config.EASING.out, 0.25);
+
+		_self.delayedCall(_loadAll, 250);
 	}
 
 	// load all assets
@@ -17544,532 +21109,108 @@ function Loader(callback) {
 	function _handleOverallProgress(event) {
 		// console.log('overall progress: ' + _preload.progress);
 
-		var scaleDiff = 1 - _initialScale;
-		var opacityDiff = 1 - _initialOpacity;
-
 		_loaderView.tween({
-			scale: _initialScale + (scaleDiff*_preload.progress),
-			// opacity: _initialOpacity + (opacityDiff*_preload.progress)
-		}, 0, Config.EASING.out);
+			x: (_sizes.loaderwidth - _sizes.tagwidth)*_preload.progress
+		}, 0.25, Config.EASING.out);
 
 		_loaderText.text((Math.round(_preload.progress * 100)) + '%');
+
+		if (_preload.progress == 1){
+			_animateOut();
+		}
 	}
 
+	function _onFileLoaded(event){
+        // create an image object that will hold the source
+        var img = _hidden.create('.img', 'img');
+        img.div.src = event.result.src;
+
+        var loaded = {
+        	id:  event.item.id,
+        	img: img
+        };
+
+        // put the image into our set of loaded assets
+        Config.LOADED.push(loaded);
+    }
+
 	function _renderFonts() {
-		_hidden = _elem.create(".hidden");
-
-		_hidden.css({
-			opacity: 0
-		});
-
-		var _fonts = ['Raleway', 'FontAwesome'];
+		var _fonts = [Config.FONTS.headings.name, Config.FONTS.body.name];
 		for (var i = 0; i < _fonts.length; i++) {
 			var _render = _hidden.create(".a");
 			_render.text("a").fontStyle(_fonts[i], 12, "#000");
 		}
 	}
 
-	// check if we're ready to animate out
-	function _checkAnimateOut(){
-		if (_preload.progress == 1){
-			if (_loader_out === false){
-				_animateLoaderOut();
-			}
-
-			if (_is_in === true){
-				_animateOut();
-			}
-		}
-	}
-
-	function _animateIn(){
-		_loaderView.tween({
-			opacity: 0.8,
-			textShadow: "0px 0px 0px " + Config.COLORS.white
-		}, 1, Config.EASING.inout);
-
-		_text.tween({
-			opacity: 1,
-			textShadow: "0px 0px 0px " + Config.COLORS.white
-		}, 2.5, Config.EASING.inout, 0.5, function(){
-			_is_in = true;
-		});
-	}
-
-	function _animateLoaderOut(){
-		_loader_out = true;
-
-		_loaderView.tween({
-			opacity: 0,
-			textShadow: "0px 0px 15px " + Config.COLORS.white
-		}, 1, Config.EASING.inout);
-	}
-
 	function _animateOut() {
-		Render.stopRender(_checkAnimateOut);
+		_elem.tween({
+			opacity: 0
+		}, 1, Config.EASING.in, null, function(){
+			if (typeof callback == 'function'){
+				callback();
+			}
 
-		_text.tween({
-			y: 0,
-			opacity: 0,
-			textShadow: "0px 0px 15px " + Config.COLORS.white
-		}, 1, Config.EASING.in, 1, function(){
-			_loadCallback();
-			
-			_elem.tween({
-				opacity: 0
-			}, 1.5, Config.EASING.out, null, function(){
-				_elem.setZ(0);
-
-				_self.delayedCall(function(){
-					_self.__destroy();
-				}, 500);
-			});
+			_self.delayedCall(function(){
+				_self.__destroy();
+			}, 500);
 		});
+	}
+
+	function _events(){
+		Evt.resize(_setSize);
+	}
+
+	function _setSize(){
+		_elem.size(Stage.innerW, Stage.innerH).setProps({
+            top: Global.HEADER.height
+        });
+
+        _sizes.loaderwidth = Stage.innerW * (1747/2020);
+        _sizes.loaderheight = Stage.innerH * (177/1500);
+        _sizes.barheight = _sizes.loaderwidth * (6/1747);
+
+        _loader.size(_sizes.loaderwidth, _sizes.loaderheight).setProps({
+        	left: (Stage.innerW - _sizes.loaderwidth)/2,
+        	top: (Stage.innerH - _sizes.loaderheight)/2
+        });
+
+        _loaderBar.size(_sizes.loaderwidth, _sizes.barheight).setProps({
+        	left: 0,
+        	top: _sizes.loaderheight * (28/177)
+        });
+
+        _sizes.tagwidth = _sizes.loaderwidth * (270/1747);
+        _sizes.tagheight = _sizes.tagwidth * (53/270);
+
+        _loaderView.size(_sizes.tagwidth, _sizes.loaderheight);
+
+        _loaderText.size(_sizes.tagwidth, _sizes.tagheight).setProps({
+        	left: 0,
+        	bottom: 0,
+        	lineHeight: _sizes.tagheight + 'px',
+        	fontSize: (_sizes.tagheight * 0.66) + 'px',
+        	fontWeight: Config.FONTS.headings.bold
+        });
+
+        _sizes.markheight = _sizes.loaderheight * (136/177);
+        _sizes.markwidth = _sizes.markheight * (3/136);
+
+        _loaderMark.size(_sizes.markwidth, _sizes.markheight).setProps({
+        	left: '50%',
+        	top: 5
+        });
+
+        _sizes.dot = _sizes.loaderheight * (55/177);
+        _sizes.innerdot = _sizes.dot * (20/55);
+
+        _loaderDot.size(_sizes.dot, _sizes.dot).setProps({
+        	left: (_sizes.tagwidth - _sizes.dot)/2,
+        	top: _sizes.loaderheight * (3/177)
+        });
+
+        _loaderDot.innerDot.size(_sizes.innerdot, _sizes.innerdot).setProps({
+        	left: (_sizes.dot - _sizes.innerdot)/2,
+        	top: (_sizes.dot - _sizes.innerdot)/2
+        });
 	}
 } 
-function Work() {
-
-    Inherit(this, $id);
-    
-    var _self = this;
-
-    var _elem, _headline, _bg, _scroll;
-    var _scont, _bbg, _button, _btext;
-    var _hwidth, _hheight, _hscale;
-    var _swidth, _sheight, _arrow, _arrow1;
-
-    var _scrolltick     = null;
-    
-    var _isAnimating    = true;
-    var _z              = 99;
-    var _slideIndex     = 0;
-    var _slides         = [];
-    var _isScrolling    = false;
-    // -1 because user has to scroll down to start
-    var _currdir        = -1;
-
-    var _arrowTop       = Device.mobile.phone ? Stage.height - 100 : Stage.height - 145;
-    var _arrow_w        = Device.mobile.phone ? 109 : 122;
-    var _arrow_h        = _arrow_w*0.667;
-    var _arrowDir       = 'down';
-
-    var _inc = 0;
-
-    Global.WORK         = this;
-    this.hasAnimateOut  = true;
-
-    (function() {
-
-        _init();
-        // _getFirstSlide();
-        _getSlides();
-        // _animateIn();
-
-        _eventSubscription();
-
-    })();
-
-    function _init() {
-
-        _hwidth = Device.mobile ? 500 : 600;
-        _hheight = Device.mobile ? 104 : 240;
-        _hscale = Device.mobile.phone ? 0.25 : 0.5;
-
-        _elem = _self.element;
-
-        _elem.size(Stage.width, Stage.height).css({
-            opacity: 1,
-        }).transform({
-            skewY: -2
-        }).setZ(6);
-
-        _arrow = _elem.create('.arrow');
-        _arrow.size(244, 91).css({
-            top: _arrowTop - 50,
-            left: Stage.width/2 - _arrow_w - 10,
-            opacity: 0,
-            cursor: 'pointer'
-        }).setZ(199);
-
-        _arrow1 = _arrow.create('.down-arrow');
-        _arrow1.size(244, 91).bg(Config.ASSETS.common + '/arrow.png');
-
-        _arrow.transform({
-            scale: !Device.mobile.phone ? 0.5 : 0.3
-        });
-
-        _self.delayedCall(function() {
-            _arrowIn();
-        }, 2200);
-        
-        
-        // image background in
-            // Global.FULLBG.coverOut();
-    }
-    
-    function _getSlides() {
-
-        // run the loop through requestAnimationFrame, which is 
-        // built into TweenLite.ticker. This is the key to having
-        // the full 16.67ms to load layout items in between frames
-        // TweenLite.ticker.addEventListener('tick', _loadSlide);
-        Render.startRender(_loadSlide);
-
-    }
-
-    function _loadSlide() {
-
-        if (_inc == Data.WORK.getMappedData().length) {
-            _inc = 0;
-            // TweenLite.ticker.removeEventListener('tick', _loadSlide);
-            Render.stopRender(_loadSlide);
-            // console.log('end of loop');
-            return;
-        }
-        // console.log('loop inc: '+_inc);
-        
-        if (_inc === 0) {
-
-            _slide = _self.initClass(Slide, Data.WORK.getMappedData()[0], 0);
-            _slides.push(_slide);
-
-            Global.FULLBG.image.loadSlides(Data.WORK.getMappedData()[0], 0);
-
-            _slides[0].element.transform({
-                scale: _hscale
-            });
-            
-            _slides[0].element.tween({
-                opacity: 1,
-                scale: Device.mobile.phone ? 0.6 : 1,
-            }, 0.6, 'Quart.EaseOut').setZ(99);
-
-        } else {
-
-            _slide = _self.initClass(Slide, Data.WORK.getMappedData()[_inc], _inc);
-            _slides.push(_slide);
-
-            _slide.element.transform({
-                scale: _hscale
-            // }).css({
-            }).transform({
-                y: 100
-            });
-
-            Global.FULLBG.image.loadSlides(Data.WORK.getMappedData()[_inc], _inc);
-        }
-
-        // turn animation to false to allow for scrollHandler
-        _isAnimating = false;
-        // figure out where we need to run the tint and cover out
-        _inc++;
-
-        var _tock = setTimeout(function() {
-            
-            Global.FULLBG.tintOut();
-            clearTimeout(_tock);
-
-        }, 800);
-    }
-    function _arrowIn() {
-        _arrow.tween({
-            opacity: 1,
-            top: _arrowTop
-        }, 1, 'Quart.EaseOut', null, function() {
-            _loopArrow();
-        });
-    }
-    function _loopArrow() {
-        _arrow1.tween({
-            top: - 20,
-        }, 0.4, 'Quart.EaseOut', null, function() {
-
-            _arrow1.tween({
-                top: 0
-            }, 0.6, 'Quart.EaseIn', null, function() {
-                _loopArrow();
-            });
-        });
-    }
-    function _handleArrowClick() {
-
-        if (_arrowDir == 'down') {
-            _getDown();
-            // Global.FULLBG.up();
-        } else {
-            _getUp();
-            // Global.FULLBG.down();
-        }
-    }
-    function _eventSubscription() {
-        Evt.resize(_onResize);
-        Evt.subscribe(_arrow, Evt.CLICK, _handleArrowClick);
-
-        if (Device.mobile){
-            TouchUtil.bind(_elem, _directionHandler);
-        }else{
-            ScrollUtil.bind(_elem, _directionHandler);
-        }
-    }
-
-    function _onOver(e) {
-        // console.log('OVER');
-        _bbg.tween({
-            top: 0
-        }, 0.2, 'Quart.EaseOut');
-        _btext.css({
-            color: Config.COLORS.branding
-        });
-    }
-    function _onOut(e) {
-        _bbg.tween({
-            top: -60
-        }, 0.2, 'Quart.EaseIn', null, function() {
-            _bbg.css({
-                top: 50
-            });
-        });
-        _btext.css({
-            color: 'white'
-        });
-    }
-
-    // function _onClick(e) {
-        // if (Device.mobile) {
-        //     getURL(Utils.getAsset('Flip11_Reel_103114', 'video'));
-        // } else {
-        //     Global.FULLBG.startvideo('Flip11_Reel_103114');
-        // }
-    // }
-
-    function _directionHandler(e) {
-
-        var _delta = Math.abs(e.wheelDelta);
-
-        // detect the end of scrolling and reset the _isScrolling varialbe
-        clearTimeout(_scrolltick);
-        _scrolltick = setTimeout(function(){
-            // console.log('scrolling stopped');
-            _isScrolling = false;
-        }, 50);
-
-        // reset is scrolling to false if the user changes the direction of scroll
-        if (_currdir != e.direction) {
-            _isScrolling = false;
-            // _arrowDir = _arrowDir == 'up' ? 'down' : 'up';
-        }
-        _currdir = e.direction;
-
-        // console.log(e.amount)
-        // reset is scrolling to false if user is hammering on scroll and animation is complete
-        if (!_isAnimating && Math.abs(e.amount) > 1.2) {
-            _isScrolling = false;
-        }
-
-        // curb multiple firings of implementation
-        if (!_isScrolling) {
-
-            _isScrolling = true;
-
-            switch (e.direction) {
-                case 'up':
-                    if (!Device.mobile) {
-                        _getUp();
-                        Global.FULLBG.down();
-                    } else {
-                        _getDown();
-                        Global.FULLBG.up();
-                    }
-
-                break;
-                case 'down':
-
-                    if (!Device.mobile) {
-                        _getDown();
-                        Global.FULLBG.up();
-                    } else {
-                        _getUp();
-                        Global.FULLBG.down();
-                    }
-
-                break;
-            }
-        }
-
-        
-        
-    }
-
-    function _getUp() {
-        if (_isAnimating === false) {
-            
-            if (_slideIndex !== 0) {
-
-                _isAnimating = true;
-                
-                var __el = _slides[_slideIndex].element;
-
-                __el.transform({
-                    transformOrigin: Stage.width/2,
-                }).tween({
-                    y: 100,
-                    opacity: 0,
-                    scale: Device.mobile.phone ? 0.4 : 0.8,
-                }, 0.5, 'Quart.EaseOut');
-
-
-                _slideIndex--;
-                __el = _slides[_slideIndex].element;
-                
-                __el.transform({
-                    transformOrigin: Stage.width/2
-                }).tween({
-                    y: 0,
-                    opacity: 1,
-                    scale: Device.mobile.phone ? 0.5 : 1,
-                }, 0.4, 'Quart.EaseOut', null, function() {
-
-                    _self.delayedCall(function() {
-                        
-                        _isAnimating = false;
-
-                    }, 500);
-                    
-                }).setZ(_z++);
-
-
-                Global.FULLBG.image.getPrev();
-
-                if (_slideIndex == 0) {
-                    _rotateArrowDown();
-                }
-
-
-                
-            }
-        }
-    }
-
-    function _getDown() {
-        
-        
-        if (_isAnimating === false) {
-
-
-            if (_slideIndex != _slides.length - 1) {
-
-                _isAnimating = true;
-                var __el = _slides[_slideIndex].element;
-
-                __el.transform({
-                    transformOrigin: Stage.width/2
-                }).tween({
-                    y: -100,
-                    opacity: 0,
-                    scale: Device.mobile.phone ? 0.4 : 0.9,
-                }, 0.5, 'Quart.EaseOut');
-
-
-                 _slideIndex++;
-                 __el = _slides[_slideIndex].element;
-                
-                __el.transform({
-                    transformOrigin: Stage.width/2
-                }).tween({
-                    y: 0,
-                    opacity: 1,
-                    scale: Device.mobile.phone ? 0.5 : 1,
-                }, 0.4, 'Quart.EaseOut', null, function() {
-                    
-                    _self.delayedCall(function() {
-                        
-                        _isAnimating = false;
-
-                    }, 500);
-
-                }).setZ(_z++);
-
-                Global.FULLBG.image.getNext();
-
-                if (_slideIndex == _slides.length - 1) {
-                    _rotateArrowUp();
-                }
-
-            }
-        }
-
-    }
-
-    function _rotateArrowUp() {
-        _arrowDir = 'up';
-        _arrow.tween({
-            rotation: 180,
-            transformOrigin: _arrow_w + 'px ' + (_arrow_h*0.667) + 'px'
-            // top: _arrowTop
-        }, 0.4, 'Quart.EaseInOut');
-
-    }
-    function _rotateArrowDown() {
-        _arrowDir = 'down';
-        _arrow.tween({
-            rotation: 0,
-            transformOrigin: _arrow_w + 'px ' + (_arrow_h*0.667) + 'px'
-            // top: _arrowTop
-        }, 0.4, 'Quart.EaseInOut');
-
-    }
-
-    function _onResize() {
-        
-        _elem.size(Stage.width, Stage.height);
-
-        _hwidth = Device.mobile ? 500 : 600;
-        _hheight = Device.mobile ? 104 : 104;
-        _arrowTop   = Device.mobile.phone ? Stage.height - 100 : Stage.height - 145;
-
-        _arrow.css({
-            top: _arrowTop - 50,
-            left: Stage.width/2 - _arrow_w - 10,
-        });
-
-        for (var i = 0; i < _slides.length; i++) {
-
-            _slides[i].element.size(Stage.width, Stage.height);
-
-            _slides[i].section.css({
-                top: Stage.height/2 - (_hheight/2) - 100,
-                left: Stage.width/2 - (_hwidth/2),
-            });
-
-        }
-
-    }
-    this.getstarted = function() {
-        _getDown();
-    };
-    this.destroy = function() {
-
-        if (Device.mobile) {
-            // unbind seems to be causing issues on mobile, so don't unbind
-            // TouchUtil.unbind(_elem);
-        } else {
-            ScrollUtil.unbind(_elem);
-            Evt.removeEvent(_arrow, Evt.CLICK, _handleArrowClick);
-        }
-
-        this.__destroy();
-    };
-
-    this.animateOut = function(callback) {
-        _elem.transform({
-            transformOrigin: Stage.width/2 - 100
-        }).tween({
-             opacity: 0,
-             // width: 0
-             scale: _hscale,
-        }, 0.2, 'Quart.EaseOut', null, function() {
-            callback();
-            Global.FULLBG.image.removeSlides();
-        });
-    };
-}
