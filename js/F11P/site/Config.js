@@ -53,10 +53,6 @@ Static(function Config() {
     // array of assets to pass to the preloader
     this.PRELOAD = [
         // _self.ASSETS.images + 'image.png',
-        _self.ASSETS.images + 'test1.png',
-        _self.ASSETS.images + 'test2.png',
-        _self.ASSETS.images + 'test3.jpg',
-        _self.ASSETS.images + 'test4.jpg'
     ];
 
     // array of preloaded assets, stored here and retrieved when needed

@@ -19285,16 +19285,21 @@ Static(function Utils() {
     };
 
     // apply an image background
+    // @param string url  the URL of the image (required)
     // @param object params {
-    // url: string  the URL of the image (required),
     // preloaded: boolean  whether to use the preloaded asset (default true),
     // repeat: string  css background-repeat value,
     // pos: string  css background-position value,
     // size: string  css background-size value
     // }
-    $.fn.imgbg = function(params){
+    $.fn.imgbg = function(url, params){
         var _self = this;
         
+        // check for params or set default
+        if (typeof params != 'object'){
+            params = {};
+        }
+
         // check for repeat or set default
         if (typeof params.repeat != 'string'){
             params.repeat = 'no-repeat';
@@ -19316,16 +19321,25 @@ Static(function Utils() {
         }
 
         if (params.preloaded === true){
-            var img = Utils.getImg(params.url);
-            params.url = img.div.src;
+            var img = Utils.getImg(url);
+            url = img.div.src;
         }
 
         _self.setProps({
-            backgroundImage: 'url("'+params.url+'")',
+            backgroundImage: 'url("'+url+'")',
             backgroundRepeat: params.repeat,
-            backgroundPosition: params.pos,
-            backgroundSize: params.size
+            backgroundPosition: params.pos
         });
+
+        if (params.size == 'auto' || params.size == 'cover' || params.size == 'contain' || params.size == 'initial' || params.size == 'inherit'){
+            _self.css({
+                backgroundSize: params.size
+            });
+        }else{
+            _self.setProps({
+                backgroundSize: params.size
+            });
+        }
 
         return _self;
     };
@@ -20659,10 +20673,6 @@ Static(function Config() {
     // array of assets to pass to the preloader
     this.PRELOAD = [
         // _self.ASSETS.images + 'image.png',
-        _self.ASSETS.images + 'test1.png',
-        _self.ASSETS.images + 'test2.png',
-        _self.ASSETS.images + 'test3.jpg',
-        _self.ASSETS.images + 'test4.jpg'
     ];
 
     // array of preloaded assets, stored here and retrieved when needed
