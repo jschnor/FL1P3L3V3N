@@ -1,0 +1,88 @@
+// colors
+$white: #ffffff;
+$black: #000000;
+
+// fonts
+@import "fontawesome/font-awesome";
+
+// reset body
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Raleway', sans-serif;
+    color: $black;
+    background: $white;
+}
+
+// standard positioning and attributes for all elements
+* {
+    position: absolute;
+
+    outline: none;
+    border: none;
+
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -o-user-select: none;
+    -ms-user-select: none;
+    // text-rendering: optimizeLegibility;
+    -webkit-backface-visibility: hidden;
+    -moz-backface-visibility: hidden;
+    -ms-backface-visibility: hidden;
+    backface-visibility: hidden;
+    // border: 1px solid white;
+    -webkit-transform-style: flat;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+
+    -webkit-transform-style: flat;
+    font-weight: normal;
+    font-style: normal;
+
+    -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+    -moz-box-sizing: border-box; /* Firefox, other Gecko */
+    box-sizing: border-box; /* Opera/IE 8+ */
+
+    input {
+        user-select: text;
+        -moz-user-select: text;
+        -webkit-user-select: text;
+        -o-user-select: text;
+        -ms-user-select: text;
+    }
+}
+
+br {
+    position: relative;
+}
+
+strong, b {
+    font-weight: 400;
+}
+
+em, i {
+    font-style: italic;
+}
+
+a,
+a:active,
+a:visited,
+a:link {
+    color: #0000ff;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+// allows us to apply position static directly to an element, or to an element's children
+.static,
+.static-content * {
+    position: static;
+}
