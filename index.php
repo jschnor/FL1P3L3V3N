@@ -1,4 +1,9 @@
-<!doctype html>
+<?php
+// get data from a CMS database here
+// save it as a JSON object to /js/data.js
+// include /js/data.js in the <head>
+
+?><!doctype html>
 <html class="no-js" lang="en">
 	<head>
 		<meta charset="UTF-8">

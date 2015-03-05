@@ -1,3 +1,5 @@
+// example of a data model for a section of the site
+
 function HomeModel(_data) {
     
     Inherit(this, Model);

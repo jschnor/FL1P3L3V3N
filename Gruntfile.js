@@ -55,6 +55,8 @@ var _appfiles = [
      'bower_components/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
      'bower_components/PreloadJS/lib/preloadjs-0.6.0.combined.js',
      'js/F11P/lib/utilities/Utils.js',
+     'js/F11P/lib/utilities/Cookie.js',
+     'js/F11P/lib/utilities/Ajax.js',
      'js/F11P/lib/bit/extensions/Ext_BG.js',
      'js/F11P/lib/bit/extensions/Ext_Center.js',
      'js/F11P/lib/bit/extensions/Ext_CSS.js',
@@ -79,7 +81,7 @@ var _appfiles = [
 ];
 
 // These are built into the framework. These shouldn't have to change much.
-var _exceptions = [ 'bit', '$bitObject', 'Utils', 'ScrollUtil', 'TouchUtil', 'Mobile', 'Start', 'Container', 'Evt', 'Model', 'Data', 'Config', 'GATracker',
+var _exceptions = [ 'bit', '$bitObject', 'Utils', 'ScrollUtil', 'TouchUtil', 'Cookie', 'Ajax', 'Mobile', 'Start', 'Container', 'Evt', 'Model', 'Data', 'Config', 'GATracker',
                     'Home', 'Loader', 'Device', 'CSS', 'Render'];
 
 
