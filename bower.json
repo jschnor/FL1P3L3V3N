@@ -1,0 +1,21 @@
+{
+  "name": "Flip-Bits",
+  "version": "0.0.1",
+  "authors": [
+    "Justin Schnor",
+    "Matt Engel"
+  ],
+  "description": "FL1P3L3V3N Framework",
+  "license": "Copyright Flipeleven 2015",
+  "homepage": "http://flipeleven.com",
+  "private": true,
+  "ignore": [
+    
+  ],
+  "dependencies": {
+    "greensock": ">=1.14.2",
+    "history.js": ">=1.8.0",
+    "PreloadJS": ">=0.6.0",
+    "fontawesome": ">=4.3.0"
+  }
+}
