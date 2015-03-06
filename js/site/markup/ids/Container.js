@@ -5,18 +5,21 @@ Singleton(function Container() {
 	var _self = this,
 		_elem = _self.element,
 		_loader,
-		_pageclass;
+		_cover,
+		_pageclass,
+		_fullbg;
 	
 	Global.CONTAINER = this;
 
 	(function() {
 		_init();
+		_onResize();
 		_events();
 		_preloadSite();
 	})();
 
 	function _init() {
-		_elem.size(Stage.width, Stage.height).bg(Config.COLORS.black);
+		_elem.bg(Config.COLORS.black);
 		Stage.add(_elem);
 	}
 
@@ -43,18 +46,20 @@ Singleton(function Container() {
 			}, 50);
 		}
 
+		// add cover
+		_cover = _self.initClass(Cover);
+
 		// set page state
-		// _pageState();
+		_pageState();
 	}
 
 	function _onResize() {
 		_elem.size(Stage.width, Stage.height);
-		// Transition.instance().resize();
 	}
 
 	// SETS GLOBAL PAGES AND INITIALIZES
 	// THAT PAGE NAME AS A CLASS
-	/*function _pageState(pagename) {
+	function _pageState(pagename) {
 
 		var _pagename = pagename;
 
@@ -78,10 +83,13 @@ Singleton(function Container() {
 		}
 
 		Global.PAGE = _pagename;
-		_pageclass  = _self.initClass(className, null);
+
+		_fullbg = _self.initClass(FullBackground);
+		_pageclass  = _self.initClass(className);
 		
+		_elem.add(_fullbg);
 		_elem.add(_pageclass);
-	}*/
+	}
 	
 
 	// THIS RUNS EVERY TIME THE PAGE STATE RUNS

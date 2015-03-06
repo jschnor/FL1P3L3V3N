@@ -8,7 +8,7 @@ Static(function Config() {
     this.COLORS = {
         black: '#000000',
         white: '#ffffff',
-        test: '#ff0000'
+        test: '#00ccff'
     };
 
     // aspect ratio for scaling images and videos 
@@ -52,7 +52,7 @@ Static(function Config() {
 
     // array of assets to pass to the preloader
     this.PRELOAD = [
-        // _self.ASSETS.images + 'image.png',
+        _self.ASSETS.images + 'sample.jpg',
     ];
 
     // array of preloaded assets, stored here and retrieved when needed
@@ -68,6 +68,7 @@ Static(function Config() {
         loader: false,
         markup: false,
         scroll: false,
-        touch: false
+        touch: false,
+        fullbg: false
     };
 });

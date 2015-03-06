@@ -13,10 +13,18 @@ website-project
 
 	|_ js
 		|
+		|_ site
+			|
+			|_ data
+			|_ markup
+			|_ Start.js
+			|_ SiteDevice.js
+			|_ Config.js
+
 		|_ app.js
 		|_ app.min.js
 		|_ data.js
-		
+
 	|_ node_modules
 		|
 		|_ grunt stuff
@@ -45,3 +53,10 @@ website-project
 		|_ greensock
 		|_ history.js
 		|_ PreloadJS
+
+
+1. Share bower.json with developer
+2. Put bower.json in root of new project
+3. Run bower install
+4. Copy all files from /bower_components/F11P/sample-project to project root
+5. Enjoy!
