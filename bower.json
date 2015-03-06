@@ -19,6 +19,7 @@
   "dependencies": {
     "greensock": ">=1.14.2",
     "history.js": ">=1.8.0",
-    "PreloadJS": ">=0.6.0"
+    "PreloadJS": ">=0.6.0",
+    "fontawesome": ">=4.3.0"
   }
 }
