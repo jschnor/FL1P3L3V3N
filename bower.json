@@ -8,7 +8,7 @@
   "description": "FL1P3L3V3N Framework",
   "license": "Copyright Flipeleven 2015",
   "homepage": "http://flipeleven.com",
-  "private": true,
+  "private": false,
   "ignore": [
     
   ],
