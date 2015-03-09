@@ -158,7 +158,7 @@ module.exports = function(grunt) {
 			},
 
 			scripts: {
-				files: [ 'js/site/**/**/*.js'],
+				files: ['js/site/**/**/*.js'],
 				tasks: ['concat']
 				// tasks: ['concat', 'uglify:concatenateOnly']
 			},
