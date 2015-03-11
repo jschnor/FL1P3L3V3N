@@ -39,6 +39,8 @@ var _appfiles = [
 	'bower_components/fl1p3l3v3n/lib/markup/markuplist.js',
 	'bower_components/fl1p3l3v3n/lib/data/Model.js',
 	'bower_components/fl1p3l3v3n/lib/GATracker.js',
+	'bower_components/fl1p3l3v3n/addons/slidelist.js',
+	'bower_components/fl1p3l3v3n/addons/slidenav.js',
 
 	'js/site/**/**/*.js'
 ];
