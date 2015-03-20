@@ -1296,125 +1296,271 @@ Static(function ScrollUtil() {
         return (window.pageYOffset !== undefined) ? window.pageYOffset : (document.documentElement || document.body.parentNode || document.body).scrollTop;
     };
 });
-Static(function TouchUtil() {
+Static(function TouchUtil(){
 
-    var _self = this;
-    var _elements = [];
-    var _startX,
-        _startY,
-        _changeX,
-        _changeY,
-        _touchTarget,
-        _locked = false;
-        _threshold = Device.mobile ? 10 : 10;
+	var _self = this,
+		_trackedTouches = [],
+		_boundElements = [],
+		_tapThreshold = 20,
+		_directionThreshold = 150;
 
+	var unPrevent = [
+		'a',
+		'input',
+		'button',
+		'select',
+		'textarea'
+	];
 
-    /*(function() {
+	// bind touch events to an element
+	this.bind = function(element, callback){
+		element.div.addEventListener("touchstart", _handleStart, false);
+		element.div.addEventListener("touchmove", _handleMove, false);
+		element.div.addEventListener("touchend", _handleEnd, false);
+		element.div.addEventListener("touchleave", _handleEnd, false);
+		element.div.addEventListener("touchcancel", _handleCancel, false);
 
-    })();*/
+		// add the element to our bound elements array with its callback
+		_addBinding(element, callback);
+	};
 
-    function _tap(event) {
-        // if we prevent default on a tap, it prevents the user from focusing inputs.
-        // event.preventDefault();
+	// remove touch events from an element
+	// you still need to pass the callback in to identify what you want to unbind. this way, other functions bound to this element can still run.
+	this.unbind = function(element, callback){
+		element.div.removeEventListener("touchstart", callback , false);
+		element.div.removeEventListener("touchmove", callback , false);
+		element.div.removeEventListener("touchend", callback , false);
+		element.div.removeEventListener("touchleave", callback , false);
+		element.div.removeEventListener("touchcancel", callback , false);
 
-        // initialize changeX/Y along with startX/Y so a motionless tap does not register as a swipe
-        _changeX = _startX = event.changedTouches[0].pageX;
-        _changeY = _startY = event.changedTouches[0].pageY;
-    }
+		// remove element from list of bound elements
+		_removeBinding(element, callback);
+	};
 
-    function _drag(event) {
-        event.preventDefault();
+	function _handleStart(event){
+		var touches = event.changedTouches;
 
-        // find updated X and Y coordinates
-        _changeX = event.changedTouches[0].pageX;
-        _changeY = event.changedTouches[0].pageY;
-    }
+		// check if the type of clicked node should be handled in a default manner
+		var prevent = true;
+		for (var idx = 0; idx < unPrevent.length; idx++){
+			if (touches[0].target.tagName.toLowerCase() == unPrevent[idx]){
+				prevent = false;
+			}
+		}
 
-    function _release(event) {
-        if (_locked){
-            event.preventDefault();
-            return;
-        }
+		// if (elements !== false){
+		if (prevent === true){
+			// only prevent default if we found a bound element, otherwise links wouldn't work
+			event.preventDefault();
+			event.stopPropagation();
+			
+			// normally, the touch target is the target element
+			var targetElement = touches[0].target;
 
-        // find difference on X and Y axes
-        // for more versatility and precision, future versions could use a vector (I think it's: start vector, end vector, subtract vectors to get direction + distance)
-        var _totalX = _startX - _changeX;
-        var _totalY = _startY - _changeY;
+			// see if the element clicked is bound
+			var elements = _getBindings(touches[0].target);
 
-        // console.log(_totalX+'/'+_totalY);
+			if (elements == false){
+				// see if any of its parents are bound
 
-        // initialize boolean directions
-        event.swiperight = false;
-        event.swipeleft = false;
-        event.swipeup = false;
-        event.swipedown = false;
-        event.tap = false;
-        event.direction = false;
+				var foundparents = _findParents(targetElement);
+				if (foundparents !== false){
+		            for (var parent in foundparents){
+		            	// the parent becomes the target element
+		            	targetElement = foundparents[parent];
+		            }
+		        }
+			}
 
-        if (Math.abs(_totalX) > 20 || Math.abs(_totalY) > 20){
-            // movement
+			// push this touch into our array
+			// not handling multi-touch at this time
+			_addTouch(targetElement, touches[0]);
+		}
+	}
 
-            // left/right, with threshold on up/down
-            if (Math.abs(_totalX) > 20 && Math.abs(_totalY) < 150) {
-                if (_changeX > _startX) {
-                    // console.log('SWIPE RIGHT');
-                    event.swiperight = true;
-                    event.direction = 'right';
-                    Evt.fireEvent(window, 'swiperight', event);
-                } else {
-                    // console.log('SWIPE LEFT');
-                    event.swipeleft = true;
-                    event.direction = 'left';
-                    Evt.fireEvent(window, 'swipeleft', event);
-                }
-            }
+	function _handleMove(event){
+		event.preventDefault();
+		event.stopPropagation();
 
-            // up/down, with threshold on left/right
-            if (Math.abs(_totalY) > 20 && Math.abs(_totalX) < 150) {
-                if (_changeY < _startY) {
-                    // console.log('SWIPE UP');
-                    event.swipeup = true;
-                    event.direction = 'up';
-                    Evt.fireEvent(window, 'swipeup', event);
-                } else {
-                    // console.log('SWIPE DOWN');
-                    event.swipedown = true;
-                    event.direction = 'down';
-                    Evt.fireEvent(window, 'swipedown', event);
-                }
-            }
-        }else{
-            // tap
-            // console.log('TAP');
-            event.tap = true;
-            event.direction = 'tap';
-            Evt.fireEvent(window, 'tap', event);
-        }
+		var touches = event.changedTouches;
+		var findID = _getTouchIndex(touches[0].identifier);
 
-        _touchTarget = event.changedTouches[0].target;
-        // console.log("touch target:");
-        // console.log(_touchTarget);
+		if (findID >= 0){
+			// this touch matches an existing touch
+			// could do something with previous x,y and new x,y at this point
+			// update its values in the array
+			_updateTouch(findID, touches[0]);
+		}
+	}
 
-        // need to check if the target event is the same as the bound element
-        // in some cases, the target could be a child of the bound element, so we need to traverse up the tree and look for it
-        // if we find the parent, we trigger the bound callback function
-        // we also need to ensure we can interrupt the triggering of a function on a higher parent when a lower parent has a bound function
-        // this is controlled by setting the bubble argument in the .bind() function (default is true)
+	function _handleEnd(event){
+		event.preventDefault();
+		event.stopPropagation();
 
-        var foundparents = _findParents(_touchTarget);
+		var touches = event.changedTouches;
+		var findID = _getTouchIndex(touches[0].identifier);
+		
+		if (findID >= 0){
+			// this touch matches an existing touch
+			// get the touch and begin adding to our event
+			var theTouch = _getTouch(touches[0].identifier);
 
-        if (foundparents !== false){
-            for (var parent in foundparents){
-                foundparents[parent].callback(event);
+			// find difference on X and Y axes
+	        // for more versatility and precision, future versions could use a vector (I think it's: start vector, end vector, subtract vectors to get direction + distance)
+	        var deltaX = theTouch.startX - theTouch.x;
+	        var deltaY = theTouch.startY - theTouch.y;
 
-                if (foundparents[parent].bubble === false){
-                    return;
-                }
-            }
-        }
-    }
+	        // initialize boolean directions
+	        var evt = {};
+	        evt.swiperight = false;
+	        evt.swipeleft = false;
+	        evt.swipeup = false;
+	        evt.swipedown = false;
+	        evt.tap = false;
+	        evt.direction = false;
 
-    // find the specific parent $bitObject of a child $bitObject by traversing up the tree
+	        if (Math.abs(deltaX) > _tapThreshold || Math.abs(deltaY) > _tapThreshold){
+	            // movement
+
+	            // left/right, with threshold on up/down
+	            if (Math.abs(deltaX) > _tapThreshold && Math.abs(deltaY) < _directionThreshold) {
+	                if (theTouch.x > theTouch.startX) {
+	                    evt.swiperight = true;
+	                    evt.direction = 'right';
+	                } else {
+	                    evt.swipeleft = true;
+	                    evt.direction = 'left';
+	                }
+	            }
+
+	            // up/down, with threshold on left/right
+	            if (Math.abs(deltaY) > _tapThreshold && Math.abs(deltaX) < _directionThreshold) {
+	                if (theTouch.y < theTouch.startY) {
+	                    evt.swipeup = true;
+	                    evt.direction = 'up';
+	                } else {
+	                    evt.swipedown = true;
+	                    evt.direction = 'down';
+	                }
+	            }
+	        }else{
+	            // tap
+	            evt.tap = true;
+	            evt.direction = 'tap';
+	        }
+
+	        // pass touch data back to the correct element's callback functions
+	        var elements = _getBindings(theTouch.target);
+	        if (elements !== false){
+	        	for (var i = 0; i < elements.length; i++){
+	        		if (typeof elements[i].callback == 'function'){
+			        	elements[i].callback(evt, event);
+			        }
+	        	}
+	        }
+
+			// the touch has ended, remove it from our array
+			_removeTouch(findID);
+		}
+	}
+
+	function _handleCancel(event){
+		event.preventDefault();
+		event.stopPropagation();
+
+		var touches = event.changedTouches;
+		var findID = _getTouchIndex(touches[0].identifier);
+
+		if (findID >= 0){
+			// this touch matches an existing touch
+			// the touch has ended, remove it from our array
+			_removeTouch(findID);
+		}
+	}
+
+	// add a new touch to our tracked touches array
+	function _addTouch(element, touch){
+		_trackedTouches.push({
+			id: touch.identifier,
+			startX: touch.pageX,
+			startY: touch.pageY,
+			x: touch.pageX,
+			y: touch.pageY,
+			target: element,
+			touchTarget: touch.target
+		});
+	}
+
+	// update the x and y coordinates of an existing touch
+	function _updateTouch(id, touch){
+		_trackedTouches[id].x = touch.pageX;
+		_trackedTouches[id].y = touch.pageY;
+	}
+
+	// stop tracking a touch
+	function _removeTouch(id){
+		_trackedTouches.splice(id, 1);
+	}
+
+	function _getTouch(touchID){
+		for (var i = 0; i < _trackedTouches.length; i++){
+			if (_trackedTouches[i].id == touchID){
+				return _trackedTouches[i];
+
+				// now you've got the touch
+				// https://www.youtube.com/watch?v=A52--FKUQgU
+			}
+		}
+
+		return false; // not found
+	}
+
+	// find the array index of a touch by its Touch.identifier
+	function _getTouchIndex(touchID){
+		for (var i = 0; i < _trackedTouches.length; i++){
+			if (_trackedTouches[i].id == touchID){
+				return i;
+			}
+		}
+
+		return -1; // not found
+	}
+
+	// find all bound elements by comparing to the touch event target
+	function _getBindings(touchtarget){
+		var bindings = [];
+		for (var i = 0; i < _boundElements.length; i++){
+			if (touchtarget == _boundElements[i].element.div){
+				bindings.push(_boundElements[i]);
+			}
+		}
+
+		if (bindings.length > 0){
+			// return all found bindings
+			return bindings;
+		}
+
+		return false; // not found
+	}
+
+	// add a single bound element to the array
+	function _addBinding(element, callback){
+		_boundElements.push({
+			element: element,
+			callback: callback
+		});
+	}
+
+	// remove a single bound element from the array
+	function _removeBinding(element, callback){
+		for (var i = 0; i < _boundElements.length; i++){
+			if (element == _boundElements[i].element && callback == _boundElements[i].callback){
+				_boundElements.splice(i, 1);
+			}
+		}
+	}
+
+	// find the specific parent $bitObject of a child $bitObject by traversing up the tree
     // @param DOM Object child: the child element you want to begin with
     // @param DOM Object parent: the parent you're looking for
     function _findParent(child, parent){
@@ -1444,14 +1590,11 @@ Static(function TouchUtil() {
     function _findParents(child){
         var parents = [];
 
-        for (var i in _elements) {
-            var found = _findParent(child, _elements[i].elem.div);
+        for (var i in _boundElements) {
+            var found = _findParent(child, _boundElements[i].element.div);
 
             if (found !== false){
-                found.bitobj = _elements[i].elem;
-                found.callback = _elements[i].callback;
-                found.bubble = _elements[i].bubble;
-                parents.push(found);
+                parents.push(_boundElements[i].element.div);
             }
         }
 
@@ -1477,58 +1620,6 @@ Static(function TouchUtil() {
         return 0;
     }
 
-    // this should only be bound once to a global container element
-    this.bindStage = function(){
-        Evt.subscribe(Stage, 'touchstart', _tap);
-        Evt.subscribe(Stage, 'touchmove', _drag);
-        Evt.subscribe(Stage, 'touchend', _release);
-    }
-
-    // this gets bound to any element
-    // @param $bitObject elem: the element you want to bind to
-    // @param function callback: the function to run when the event occurs. receives the touch event as a parameter.
-    // @param boolean bubble: whether to allow the event to bubble up the list of bound elements. default is true, meaning functions will be called all the way up the DOM tree.
-    this.bind = function(elem, callback, bubble) {
-        // console.log('bind');
-        // console.log(elem);
-
-        if (typeof bubble === 'undefined'){
-            bubble = true;
-        }
-
-        _elements.push({elem: elem, callback: callback, bubble: bubble});
-    };
-
-    this.unbind = function(elem) {
-        // Note: browser support for indexOf is limited, it is not supported in IE7-8.
-        // Then remove it with splice:
-
-        for (var i in _elements) {
-
-            if (_elements[i].elem == elem) {
-
-                __elem = _elements.splice(_elements[i], 1);
-
-                Evt.removeEvent(elem, 'touchstart', _tap);
-                Evt.removeEvent(elem, 'touchmove', _drag);
-                Evt.removeEvent(elem, 'touchend', _release);
-
-                if (Config.DEBUG.all || Config.DEBUG.touch) {
-                    console.log('UNBIND :: _elements[i]');
-                    console.log(_elements[i]);
-                }
-            }
-
-        }
-    };
-
-    // this.lock = function(){
-    //     _locked = true;
-    // };
-
-    // this.unlock = function(){
-    //     _locked = false;
-    // };
 });
 Static(function Render() {
 	
@@ -19084,47 +19175,6 @@ Static(function Utils() {
 		return string.charAt(0).toUpperCase() + string.slice(1);
 	};
 
-	this.getAsset = function(filename, type) {
-
-		var _extension;
-		var _asset;
-
-		switch(type) {
-			case 'video':
-				if (Device.browser.chrome) { _extension = '.mp4'; }
-				if (Device.browser.firefox) { _extension = '.webm'; }
-				if (Device.browser.safari || Device.browser.ie) { _extension = '.mp4'; }
-				if (Device.mobile) { _extension = '.mp4'; }
-
-				return Config.PROXY + 'videos/'+filename+_extension;
-				break;
-			
-			case 'image':
-				_extension = '.'+type;
-
-				return Config.PROXY + 'images/'+filename+_extension;
-				break;
-			
-			case 'pdf':
-				_extension = '.'+type;
-
-				return Config.PROXY + 'pdf/'+filename+_extension;
-				break;
-		}
-	};
-
-	// get an image from the preloaded set
-	this.getImg = function(path){
-		var imgobj;
-		for (var idx = 0; idx < Config.LOADED.length; idx++){
-			if (Config.LOADED[idx].id == path){
-				imgobj = Config.LOADED[idx].img;
-			}
-		}
-
-		return imgobj;
-	};
-
 	this.urlstr = function(string){
 		var str = string.replace(/ /g, "-").toLowerCase();
 		var _str = str.replace(/:/g, "");
@@ -19132,6 +19182,131 @@ Static(function Utils() {
 		return _str;
 	};
 
+});
+// Global site-specific config
+
+Static(function Config() {
+    
+    var _self = this;
+
+    // color values
+    this.COLORS = {
+        black: '#000000',
+        white: '#ffffff',
+        test: '#00ccff'
+    };
+
+    // aspect ratio for scaling images and videos 
+    this.ASPECT = 1080 / 1920;
+
+    // CDN URL
+    this.S3 = 'https://s3.amazonaws.com/flipeleven/';
+    this.PROXY = _self.S3;
+
+    // paths to various asset folders
+    this.ASSETS = {
+        path: '/assets/',
+        images: '/assets/images/',
+        videos: '/assets/videos/',
+        fonts: '/assets/fonts/'
+    };
+
+    // font, weights, and letter spacings
+    this.FONTS = {
+        default: {
+            name: 'Arial',
+            normal: 'normal',
+            bold: 'bold',
+            spacing: {
+                // spacings are a multiple of font size
+                titles: 0.768,
+                subtitles: 0.2,
+                normal: 0
+            }
+        }
+    };
+
+    // default easing methods
+    this.EASING = {
+        type: 'Quad',
+        in: 'Quad.easeIn',
+        out: 'Quad.easeOut',
+        inout: 'Quad.easeInOut',
+        outback: 'Back.easeOut'
+    };
+
+    // array of assets to pass to the preloader
+    this.PRELOAD = [
+        _self.ASSETS.images + 'sample.jpg',
+    ];
+
+    // array of preloaded assets, stored here and retrieved when needed
+    // see site/markup/ids/Loader.js for object structure or console.log this
+    this.LOADED = [];
+
+    // debug options central on/off switches
+    // it's up to you to use these appropriately in the code
+    this.DEBUG = {
+        all: false,
+        bitobject: false,
+        state: false,
+        loader: false,
+        markup: false,
+        scroll: false,
+        touch: false,
+        fullbg: false
+    };
+});
+Static(function SiteDevice() {
+    
+    var _self = this;
+    
+    // implementation for device specific functionality relating to the site
+    (function () {
+        
+    })();
+
+    this.getAsset = function(filename, type) {
+
+        var _extension;
+        var _asset;
+
+        switch(type) {
+            case 'video':
+                if (Device.browser.chrome) { _extension = '.mp4'; }
+                if (Device.browser.firefox) { _extension = '.webm'; }
+                if (Device.browser.safari || Device.browser.ie) { _extension = '.mp4'; }
+                if (Device.mobile) { _extension = '.mp4'; }
+
+                return Config.PROXY + 'videos/'+filename+_extension;
+                // break;
+            
+            case 'image':
+                _extension = '.'+type;
+
+                return Config.PROXY + 'images/'+filename+_extension;
+                // break;
+            
+            case 'pdf':
+                _extension = '.'+type;
+
+                return Config.PROXY + 'pdf/'+filename+_extension;
+                // break;
+        }
+    };
+
+    // get an image from the preloaded set
+    this.getImg = function(path){
+        var imgobj;
+        for (var idx = 0; idx < Config.LOADED.length; idx++){
+            if (Config.LOADED[idx].id == path){
+                imgobj = Config.LOADED[idx].img;
+            }
+        }
+
+        return imgobj;
+    };
+    
 });
 Static(function Cookie() {
 	
@@ -19314,7 +19489,7 @@ Static(function Ajax() {
         }
 
         if (params.preloaded === true){
-            var img = Utils.getImg(url);
+            var img = SiteDevice.getImg(url);
             url = img.div.src;
         }
 
@@ -19627,33 +19802,38 @@ Static(function Ajax() {
     // @param _onOver (function) function to run on mouse over
     // @param _onOut (function) function to run on mouse out
     // @param _onClick (function) function to run on click or tap events
+    // @param _setZ (boolean) set to true to set high z-index
     
-    $.fn.interact = function(_onOver, _onOut, _onClick) {
+    $.fn.interact = function(_onOver, _onOut, _onClick, _setZ) {
 
         var _self = this,
             _hit;
 
         // create hit box
         _hit = _self.create('.hit');
-        _hit.size("100%").css({ cursor: "pointer", position: "absolute", left: 0, top: 0 }).setZ(99999);
+        _hit.size("100%").css({ cursor: "pointer", position: "absolute", left: 0, top: 0 });
+
+        if (_setZ === true){
+            _hit.setZ(99999);
+        }
 
         _self.hit = _hit;
 
         if (!Device.mobile){
             if (typeof _onOver == 'function'){
-                Evt.subscribe(_hit, Evt.MOUSE_OVER, _onOver);
+                Evt.subscribe(_self.hit, Evt.MOUSE_OVER, _onOver);
             }
 
             if (typeof _onOut == 'function'){
-                Evt.subscribe(_hit, Evt.MOUSE_OUT, _onOut);
+                Evt.subscribe(_self.hit, Evt.MOUSE_OUT, _onOut);
             }
 
             if (typeof _onClick == 'function'){
-                Evt.subscribe(_hit, Evt.CLICK, _onClick);
+                Evt.subscribe(_self.hit, Evt.CLICK, _onClick);
             }
         }else{
             if (typeof _onClick == 'function'){
-                TouchUtil.bind(_hit, _onClick, false);
+                TouchUtil.bind(_self.hit, _onClick);
             }
         }
 
@@ -19663,30 +19843,24 @@ Static(function Ajax() {
     $.fn.removeInteract = function(_onOver, _onOut, _onClick) {
 
         var _self = this;
-            // _hit;
-        // console.log(_self);
-        // console.log(_self);
 
-        _hit = _self.hit;
-        // create hit box
-        // _hit = _self.create('.hit');
-        // _hit.size("100%").css({ cursor: "pointer", position: "absolute", left: 0, top: 0 }).setZ(99999);
+        if (typeof _self.hit == 'object'){
+            if (!Device.mobile){
+                if (typeof _onOver == 'function'){
+                    Evt.removeEvent(_self.hit, Evt.MOUSE_OVER, _onOver);
+                }
 
-        if (!Device.mobile){
-            if (typeof _onOver == 'function'){
-                Evt.removeEvent(_hit, Evt.MOUSE_OVER, _onOver);
-            }
+                if (typeof _onOut == 'function'){
+                    Evt.removeEvent(_self.hit, Evt.MOUSE_OUT, _onOut);
+                }
 
-            if (typeof _onOut == 'function'){
-                Evt.removeEvent(_hit, Evt.MOUSE_OUT, _onOut);
-            }
-
-            if (typeof _onClick == 'function'){
-                Evt.removeEvent(_hit, Evt.CLICK, _onClick);
-            }
-        }else{
-            if (typeof _onClick == 'function'){
-                // TouchUtil.unbind(_hit, _onClick, false);
+                if (typeof _onClick == 'function'){
+                    Evt.removeEvent(_self.hit, Evt.CLICK, _onClick);
+                }
+            }else{
+                if (typeof _onClick == 'function'){
+                    TouchUtil.unbind(_self.hit, _onClick);
+                }
             }
         }
 
@@ -20058,11 +20232,6 @@ bit.ready(function() {
 
     Stage.width     = window.innerWidth || document.documentElement.offsetWidth || document.body.clientWidth;
     Stage.height    = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-    
-    // globally bind touch events
-    if (Device.mobile) {
-        TouchUtil.bindStage();
-    }
 
     window.onresize = function () {
         if (Device.mobile){
@@ -20611,120 +20780,399 @@ Static(function GATracker() {
         }
     };
 });
-// Global site-specific config
+/**
+ * $slidelist
+ * 
+ * Allows objects to Inherit() these properties and methods, providing an easy way
+ * to build slide navigation into your project.
+ *
+ * This file acts as a controller for a set of slides, managing next and previous actions.
+ */
+function $slidelist(){
+	var _self = this,
+		_elem = _self.element,
+		_xPos = 0,
+		_yPos = 0;
+	
+	_self.orientation = 'vertical'; // 'vertical' || 'horizontal' || 'static'; set using initSlides from the class that inherits this
+	_self.slides = []; // the object that inherits this is expected to populate slides
+	_self.slideindex = 0;
+	_self.scrolltick = null;
+	_self.isScrolling = false;
+	_self.currdir = -1;
+	_self.isAnimating = false;
+	_self.container = false;
 
-Static(function Config() {
-    
-    var _self = this;
+	// set a default easing; can be set whenever by the object that inherits this
+	_self.easing = 'Quad.easeInOut';
+	if (typeof Config.EASING == 'object'){
+		if (Config.EASING.hasOwnProperty('inout')){
+			_self.easing = Config.EASING.inout;
+		}
+	}
 
-    // color values
-    this.COLORS = {
-        black: '#000000',
-        white: '#ffffff',
-        test: '#00ccff'
-    };
+	_self.transtime = 0.5; // seconds
+	_self.delay = null; // null or seconds
 
-    // aspect ratio for scaling images and videos 
-    this.ASPECT = 1080 / 1920;
+	// set up events
+	Evt.SLIDE_NAVCHANGE = 'slide_navchange';
+	Evt.SLIDE_NAVSELECT = 'slide_navselect'; // fire this in your "onClick" function in your slidenav item class
+	Evt.SLIDE_COMPLETE = 'slide_complete'; // when using 'static' for _self.orientation, you need to fire this event from your slide when animation is complete; it resets _self.isAnimating to false
 
-    // CDN URL
-    this.S3 = 'https://s3.amazonaws.com/flipeleven/';
-    this.PROXY = _self.S3;
+	(function(){
+		// initialize stuff
+		if (Device.mobile){
+			TouchUtil.bind(_elem, _directionHandler);
+		}else{
+			ScrollUtil.bind(_elem, _directionHandler);
+		}
 
-    // paths to various asset folders
-    this.ASSETS = {
-        path: '/assets/',
-        images: '/assets/images/',
-        videos: '/assets/videos/',
-        fonts: '/assets/fonts/'
-    };
-
-    // font, weights, and letter spacings
-    this.FONTS = {
-        default: {
-            name: 'Arial',
-            normal: 'normal',
-            bold: 'bold',
-            spacing: {
-                // spacings are a multiple of font size
-                titles: 0.768,
-                subtitles: 0.2,
-                normal: 0
-            }
-        }
-    };
-
-    // default easing methods
-    this.EASING = {
-        type: 'Quad',
-        in: 'Quad.easeIn',
-        out: 'Quad.easeOut',
-        inout: 'Quad.easeInOut',
-        outback: 'Back.easeOut'
-    };
-
-    // array of assets to pass to the preloader
-    this.PRELOAD = [
-        _self.ASSETS.images + 'sample.jpg',
-    ];
-
-    // array of preloaded assets, stored here and retrieved when needed
-    // see site/markup/ids/Loader.js for object structure or console.log this
-    this.LOADED = [];
-
-    // debug options central on/off switches
-    // it's up to you to use these appropriately in the code
-    this.DEBUG = {
-        all: false,
-        bitobject: false,
-        state: false,
-        loader: false,
-        markup: false,
-        scroll: false,
-        touch: false,
-        fullbg: false
-    };
-});
-function SiteDevice() {
-    
-    Inherit(this, Device);
-
-    var _self = this;
-    
-    // implementation for device specific functionality relating to the site
-    (function () {
-        
-    })();
-
-    
-}
-function Start() {
-
-	(function() {
-    	Container.instance();
-    	_transparentOutline();
+		Evt.subscribe(_elem, Evt.SLIDE_COMPLETE, function(){ _self.isAnimating = false; });
+		Evt.subscribe(_elem, Evt.SLIDE_NAVSELECT, _goto);
 	})();
-    // console.log(Container.instance())
-    // console.log('Start');
-    // console.log(Mouse)
-    // console.log(mouse)
-    function _transparentOutline() {
-        // console.log('MAIN :: ' + CSS._read());
-        // console.log('DEVICE VENDOR :: ' + Device.vendor);
-        // console.log(Mobile.os);
-        // console.log(Mobile);
 
-        if (Mobile.os !== 'Android') {
+	function _directionHandler(event) {
+		// console.log(event);
+        // detect the end of scrolling and reset the _self.isScrolling variable
+        clearTimeout(_self.scrolltick);
+        _self.scrolltick = setTimeout(function(){
+            _self.isScrolling = false;
+        }, 50);
 
-            // if (Device.browser.version >= 35 && Device.browser.version <= 36) {
-                var _css = '* { outline: 1px solid transparent; }';
-                CSS._write(_css);
-            // }
-            // var _css = CSS._read();
+        // reset is scrolling to false if the user changes the direction of scroll
+        if (_self.currdir != event.direction) {
+            _self.isScrolling = false;
+        }
+        _self.currdir = event.direction;
+
+        // reset is scrolling to false if user is hammering on scroll and animation is complete
+        if (!_self.isAnimating && Math.abs(event.amount) > 1.2) {
+            _self.isScrolling = false;
+        }
+
+        // curb multiple firings of implementation
+        if (!_self.isScrolling) {
+            _self.isScrolling = true;
+
+            // set direction of scroll
+            if (!Device.mobile) {
+            	switch (_self.orientation){
+	            	case 'horizontal':
+	            	if (event.direction == 'left' || event.direction == 'up'){
+	            		if (_self.orientation == 'static'){
+	            			_getPrev('fade');
+		            	}else{
+		            		_getPrev('right');
+		            	}
+	            	}else if (event.direction == 'right' || event.direction == 'down'){
+	            		if (_self.orientation == 'static'){
+	            			_getNext('fade');
+		            	}else{
+		            		_getNext('left');
+		            	}
+	            	}
+	            	break;
+
+	            	case 'vertical':
+	            	case 'static':
+	            	default:
+	            	if (event.direction == 'up'){
+	            		if (_self.orientation == 'static'){
+	            			_getPrev('fade');
+		            	}else{
+		            		_getPrev('down');
+		            	}
+	            	}else if (event.direction == 'down'){
+	            		if (_self.orientation == 'static'){
+	            			_getNext('fade');
+		            	}else{
+		            		_getNext('up');
+		            	}
+	            	}
+	            	break;
+	            }
+	        }else{
+	        	switch (_self.orientation){
+	            	case 'horizontal':
+	            	if (event.direction == 'left'){
+	            		if (_self.orientation == 'static'){
+	            			_getNext('fade');
+		            	}else{
+		            		_getNext('left');
+		            	}
+	            	}else if (event.direction == 'right'){
+	            		if (_self.orientation == 'static'){
+	            			_getPrev('fade');
+		            	}else{
+		            		_getPrev('right');
+		            	}
+	            	}
+	            	break;
+
+	            	case 'vertical':
+	            	case 'static':
+	            	default:
+	            	if (event.direction == 'up'){
+	            		if (_self.orientation == 'static'){
+	            			_getNext('fade');
+		            	}else{
+		            		_getNext('up');
+		            	}
+	            	}else if (event.direction == 'down'){
+	            		if (_self.orientation == 'static'){
+	            			_getPrev('fade');
+		            	}else{
+		            		_getPrev('down');
+		            	}
+	            	}
+	            	break;
+	            }
+	        }
         }
     }
+
+    function _getNext(dir){
+    	if (_self.slideindex < _self.slides.length - 1 && _self.isAnimating === false){
+    		_self.isAnimating = true;
+
+    		// trigger animations on slides
+    		var current = _self.slideindex;
+			_self.slideindex++;
+			var next = _self.slideindex;
+
+			// you need to implement this.animateOut and this.animateIn on your slide class
+			if (_self.slides[current].hasOwnProperty('animateOut')){
+				_self.slides[current].animateOut(dir);
+			}
+
+			if (_self.slides[next].hasOwnProperty('animateIn')){
+				_self.slides[next].animateIn(dir);
+			}
+
+			Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
+				index: next
+			});
+
+    		// when using a container, scroll the container
+    		if (_self.container !== false){
+    			_xPos = (_self.orientation == 'vertical') ? 0 : _xPos - Stage.width;
+    			_yPos = (_self.orientation == 'vertical') ? _yPos - Stage.height : 0;
+
+    			_self.container.tween({
+    				x: _xPos,
+    				y: _yPos
+    			}, _self.transtime, _self.easing, _self.delay, function(){
+    				_self.isAnimating = false;
+    			});
+    		}
+    	}
+    }
+
+    function _getPrev(dir){
+    	if (_self.slideindex > 0 && _self.isAnimating === false){
+    		_self.isAnimating = true;
+    		
+    		// trigger animations on slides
+    		var current = _self.slideindex;
+			_self.slideindex--;
+			var prev = _self.slideindex;
+
+			// you need to implement this.animateOut and this.animateIn on your slide class
+			if (_self.slides[current].hasOwnProperty('animateOut')){
+				_self.slides[current].animateOut(dir);
+			}
+
+			if (_self.slides[prev].hasOwnProperty('animateIn')){
+				_self.slides[prev].animateIn(dir);
+			}
+
+			Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
+				index: prev
+			});
+
+    		// when using a container, scroll the container
+    		if (_self.container !== false){
+    			_xPos = (_self.orientation == 'vertical') ? 0 : _xPos + Stage.width;
+    			_yPos = (_self.orientation == 'vertical') ? _yPos + Stage.height : 0;
+
+    			_self.container.tween({
+    				x: _xPos,
+    				y: _yPos
+    			}, _self.transtime, _self.easing, _self.delay, function(){
+    				_self.isAnimating = false;
+    			});
+    		}
+    	}
+    }
+
+    function _goto(params){
+    	if (_self.isAnimating === false){
+    		_self.isAnimating = true;
+
+    		var previous = _self.slideindex;
+    		_self.slideindex = params.index;
+    		var diff = Math.abs(previous - _self.slideindex);
+    		if (diff > 1){
+    			diff = diff*0.66; // this is used later to extend the transition animation so it's not too quick
+    		}
+
+    		// determine the direction for slide animation
+    		switch (_self.orientation){
+            	case 'horizontal':
+            	if (_self.slideindex < previous){
+            		if (_self.orientation == 'static'){
+            			dir = 'fade';
+	            	}else{
+	            		dir = 'right';
+	            	}
+            	}else{
+            		if (_self.orientation == 'static'){
+            			dir = 'fade';
+	            	}else{
+	            		dir = 'left';
+	            	}
+            	}
+            	break;
+
+            	case 'vertical':
+            	case 'static':
+            	default:
+            	if (_self.slideindex < previous){
+            		if (_self.orientation == 'static'){
+            			dir = 'fade';
+	            	}else{
+	            		dir = 'down';
+	            	}
+            	}else{
+            		if (_self.orientation == 'static'){
+            			dir = 'fade';
+	            	}else{
+	            		dir = 'up';
+	            	}
+            	}
+            	break;
+            }
+
+    		// you need to implement this.animateOut and this.animateIn on your slide class
+			if (_self.slides[previous].hasOwnProperty('animateOut')){
+				_self.slides[previous].animateOut(dir);
+			}
+
+			if (_self.slides[_self.slideindex].hasOwnProperty('animateIn')){
+				_self.slides[_self.slideindex].animateIn(dir);
+			}
+
+			Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
+				index: _self.slideindex
+			});
+
+			// when using a container, scroll the container
+    		if (_self.container !== false){
+    			_xPos = (_self.orientation == 'vertical') ? 0 : -(Stage.width * _self.slideindex);
+    			_yPos = (_self.orientation == 'vertical') ? -(Stage.height * _self.slideindex) : 0;
+
+    			_self.container.tween({
+    				x: _xPos,
+    				y: _yPos
+    			}, _self.transtime * diff, _self.easing, _self.delay, function(){
+    				_self.isAnimating = false;
+    			});
+    		}
+    	}
+    }
+
+    // this needs to be called to set the slides in the correct places
+    // objParams = {
+	// 		orientation: 'vertical' || 'horizontal' || 'static',
+	// 		use_container: true || false
+    // }
+    this.initSlides = function(objParams){
+    	// whether to create a container element for all slides
+    	var use_container = true;
+
+    	if (typeof objParams == 'object'){
+    		if (objParams.hasOwnProperty('orientation')){
+	    		_self.orientation = objParams.orientation;
+	    	}
+
+	    	if (objParams.hasOwnProperty('use_container')){
+	    		if (objParams.use_container === false){
+	    			use_container = false;
+	    		}
+	    	}
+    	}
+
+    	if (_self.orientation == 'static'){
+    		use_container = false;
+    	}
+
+    	// create container
+    	if (use_container === true){
+    		_self.container = _elem.create('.scroll-container');
+    		_self.container.size('100%');
+    	}
+
+    	for (idx = 0; idx < _self.slides.length; idx++){
+    		if (_self.container !== false){
+    			_self.container.add(_self.slides[idx]);
+    			_self.slides[idx].element.setProps({
+    				left: (_self.orientation == 'vertical') ? 0 : Stage.width * idx,
+    				top: (_self.orientation == 'vertical') ? Stage.height * idx : 0
+    			});
+    		}
+    	}
+    };
+
+    this.next = function(dir){
+    	if (typeof dir != 'string'){
+    		console.error('No direction specified for $slide.next');
+    		return false;
+    	}
+    	_getNext(dir);
+    };
+
+    this.prev = function(dir){
+    	if (typeof dir != 'string'){
+    		console.error('No direction specified for $slide.prev');
+    		return false;
+    	}
+    	_getPrev(dir);
+    };
 }
-// var Start = new Start();
+/**
+ * $slidenav
+ * 
+ * Allows objects to Inherit() these properties and methods, providing an easy way
+ * to build slide navigation into your project.
+ *
+ * This file acts as a list of slide navigation points, managing selections.
+ */
+function $slidenav(){
+	var _self = this,
+		_elem = _self.element;
+
+	_self.current = 0;
+	_self.previous = 0;
+	_self.items = []; // the object that inherits this is expected to populate items
+
+	(function(){
+		Evt.subscribe(_elem, Evt.SLIDE_NAVCHANGE, _onNavChange);
+	})();
+
+	function _onNavChange(params){
+		_self.previous = _self.current;
+		_self.current = params.index;
+
+		// you need to implement this.deactivate and this.activate on your nav item class
+		if (_self.items[_self.previous].hasOwnProperty('deactivate')){
+			_self.items[_self.previous].deactivate();
+		}
+
+		if (_self.items[_self.current].hasOwnProperty('activate')){
+			_self.items[_self.current].activate();
+		}
+	}
+}
 Static(function Data() {
 
     Inherit(this, Model);
@@ -21444,6 +21892,110 @@ function FullBackgroundVideo() {
         _elem.setZ(9999);
     };
 };
+function Nav() {
+
+    Inherit(this, $class);
+    Inherit(this, $slidenav);
+    
+    var _self = this,
+        _elem = _self.element;
+
+    Global.NAV = this;
+
+    (function() {
+        _init();
+        _events();
+        _onResize();
+        _animateIn();
+    })();
+
+    function _init() {
+        _elem.setZ(100);
+        _elem.bg('#ffffff');
+
+        // init nav items
+        for (var idx = 0; idx < 5; idx++){
+            var test = _self.initClass(NavItem, idx);
+
+            if (idx == 0){
+                test.activate();
+            }
+            
+            _self.items.push(test);
+        }
+    }
+
+    function _events() {
+        Evt.subscribe(window, Evt.RESIZE, _onResize);
+    }
+
+    function _onResize(){
+        var width = 300;
+        var height = 50;
+        _elem.size(width, height).setProps({
+            left: (Stage.width - width)/2,
+            bottom: 20
+        });
+    }
+
+    function _animateIn(){
+        // Global.FULLBG.image.animateIn();
+    }
+
+    this.destroy = function() {
+        this.__destroy();
+    };
+}
+function NavItem(index) {
+
+    Inherit(this, $class);
+    
+    var _self = this,
+        _elem = _self.element;
+
+    _self.index = index;
+
+    (function() {
+        _init();
+        _setSize();
+        _events();
+    })();
+
+    function _init() {
+        _elem.setProps({
+            border: "1px solid #000000",
+            borderRadius: "50%"
+        }).bg('#ffffff');
+    }
+
+    function _events() {
+        Evt.subscribe(window, Evt.RESIZE, _setSize);
+
+        _elem.interact(null, null, _click);
+    }
+
+    function _click(){
+        Evt.fireEvent(_elem, Evt.SLIDE_NAVSELECT, {
+            index: index
+        });
+    }
+
+    function _setSize(){
+        var dotsize = 20;
+        _elem.size(dotsize, dotsize).setProps({
+            left: ((300/5)*index) + 20,
+            top: 25 - (dotsize/2)
+        });
+    }
+
+    this.deactivate = function(){
+        _elem.bg('#ffffff');
+    };
+
+    this.activate = function(){
+        _elem.bg('#000000');
+    };
+}
 function Slide(data, index) {
 
     Inherit(this, $class);
@@ -21688,6 +22240,131 @@ function Slide(data, index) {
 
 }
 
+function Test(index) {
+
+    Inherit(this, $class);
+    // Inherit(this, $slide);
+    
+    var _self = this,
+    	_elem = _self.element,
+    	_t1,
+    	_t2,
+    	_t3,
+    	_link,
+    	_input;
+
+    (function(){
+    	_init();
+    })();
+
+    function _init(){
+    	_self.index = index;
+
+    	_elem.size('100%').css({
+    		textAlign: 'center',
+    		fontSize: '48px'
+    	}).bg(colorPick(_self.index));
+    	_elem.text(textPick(_self.index));
+
+    	if (_self.index == 0){
+	    	_t1 = _elem.create('.yellowbox');
+	    	_t1.size('25%').setProps({
+	    		left: '25%',
+	    		top: '25%',
+	    		border: '5px solid #ffffff'
+	    	}).bg('#F2DB41');
+
+	    	/*_t2 = _t1.create('.redbox');
+	    	_t2.size('75%').setProps({
+	    		left: '12.5%',
+	    		top: '12.5%',
+	    		border: '5px solid #ffffff'
+	    	}).bg('#ff0000');*/
+
+	    	/*_t3 = _t2.create('.bluebox');
+	    	_t3.size('75%').setProps({
+	    		left: '12.5%',
+	    		top: '12.5%',
+	    		border: '5px solid #ffffff'
+	    	}).bg('#0000ff');*/
+
+			_t1.interact(function(){
+				console.log('over');
+			}, function(){
+				console.log('out');
+			}, function(){
+				console.log('click');
+			});
+
+	    	_link = _t1.create('.link', 'a');
+	    	_link.setProps({
+	    		top: '50%',
+	    		right: '10%'
+	    	});
+	    	_link.text('test link');
+	    	_link.div.href = 'http://google.com';
+
+	    	_input = _t1.create('.field', 'input');
+	    	_input.size("75%", "25%").setProps({
+	    		left: '12.5%',
+	    		top: '33%',
+	    		color: '#000000'
+	    	}).bg('#ffffff');
+
+	    	// console.log(_link);
+	    	// console.log(_input);
+		}
+    }
+
+    function _derp(){
+    	console.log('derp');
+    }
+
+    function colorPick(id) {
+		var colors = [
+			'#17A4FC',
+			'#09E83D',
+			'#DEAB04',
+			'#0C04DE',
+			'#DE0F04',
+			'#DE04AB',
+			'#A704DE',
+			'#04DEC8',
+			'#A0DE04',
+			'#DE7104'
+		];
+
+		return colors[id];
+	}
+
+	function textPick(id) {
+		var strings = [
+			'0 Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+			'1 Vivamus semper volutpat dui sed lobortis',
+			'2 Pellentesque accumsan porta ipsum eu pretium',
+			'3 Nulla at interdum lacus',
+			'4 Vivamus eu turpis et risus interdum dignissim feugiat vitae metus',
+			'5 Vestibulum vitae pharetra augue',
+			'6 Ut congue fermentum neque, vel dapibus nulla viverra vitae',
+			'7 Mauris in nisl in ipsum luctus scelerisque',
+			'8 Curabitur fermentum nisi vitae ornare venenatis',
+			'9 Ut ultrices orci ex, eu rutrum mauris viverra id'
+		];
+
+		return strings[id];
+	}
+
+	this.animateIn = function(params){
+		// console.log('IN');
+		// console.log(params);
+	};
+
+	this.animateOut = function(params){
+		// console.log('OUT');
+		// console.log(params);
+		// Evt.fireEvent(_elem, Evt.SLIDE_COMPLETE);
+	};
+}
 Singleton(function Transition() {
     // console.log('tranistion is called - singleton');
 
@@ -22192,9 +22869,11 @@ function FullBackground() {
 function Home() {
 
     Inherit(this, $id);
+    Inherit(this, $slidelist);
     
     var _self = this,
         _elem = _self.element,
+        _nav,
         _button;
 
     Global.HOME = this;
@@ -22209,15 +22888,26 @@ function Home() {
     function _init() {
         _elem.setZ(10);
 
-        _button = _elem.create('.button');
+        /*_button = _elem.create('.button');
         _button.setProps({
             border: '5px solid '+Config.COLORS.white
-        }).bg(Config.COLORS.test);
+        }).bg(Config.COLORS.test);*/
+
+        // init slides
+        for (var idx = 0; idx < 5; idx++){
+            var test = _self.initClass(Test, idx);
+            _self.slides.push(test);
+        }
+        _self.initSlides({
+            orientation: 'vertical'
+        });
+
+        _nav = _self.initClass(Nav);
     }
 
     function _events() {
         Evt.subscribe(window, Evt.RESIZE, _onResize);
-        _button.interact(_onOver, _onOut, _onClick);
+        // _button.interact(_onOver, _onOut, _onClick);
     }
 
     function _onOver(){
@@ -22236,11 +22926,11 @@ function Home() {
     function _onResize(){
         _elem.size(Stage.width, Stage.height);
 
-        var buttonsize = Stage.width * (200/1920);
+        /*var buttonsize = Stage.width * (200/1920);
         _button.size(buttonsize, buttonsize).setProps({
             left: (Stage.width - buttonsize)/2,
             top: (Stage.height - buttonsize)/2
-        });
+        });*/
     }
 
     function _animateIn(){
@@ -22420,3 +23110,30 @@ function Loader(callback) {
         });
 	}
 } 
+function Start() {
+
+	(function() {
+    	Container.instance();
+    	_transparentOutline();
+	})();
+    // console.log(Container.instance())
+    // console.log('Start');
+    // console.log(Mouse)
+    // console.log(mouse)
+    function _transparentOutline() {
+        // console.log('MAIN :: ' + CSS._read());
+        // console.log('DEVICE VENDOR :: ' + Device.vendor);
+        // console.log(Mobile.os);
+        // console.log(Mobile);
+
+        if (Mobile.os !== 'Android') {
+
+            // if (Device.browser.version >= 35 && Device.browser.version <= 36) {
+                var _css = '* { outline: 1px solid transparent; }';
+                CSS._write(_css);
+            // }
+            // var _css = CSS._read();
+        }
+    }
+}
+// var Start = new Start();
