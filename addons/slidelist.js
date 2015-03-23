@@ -50,8 +50,7 @@ function $slidelist(){
 	})();
 
 	function _directionHandler(event) {
-        var _delta = Math.abs(event.wheelDelta);
-
+		// console.log(event);
         // detect the end of scrolling and reset the _self.isScrolling variable
         clearTimeout(_self.scrolltick);
         _self.scrolltick = setTimeout(function(){
