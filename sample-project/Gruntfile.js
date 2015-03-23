@@ -18,6 +18,8 @@ var _appfiles = [
 	'bower_components/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
 	'bower_components/PreloadJS/lib/preloadjs-0.6.0.combined.js',
 	'bower_components/fl1p3l3v3n/lib/utilities/Utils.js',
+	'js/site/_Config.js',
+    'js/site/_SiteDevice.js',
 	'bower_components/fl1p3l3v3n/lib/utilities/Cookie.js',
 	'bower_components/fl1p3l3v3n/lib/utilities/Ajax.js',
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_BG.js',
@@ -42,11 +44,13 @@ var _appfiles = [
 	'bower_components/fl1p3l3v3n/addons/slidelist.js',
 	'bower_components/fl1p3l3v3n/addons/slidenav.js',
 
-	'js/site/**/**/*.js'
+	'js/site/data/**/*.js',
+    'js/site/markup/**/*.js',
+    'js/site/_Start.js',
 ];
 
 // These are built into the framework. These shouldn't have to change much.
-var _exceptions = [ 'bit', '$bitObject', 'Utils', 'ScrollUtil', 'TouchUtil', 'Cookie', 'Ajax', 'Mobile', 'Start', 'Container', 'Evt', 'Model', 'Data', 'Config', 'GATracker', 'Home', 'Loader', 'Device', 'CSS', 'Render'];
+var _exceptions = [ 'bit', '$bitObject', 'Utils', 'ScrollUtil', 'TouchUtil', 'Cookie', 'Ajax', 'Mobile', 'Start', 'Container', 'Evt', 'Model', 'Data', 'Config', 'GATracker', 'Home', 'Loader', 'Device', 'CSS', 'Render', 'SiteDevice'];
 
 
 // banners to prepend to the minified code. mostly for showing off.
