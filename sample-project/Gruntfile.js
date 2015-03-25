@@ -51,7 +51,7 @@ var _appfiles = [
 ];
 
 // These are built into the framework. These shouldn't have to change much.
-var _exceptions = [ 'bit', '$bitObject', 'Utils', 'ScrollUtil', 'TouchUtil', 'Cookie', 'Ajax', 'Mobile', 'Start', 'Container', 'Evt', 'Model', 'Data', 'Config', 'GATracker', 'Home', 'Loader', 'Device', 'CSS', 'Render'];
+var _exceptions = [ 'bit', '$bitObject', 'Utils', 'ScrollUtil', 'TouchUtil', 'Cookie', 'Ajax', 'Mobile', 'Start', 'Container', 'Evt', 'Model', 'Data', 'Config', 'GATracker', 'Home', 'Loader', 'Device', 'CSS', 'Render', 'SiteDevice'];
 
 
 // banners to prepend to the minified code. mostly for showing off.
