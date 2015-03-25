@@ -18,6 +18,8 @@ var _appfiles = [
 	'bower_components/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
 	'bower_components/PreloadJS/lib/preloadjs-0.6.0.combined.js',
 	'bower_components/fl1p3l3v3n/lib/utilities/Utils.js',
+	'js/site/_Config.js',
+    'js/site/_SiteDevice.js',
 	'bower_components/fl1p3l3v3n/lib/utilities/Cookie.js',
 	'bower_components/fl1p3l3v3n/lib/utilities/Ajax.js',
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_BG.js',
@@ -30,6 +32,7 @@ var _appfiles = [
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Transform.js',
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Tween.js',
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Visibility.js',
+	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Filter.js',
 	'bower_components/fl1p3l3v3n/lib/bit/bitReady.js',
 	'bower_components/fl1p3l3v3n/lib/css/CSS.js',
 	'bower_components/fl1p3l3v3n/lib/markup/markup.js',
@@ -42,7 +45,9 @@ var _appfiles = [
 	'bower_components/fl1p3l3v3n/addons/slidelist.js',
 	'bower_components/fl1p3l3v3n/addons/slidenav.js',
 
-	'js/site/**/**/*.js'
+	'js/site/data/**/*.js',
+    'js/site/markup/**/*.js',
+    'js/site/_Start.js',
 ];
 
 // These are built into the framework. These shouldn't have to change much.
