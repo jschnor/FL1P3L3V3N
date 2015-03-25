@@ -47,6 +47,8 @@ function $slidelist(){
 
         Evt.subscribe(_elem, Evt.SLIDE_COMPLETE, function(){ _self.isAnimating = false; });
         Evt.subscribe(_elem, Evt.SLIDE_NAVSELECT, _goto);
+        Evt.subscribe(window, Evt.RESIZE, _onresize);
+
     })();
 
     function _directionHandler(event) {
@@ -340,6 +342,25 @@ function $slidelist(){
             }
         }
     };
+
+    function _onresize() {
+        _xPos = (_self.orientation == 'vertical') ? 0 : -(Stage.width * _self.slideindex);
+        _yPos = (_self.orientation == 'vertical') ? -(Stage.height * _self.slideindex) : 0;
+
+        _self.container.setProps({
+            x: _xPos,
+            y: _yPos
+        });
+
+        for (idx = 0; idx < _self.slides.length; idx++){
+            if (_self.container !== false){
+                _self.slides[idx].element.setProps({
+                    x: (_self.orientation == 'vertical') ? 0 : Stage.width * idx,
+                    y: (_self.orientation == 'vertical') ? Stage.height * idx : 0
+                });
+            }
+        }
+    }
 
     this.next = function(dir){
         if (typeof dir != 'string'){
