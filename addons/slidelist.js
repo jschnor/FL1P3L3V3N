@@ -98,13 +98,15 @@ function $slidelist(){
                     default:
                     if (event.direction == 'up'){
                         if (_self.orientation == 'static'){
-                            _getPrev('fade');
+                            // _getPrev('fade');
+                            _getPrev('down');
                         }else{
                             _getPrev('down');
                         }
                     }else if (event.direction == 'down'){
                         if (_self.orientation == 'static'){
-                            _getNext('fade');
+                            // _getNext('fade');
+                            _getNext('up');
                         }else{
                             _getNext('up');
                         }
@@ -134,13 +136,15 @@ function $slidelist(){
                     default:
                     if (event.direction == 'up'){
                         if (_self.orientation == 'static'){
-                            _getNext('fade');
+                            // _getNext('fade');
+                            _getNext('up');
                         }else{
                             _getNext('up');
                         }
                     }else if (event.direction == 'down'){
                         if (_self.orientation == 'static'){
-                            _getPrev('fade');
+                            // _getPrev('fade');
+                            _getPrev('down');
                         }else{
                             _getPrev('down');
                         }
@@ -236,6 +240,11 @@ function $slidelist(){
                 diff = diff*0.66; // this is used later to extend the transition animation so it's not too quick
             }
 
+
+            // console.log('goto');
+            // console.log(previous);
+            // console.log(_self.slideindex);
+
             // determine the direction for slide animation
             switch (_self.orientation){
                 case 'horizontal':
@@ -259,13 +268,15 @@ function $slidelist(){
                 default:
                 if (_self.slideindex < previous){
                     if (_self.orientation == 'static'){
-                        dir = 'fade';
+                        // dir = 'fade';
+                        dir = 'down';
                     }else{
                         dir = 'down';
                     }
                 }else{
                     if (_self.orientation == 'static'){
-                        dir = 'fade';
+                        // dir = 'fade';
+                        dir = 'up';
                     }else{
                         dir = 'up';
                     }
