@@ -32,6 +32,7 @@ var _appfiles = [
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Transform.js',
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Tween.js',
 	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Visibility.js',
+	'bower_components/fl1p3l3v3n/lib/bit/extensions/Ext_Filter.js',
 	'bower_components/fl1p3l3v3n/lib/bit/bitReady.js',
 	'bower_components/fl1p3l3v3n/lib/css/CSS.js',
 	'bower_components/fl1p3l3v3n/lib/markup/markup.js',
