@@ -45,7 +45,7 @@ function $slidelist(){
             ScrollUtil.bind(_elem, _directionHandler);
         }
 
-        Evt.subscribe(_elem, Evt.SLIDE_COMPLETE, function(){ _self.isAnimating = false; });
+        Evt.subscribe(_elem, Evt.SLIDE_COMPLETE, function(){ _self.delayedCall( function() { _self.isAnimating = false; }, _self.delay); });
         Evt.subscribe(_elem, Evt.SLIDE_NAVSELECT, _goto);
         Evt.subscribe(window, Evt.RESIZE, _onresize);
 
@@ -118,13 +118,15 @@ function $slidelist(){
                     case 'horizontal':
                     if (event.direction == 'left'){
                         if (_self.orientation == 'static'){
-                            _getNext('fade');
+                            // _getNext('fade');
+                            _getNext('left');
                         }else{
                             _getNext('left');
                         }
                     }else if (event.direction == 'right'){
                         if (_self.orientation == 'static'){
-                            _getPrev('fade');
+                            // _getPrev('fade');
+                            _getPrev('right');
                         }else{
                             _getPrev('right');
                         }
@@ -160,7 +162,7 @@ function $slidelist(){
             _self.isAnimating = true;
 
             // trigger animations on slides
-            var current = _self.slideindex;
+            var current = _self.previous = _self.slideindex;
             _self.slideindex++;
             var next = _self.slideindex;
 
@@ -197,7 +199,7 @@ function $slidelist(){
             _self.isAnimating = true;
             
             // trigger animations on slides
-            var current = _self.slideindex;
+            var current = _self.previous = _self.slideindex;
             _self.slideindex--;
             var prev = _self.slideindex;
 
@@ -215,7 +217,7 @@ function $slidelist(){
             });
 
             // when using a container, scroll the container
-            if (_self.container !== false){
+            if (_self.container !== false  && _self.orientation != 'static'){
                 _xPos = (_self.orientation == 'vertical') ? 0 : _xPos + Stage.width;
                 _yPos = (_self.orientation == 'vertical') ? _yPos + Stage.height : 0;
 
@@ -230,33 +232,42 @@ function $slidelist(){
     }
 
     function _goto(params){
+
+        // console.log(params.index);
+
         if (_self.isAnimating === false){
             _self.isAnimating = true;
 
-            var previous = _self.slideindex;
+            _self.previous = _self.slideindex;
             _self.slideindex = params.index;
-            var diff = Math.abs(previous - _self.slideindex);
+
+            var diff = Math.abs(_self.previous - _self.slideindex);
             if (diff > 1){
                 diff = diff*0.66; // this is used later to extend the transition animation so it's not too quick
             }
 
-
-            // console.log('goto');
-            // console.log(previous);
-            // console.log(_self.slideindex);
+            if (Config.DEBUG.slidelist) {
+                console.log('========================');
+                console.log('GOTO');
+                console.log('prev:' + _self.previous);
+                console.log('index:' + _self.slideindex);
+                console.log('========================');
+            }
 
             // determine the direction for slide animation
             switch (_self.orientation){
                 case 'horizontal':
-                if (_self.slideindex < previous){
+                if (_self.slideindex < _self.previous){
                     if (_self.orientation == 'static'){
-                        dir = 'fade';
+                        // dir = 'fade';
+                        dir = 'right';
                     }else{
                         dir = 'right';
                     }
                 }else{
                     if (_self.orientation == 'static'){
-                        dir = 'fade';
+                        // dir = 'fade';
+                        dir = 'left';
                     }else{
                         dir = 'left';
                     }
@@ -266,7 +277,7 @@ function $slidelist(){
                 case 'vertical':
                 case 'static':
                 default:
-                if (_self.slideindex < previous){
+                if (_self.slideindex < _self.previous){
                     if (_self.orientation == 'static'){
                         // dir = 'fade';
                         dir = 'down';
@@ -285,8 +296,8 @@ function $slidelist(){
             }
 
             // you need to implement this.animateOut and this.animateIn on your slide class
-            if (_self.slides[previous].hasOwnProperty('animateOut')){
-                _self.slides[previous].animateOut(dir);
+            if (_self.slides[_self.previous].hasOwnProperty('animateOut')){
+                _self.slides[_self.previous].animateOut(dir);
             }
 
             if (_self.slides[_self.slideindex].hasOwnProperty('animateIn')){
@@ -298,7 +309,7 @@ function $slidelist(){
             });
 
             // when using a container, scroll the container
-            if (_self.container !== false){
+            if (_self.container !== false && _self.orientation != 'static'){
                 _xPos = (_self.orientation == 'vertical') ? 0 : -(Stage.width * _self.slideindex);
                 _yPos = (_self.orientation == 'vertical') ? -(Stage.height * _self.slideindex) : 0;
 
@@ -355,16 +366,20 @@ function $slidelist(){
     };
 
     function _onresize() {
+        
         _xPos = (_self.orientation == 'vertical') ? 0 : -(Stage.width * _self.slideindex);
         _yPos = (_self.orientation == 'vertical') ? -(Stage.height * _self.slideindex) : 0;
 
-        _self.container.setProps({
-            x: _xPos,
-            y: _yPos
-        });
+        if (_self.container !== false && _self.orientation != 'static') {
+
+            _self.container.setProps({
+                x: _xPos,
+                y: _yPos
+            });
+        }
 
         for (idx = 0; idx < _self.slides.length; idx++){
-            if (_self.container !== false){
+            if (_self.container !== false && _self.orientation != 'static'){
                 _self.slides[idx].element.setProps({
                     x: (_self.orientation == 'vertical') ? 0 : Stage.width * idx,
                     y: (_self.orientation == 'vertical') ? Stage.height * idx : 0
@@ -388,4 +403,9 @@ function $slidelist(){
         }
         _getPrev(dir);
     };
+    this.__destroySlideList = function() {
+        Evt.removeEvent(_elem, Evt.SLIDE_COMPLETE, function(){ _self.delayedCall( function() { _self.isAnimating = false; }, _self.delay); });
+        Evt.removeEvent(_elem, Evt.SLIDE_NAVSELECT, _goto);
+        Evt.removeEvent(window, Evt.RESIZE, _onresize);
+    }
 }
