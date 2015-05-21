@@ -20,6 +20,7 @@ function $slidelist(){
     _self.currdir = -1;
     _self.isAnimating = false;
     _self.container = false;
+    _self.paused = false;
 
     // set a default easing; can be set whenever by the object that inherits this
     _self.easing = 'Quad.easeInOut';
@@ -53,6 +54,11 @@ function $slidelist(){
 
     function _directionHandler(event) {
         // console.log(event);
+
+        if (_self.paused === true){
+            return;
+        }
+
         // detect the end of scrolling and reset the _self.isScrolling variable
         clearTimeout(_self.scrolltick);
         _self.scrolltick = setTimeout(function(){
@@ -403,6 +409,15 @@ function $slidelist(){
         }
         _getPrev(dir);
     };
+
+    this.pause = function(){
+        _self.paused = true;
+    };
+
+    this.resume = function(){
+        _self.paused = false;
+    };
+
     this.__destroySlideList = function() {
         Evt.removeEvent(_elem, Evt.SLIDE_COMPLETE, function(){ _self.delayedCall( function() { _self.isAnimating = false; }, _self.delay); });
         Evt.removeEvent(_elem, Evt.SLIDE_NAVSELECT, _goto);
