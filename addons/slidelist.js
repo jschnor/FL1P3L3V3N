@@ -10,10 +10,13 @@ function $slidelist(){
     var _self = this,
         _elem = _self.element,
         _xPos = 0,
-        _yPos = 0;
+        _yPos = 0,
+        _width = Stage.width,
+        _height = Stage.height;
     
     _self.orientation = 'vertical'; // 'vertical' || 'horizontal' || 'static'; set using initSlides from the class that inherits this
     _self.slides = []; // the object that inherits this is expected to populate slides
+    _self.sizeToContainer = false; // if true, will resize and position slides to their parent container; if false, will size and position to Stage
     _self.slideindex = 0;
     _self.scrolltick = null;
     _self.isScrolling = false;
@@ -187,8 +190,8 @@ function $slidelist(){
 
             // when using a container, scroll the container
             if (_self.container !== false){
-                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos - Stage.width;
-                _yPos = (_self.orientation == 'vertical') ? _yPos - Stage.height : 0;
+                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos - _width;
+                _yPos = (_self.orientation == 'vertical') ? _yPos - _height : 0;
 
                 _self.container.tween({
                     x: _xPos,
@@ -224,8 +227,8 @@ function $slidelist(){
 
             // when using a container, scroll the container
             if (_self.container !== false  && _self.orientation != 'static'){
-                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos + Stage.width;
-                _yPos = (_self.orientation == 'vertical') ? _yPos + Stage.height : 0;
+                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos + _width;
+                _yPos = (_self.orientation == 'vertical') ? _yPos + _height : 0;
 
                 _self.container.tween({
                     x: _xPos,
@@ -316,8 +319,8 @@ function $slidelist(){
 
             // when using a container, scroll the container
             if (_self.container !== false && _self.orientation != 'static'){
-                _xPos = (_self.orientation == 'vertical') ? 0 : -(Stage.width * _self.slideindex);
-                _yPos = (_self.orientation == 'vertical') ? -(Stage.height * _self.slideindex) : 0;
+                _xPos = (_self.orientation == 'vertical') ? 0 : -(_width * _self.slideindex);
+                _yPos = (_self.orientation == 'vertical') ? -(_height * _self.slideindex) : 0;
 
                 _self.container.tween({
                     x: _xPos,
@@ -348,7 +351,19 @@ function $slidelist(){
                     use_container = false;
                 }
             }
+
+            if (objParams.hasOwnProperty('sizeToContainer')){
+                if (objParams.sizeToContainer === true){
+                    _self.sizeToContainer = true;
+                }else{
+                    _self.sizeToContainer = false;
+                }
+            }
         }
+
+        // if you set _self.sizeToContainer = true, you need to also set _self.width and _self.height in the class that inherits this
+        _width = _self.sizeToContainer ? _self.width : Stage.width;
+        _height = _self.sizeToContainer ? _self.height : Stage.height;
 
         if (_self.orientation == 'static'){
             use_container = false;
@@ -364,17 +379,20 @@ function $slidelist(){
             if (_self.container !== false){
                 _self.container.add(_self.slides[idx]);
                 _self.slides[idx].element.setProps({
-                    x: (_self.orientation == 'vertical') ? 0 : Stage.width * idx,
-                    y: (_self.orientation == 'vertical') ? Stage.height * idx : 0
+                    x: (_self.orientation == 'vertical') ? 0 : _width * idx,
+                    y: (_self.orientation == 'vertical') ? _height * idx : 0
                 });
             }
         }
     };
 
     function _onresize() {
-        
-        _xPos = (_self.orientation == 'vertical') ? 0 : -(Stage.width * _self.slideindex);
-        _yPos = (_self.orientation == 'vertical') ? -(Stage.height * _self.slideindex) : 0;
+        // if you set _self.sizeToContainer = true, you need to also set _self.width and _self.height in the class that inherits this
+        _width = _self.sizeToContainer ? _self.width : Stage.width;
+        _height = _self.sizeToContainer ? _self.height : Stage.height;
+
+        _xPos = (_self.orientation == 'vertical') ? 0 : -(_width * _self.slideindex);
+        _yPos = (_self.orientation == 'vertical') ? -(_height * _self.slideindex) : 0;
 
         if (_self.container !== false && _self.orientation != 'static') {
 
@@ -387,8 +405,8 @@ function $slidelist(){
         for (idx = 0; idx < _self.slides.length; idx++){
             if (_self.container !== false && _self.orientation != 'static'){
                 _self.slides[idx].element.setProps({
-                    x: (_self.orientation == 'vertical') ? 0 : Stage.width * idx,
-                    y: (_self.orientation == 'vertical') ? Stage.height * idx : 0
+                    x: (_self.orientation == 'vertical') ? 0 : _width * idx,
+                    y: (_self.orientation == 'vertical') ? _height * idx : 0
                 });
             }
         }
