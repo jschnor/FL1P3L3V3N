@@ -3,16 +3,17 @@
  * 
  * Allows objects to Inherit() these properties and methods, providing an easy way
  * to build slide navigation into your project.
+ * ^^ LIES ^^
  *
  * This file acts as a controller for a set of slides, managing next and previous actions.
  */
-function $slidelist(){
+function $slidelist(_uniqid){
+    Inherit(this, $id);
+
     var _self = this,
         _elem = _self.element,
         _xPos = 0,
-        _yPos = 0,
-        _width = Stage.width,
-        _height = Stage.height;
+        _yPos = 0;
     
     _self.orientation = 'vertical'; // 'vertical' || 'horizontal' || 'static'; set using initSlides from the class that inherits this
     _self.slides = []; // the object that inherits this is expected to populate slides
@@ -24,6 +25,11 @@ function $slidelist(){
     _self.isAnimating = false;
     _self.container = false;
     _self.paused = false;
+    _self.autoResize = true;
+    _self.uniqid = _uniqid = '' ? Date.now() : _uniqid;
+
+    _self.outputWidth = Stage.width;
+    _self.outputHeight = Stage.height;
 
     // set a default easing; can be set whenever by the object that inherits this
     _self.easing = 'Quad.easeInOut';
@@ -49,14 +55,22 @@ function $slidelist(){
             ScrollUtil.bind(_elem, _directionHandler);
         }
 
-        Evt.subscribe(_elem, Evt.SLIDE_COMPLETE, function(){ _self.delayedCall( function() { _self.isAnimating = false; }, _self.delay); });
-        Evt.subscribe(_elem, Evt.SLIDE_NAVSELECT, _goto);
-        Evt.subscribe(window, Evt.RESIZE, _onresize);
+        Evt.subscribe(_elem, Evt.SLIDE_COMPLETE, function(params){
+            if (params.uniqid == _self.uniqid){
+                _self.isAnimating = false;
+            }else{
+                console.log('wtf');
+            }
+        });
 
+        // if (_self.uniqid == 'workweb'){
+            Evt.subscribe(_elem, Evt.SLIDE_NAVSELECT, _goto);
+        // }
+
+        _elem.size(_self.outputWidth, _self.outputHeight);
     })();
 
     function _directionHandler(event) {
-        // console.log(event);
 
         if (_self.paused === true){
             return;
@@ -114,7 +128,6 @@ function $slidelist(){
                         }
                     }else if (event.direction == 'down'){
                         if (_self.orientation == 'static'){
-                            // _getNext('fade');
                             _getNext('up');
                         }else{
                             _getNext('up');
@@ -127,7 +140,6 @@ function $slidelist(){
                     case 'horizontal':
                     if (event.direction == 'left'){
                         if (_self.orientation == 'static'){
-                            // _getNext('fade');
                             _getNext('left');
                         }else{
                             _getNext('left');
@@ -172,6 +184,7 @@ function $slidelist(){
 
             // trigger animations on slides
             var current = _self.previous = _self.slideindex;
+            // console.log('slidelist getNext: '+_self.slideindex);
             _self.slideindex++;
             var next = _self.slideindex;
 
@@ -185,13 +198,14 @@ function $slidelist(){
             }
 
             Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
-                index: next
+                index: next,
+                uniqid: _self.uniqid
             });
 
             // when using a container, scroll the container
             if (_self.container !== false){
-                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos - _width;
-                _yPos = (_self.orientation == 'vertical') ? _yPos - _height : 0;
+                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos - _self.outputWidth;
+                _yPos = (_self.orientation == 'vertical') ? _yPos - _self.outputHeight : 0;
 
                 _self.container.tween({
                     x: _xPos,
@@ -208,6 +222,7 @@ function $slidelist(){
             _self.isAnimating = true;
             
             // trigger animations on slides
+            // console.log('slidelist getPrev: '+_self.slideindex);
             var current = _self.previous = _self.slideindex;
             _self.slideindex--;
             var prev = _self.slideindex;
@@ -222,13 +237,14 @@ function $slidelist(){
             }
 
             Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
-                index: prev
+                index: prev,
+                uniqid: _self.uniqid
             });
 
             // when using a container, scroll the container
             if (_self.container !== false  && _self.orientation != 'static'){
-                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos + _width;
-                _yPos = (_self.orientation == 'vertical') ? _yPos + _height : 0;
+                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos + _self.outputWidth;
+                _yPos = (_self.orientation == 'vertical') ? _yPos + _self.outputHeight : 0;
 
                 _self.container.tween({
                     x: _xPos,
@@ -242,93 +258,96 @@ function $slidelist(){
 
     function _goto(params){
 
-        // console.log(params.index);
+        if (params.uniqid == _self.uniqid){
+            if (_self.isAnimating === false){
+                _self.isAnimating = true;
 
-        if (_self.isAnimating === false){
-            _self.isAnimating = true;
+                _self.previous = _self.slideindex;
+                _self.slideindex = params.index;
 
-            _self.previous = _self.slideindex;
-            _self.slideindex = params.index;
-
-            var diff = Math.abs(_self.previous - _self.slideindex);
-            if (diff > 1){
-                diff = diff*0.66; // this is used later to extend the transition animation so it's not too quick
-            }
-
-            if (Config.DEBUG.slidelist) {
-                console.log('========================');
-                console.log('GOTO');
-                console.log('prev:' + _self.previous);
-                console.log('index:' + _self.slideindex);
-                console.log('========================');
-            }
-
-            // determine the direction for slide animation
-            switch (_self.orientation){
-                case 'horizontal':
-                if (_self.slideindex < _self.previous){
-                    if (_self.orientation == 'static'){
-                        // dir = 'fade';
-                        dir = 'right';
-                    }else{
-                        dir = 'right';
-                    }
-                }else{
-                    if (_self.orientation == 'static'){
-                        // dir = 'fade';
-                        dir = 'left';
-                    }else{
-                        dir = 'left';
-                    }
+                var diff = Math.abs(_self.previous - _self.slideindex);
+                if (diff > 1){
+                    diff = diff*0.66; // this is used later to extend the transition animation so it's not too quick
                 }
-                break;
 
-                case 'vertical':
-                case 'static':
-                default:
-                if (_self.slideindex < _self.previous){
-                    if (_self.orientation == 'static'){
-                        // dir = 'fade';
-                        dir = 'down';
-                    }else{
-                        dir = 'down';
-                    }
-                }else{
-                    if (_self.orientation == 'static'){
-                        // dir = 'fade';
-                        dir = 'up';
-                    }else{
-                        dir = 'up';
-                    }
+                if (Config.DEBUG.slidelist) {
+                    console.log('========================');
+                    console.log('GOTO');
+                    console.log('prev:' + _self.previous);
+                    console.log('index:' + _self.slideindex);
+                    console.log('========================');
                 }
-                break;
-            }
 
-            // you need to implement this.animateOut and this.animateIn on your slide class
-            if (_self.slides[_self.previous].hasOwnProperty('animateOut')){
-                _self.slides[_self.previous].animateOut(dir);
-            }
+                // determine the direction for slide animation
+                switch (_self.orientation){
+                    case 'horizontal':
+                    if (_self.slideindex < _self.previous){
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'right';
+                        }else{
+                            dir = 'right';
+                        }
+                    }else{
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'left';
+                        }else{
+                            dir = 'left';
+                        }
+                    }
+                    break;
 
-            if (_self.slides[_self.slideindex].hasOwnProperty('animateIn')){
-                _self.slides[_self.slideindex].animateIn(dir);
-            }
+                    case 'vertical':
+                    case 'static':
+                    default:
+                    if (_self.slideindex < _self.previous){
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'down';
+                        }else{
+                            dir = 'down';
+                        }
+                    }else{
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'up';
+                        }else{
+                            dir = 'up';
+                        }
+                    }
+                    break;
+                }
 
-            Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
-                index: _self.slideindex
-            });
+                // you need to implement this.animateOut and this.animateIn on your slide class
+                if (_self.slides[_self.previous].hasOwnProperty('animateOut')){
+                    _self.slides[_self.previous].animateOut(dir);
+                }
 
-            // when using a container, scroll the container
-            if (_self.container !== false && _self.orientation != 'static'){
-                _xPos = (_self.orientation == 'vertical') ? 0 : -(_width * _self.slideindex);
-                _yPos = (_self.orientation == 'vertical') ? -(_height * _self.slideindex) : 0;
+                if (_self.slides[_self.slideindex].hasOwnProperty('animateIn')){
+                    _self.slides[_self.slideindex].animateIn(dir);
+                }
 
-                _self.container.tween({
-                    x: _xPos,
-                    y: _yPos
-                }, _self.transtime * diff, _self.easing, _self.delay, function(){
-                    _self.isAnimating = false;
+                Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
+                    index: _self.slideindex,
+                    uniqid: _self.uniqid
                 });
+
+                // when using a container, scroll the container
+                if (_self.container !== false && _self.orientation != 'static'){
+                    _xPos = (_self.orientation == 'vertical') ? 0 : -(_self.outputWidth * _self.slideindex);
+                    _yPos = (_self.orientation == 'vertical') ? -(_self.outputHeight * _self.slideindex) : 0;
+
+                    _self.container.tween({
+                        x: _xPos,
+                        y: _yPos
+                    }, _self.transtime * diff, _self.easing, _self.delay, function(){
+                        _self.isAnimating = false;
+                    });
+                }
             }
+        }else{
+            console.log(params.uniqid + ' ' + _self.uniqid);
         }
     }
 
@@ -362,8 +381,8 @@ function $slidelist(){
         }
 
         // if you set _self.sizeToContainer = true, you need to also set _self.width and _self.height in the class that inherits this
-        _width = _self.sizeToContainer ? _self.width : Stage.width;
-        _height = _self.sizeToContainer ? _self.height : Stage.height;
+        _self.outputWidth = _self.sizeToContainer ? _self.width : Stage.width;
+        _self.outputHeight = _self.sizeToContainer ? _self.height : Stage.height;
 
         if (_self.orientation == 'static'){
             use_container = false;
@@ -379,20 +398,26 @@ function $slidelist(){
             if (_self.container !== false){
                 _self.container.add(_self.slides[idx]);
                 _self.slides[idx].element.setProps({
-                    x: (_self.orientation == 'vertical') ? 0 : _width * idx,
-                    y: (_self.orientation == 'vertical') ? _height * idx : 0
+                    x: (_self.orientation == 'vertical') ? 0 : _self.outputWidth * idx,
+                    y: (_self.orientation == 'vertical') ? _self.outputHeight * idx : 0
                 });
             }
+        }
+
+        if (_self.autoResize == true){
+            Evt.subscribe(window, Evt.RESIZE, _onresize);
         }
     };
 
     function _onresize() {
         // if you set _self.sizeToContainer = true, you need to also set _self.width and _self.height in the class that inherits this
-        _width = _self.sizeToContainer ? _self.width : Stage.width;
-        _height = _self.sizeToContainer ? _self.height : Stage.height;
+        _self.outputWidth = _self.sizeToContainer ? _self.width : Stage.width;
+        _self.outputHeight = _self.sizeToContainer ? _self.height : Stage.height;
 
-        _xPos = (_self.orientation == 'vertical') ? 0 : -(_width * _self.slideindex);
-        _yPos = (_self.orientation == 'vertical') ? -(_height * _self.slideindex) : 0;
+        _elem.size(_self.outputWidth, _self.outputHeight);
+
+        _xPos = (_self.orientation == 'vertical') ? 0 : -(_self.outputWidth * _self.slideindex);
+        _yPos = (_self.orientation == 'vertical') ? -(_self.outputHeight * _self.slideindex) : 0;
 
         if (_self.container !== false && _self.orientation != 'static') {
 
@@ -405,12 +430,16 @@ function $slidelist(){
         for (idx = 0; idx < _self.slides.length; idx++){
             if (_self.container !== false && _self.orientation != 'static'){
                 _self.slides[idx].element.setProps({
-                    x: (_self.orientation == 'vertical') ? 0 : _width * idx,
-                    y: (_self.orientation == 'vertical') ? _height * idx : 0
+                    x: (_self.orientation == 'vertical') ? 0 : _self.outputWidth * idx,
+                    y: (_self.orientation == 'vertical') ? _self.outputHeight * idx : 0
                 });
             }
         }
     }
+
+    this.resize = function(){
+        _onresize();
+    };
 
     this.next = function(dir){
         if (typeof dir != 'string'){
@@ -439,6 +468,11 @@ function $slidelist(){
     this.__destroySlideList = function() {
         Evt.removeEvent(_elem, Evt.SLIDE_COMPLETE, function(){ _self.delayedCall( function() { _self.isAnimating = false; }, _self.delay); });
         Evt.removeEvent(_elem, Evt.SLIDE_NAVSELECT, _goto);
-        Evt.removeEvent(window, Evt.RESIZE, _onresize);
+
+        if (_self.autoResize == true){
+            Evt.removeEvent(window, Evt.RESIZE, _onresize);
+        }
+
+        this.__destroy();
     }
 }
