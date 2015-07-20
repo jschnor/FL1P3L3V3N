@@ -1,6 +1,6 @@
 function Nav() {
 
-    Inherit(this, $class);
+    Inherit(this, View);
     Inherit(this, $slidenav);
     
     var _self = this,

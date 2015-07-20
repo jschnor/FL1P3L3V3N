@@ -1,6 +1,6 @@
 function Home() {
 
-    Inherit(this, $id);
+    Inherit(this, Controller);
     Inherit(this, $slidelist);
     
     var _self = this,

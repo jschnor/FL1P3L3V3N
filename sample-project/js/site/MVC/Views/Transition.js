@@ -1,7 +1,7 @@
 Singleton(function Transition() {
     // console.log('tranistion is called - singleton');
 
-    Inherit(this, $class);
+    Inherit(this, View);
 
     var _self = this;
     var _elem, _anim, _centerW, _centerH, _bg;

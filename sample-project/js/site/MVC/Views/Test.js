@@ -1,6 +1,6 @@
 function Test(index) {
 
-    Inherit(this, $class);
+    Inherit(this, View);
     // Inherit(this, $slide);
     
     var _self = this,

@@ -6,7 +6,7 @@
 
 function Loader(callback) {
 	 
-	Inherit(this, $id);
+	Inherit(this, Controller);
 
 	var _self = this,
 		_elem = _self.element,

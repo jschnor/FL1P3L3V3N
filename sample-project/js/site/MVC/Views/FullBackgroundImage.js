@@ -1,6 +1,6 @@
 function FullBackgroundImage() {
 
-    Inherit(this, $class);
+    Inherit(this, View);
 
     var _self = this,
         _elem = _self.element,

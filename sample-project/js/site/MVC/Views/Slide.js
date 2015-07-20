@@ -1,6 +1,6 @@
 function Slide(data, index) {
 
-    Inherit(this, $class);
+    Inherit(this, View);
     
     var _self = this;
     var _elem, _menu, _headline, _bg, _scroll;

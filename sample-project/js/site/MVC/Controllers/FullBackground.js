@@ -1,6 +1,6 @@
 function FullBackground() {
 
-	Inherit(this, $id);
+	Inherit(this, Controller);
 
 	var _self = this,
 		_elem = _self.element,
