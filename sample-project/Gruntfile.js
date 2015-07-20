@@ -40,7 +40,7 @@ var _appfiles = [
 	'bower_components/fl1p3l3v3n/lib/MVC/View.js',
 	'bower_components/fl1p3l3v3n/lib/MVC/Component.js',
 	'bower_components/fl1p3l3v3n/lib/MVC/LinkedList.js',
-	'bower_components/fl1p3l3v3n/lib/data/Model.js',
+	'bower_components/fl1p3l3v3n/lib/MVC/Model.js',
 	'bower_components/fl1p3l3v3n/lib/GATracker.js',
 	'bower_components/fl1p3l3v3n/addons/slidelist.js',
 	'bower_components/fl1p3l3v3n/addons/slidenav.js',
