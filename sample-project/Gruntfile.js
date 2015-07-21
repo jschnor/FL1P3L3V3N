@@ -46,7 +46,9 @@ var _appfiles = [
 	'bower_components/fl1p3l3v3n/addons/slidenav.js',
 
 	// 'js/site/data/**/*.js',
-    'js/site/MVC/**/*.js',
+    'js/site/Models/**/*.js',
+    'js/site/Views/**/*.js',
+    'js/site/Controllers/**/*.js',
     'js/site/_Start.js',
 ];
 
