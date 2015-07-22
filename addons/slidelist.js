@@ -8,7 +8,7 @@
  * This file acts as a controller for a set of slides, managing next and previous actions.
  */
 function $slidelist(_uniqid){
-    Inherit(this, $id);
+    Inherit(this, Controller);
 
     var _self = this,
         _elem = _self.element,
