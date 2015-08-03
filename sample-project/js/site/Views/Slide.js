@@ -1,4 +1,4 @@
-function Slide(data, index) {
+Class(function Slide(data, index) {
 
     Inherit(this, View);
     
@@ -240,4 +240,4 @@ function Slide(data, index) {
         this.__destroy();
     };
 
-}
+});

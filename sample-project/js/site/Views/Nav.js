@@ -1,4 +1,4 @@
-function Nav() {
+Class(function Nav() {
 
     Inherit(this, View);
     Inherit(this, $slidenav);
@@ -51,4 +51,4 @@ function Nav() {
     this.destroy = function() {
         this.__destroy();
     };
-}
+});

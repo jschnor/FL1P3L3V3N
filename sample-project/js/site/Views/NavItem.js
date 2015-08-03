@@ -1,4 +1,4 @@
-function NavItem(index) {
+Class(function NavItem(index) {
 
     Inherit(this, View);
     
@@ -47,4 +47,4 @@ function NavItem(index) {
     this.activate = function(){
         _elem.bg('#000000');
     };
-}
+});

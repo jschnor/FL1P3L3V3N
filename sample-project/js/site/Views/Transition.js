@@ -1,4 +1,4 @@
-Singleton(function Transition() {
+Class(function Transition() {
     // console.log('tranistion is called - singleton');
 
     Inherit(this, View);
@@ -189,5 +189,5 @@ Singleton(function Transition() {
 
         // }).bg('black');
         });
-    }
-});
+    };
+}, 'singleton');

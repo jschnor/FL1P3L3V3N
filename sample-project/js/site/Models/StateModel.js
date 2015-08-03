@@ -1,4 +1,4 @@
- function StateModel() {
+Class(function StateModel() {
     Inherit(this, Model);
 
     var _self = this;
@@ -64,4 +64,4 @@
         GATracker.trackPage(page);
 
     };
-};
+});

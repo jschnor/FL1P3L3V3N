@@ -1,4 +1,4 @@
-Singleton(function Container() {
+Class(function Container() {
 
 	Inherit(this, Controller);
 
@@ -106,4 +106,4 @@ Singleton(function Container() {
 		}
 	};
 
-});
+}, 'singleton');

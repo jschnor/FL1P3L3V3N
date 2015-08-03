@@ -4,7 +4,7 @@
  * see http://www.createjs.com/PreloadJS for demos and usage
  */
 
-function Loader(callback) {
+Class(function Loader(callback) {
 	 
 	Inherit(this, Controller);
 
@@ -166,4 +166,4 @@ function Loader(callback) {
         	height: _sizes.barheight
         });
 	}
-} 
+});

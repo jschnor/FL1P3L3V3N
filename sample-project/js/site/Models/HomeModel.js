@@ -1,6 +1,6 @@
 // example of a data model for a section of the site
 
-function HomeModel(_data) {
+Class(function HomeModel(_data) {
     
     Inherit(this, Model);
     
@@ -39,7 +39,7 @@ function HomeModel(_data) {
                 
             }
         }
-        _hmsl.sort(function(a, b){ return parseFloat(b.dragSortOrder) - parseFloat(a.dragSortOrder) });
+        _hmsl.sort(function(a, b){ return parseFloat(b.dragSortOrder) - parseFloat(a.dragSortOrder); });
 
         
 
@@ -58,4 +58,4 @@ function HomeModel(_data) {
     this.getSortedData = function() {
         return _getSortedData();
     };
-}
+});

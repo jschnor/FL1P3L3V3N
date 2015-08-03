@@ -1,4 +1,4 @@
-function FullBackgroundVideo() {
+Class(function FullBackgroundVideo() {
 
     Inherit(this, View);
 
@@ -536,4 +536,4 @@ function FullBackgroundVideo() {
         _activateVideo();
         _elem.setZ(9999);
     };
-};
+});

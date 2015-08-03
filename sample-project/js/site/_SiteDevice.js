@@ -1,4 +1,4 @@
-Static(function SiteDevice() {
+Class(function SiteDevice() {
     
     var _self = this;
     
@@ -48,4 +48,4 @@ Static(function SiteDevice() {
         return imgobj;
     };
     
-});
+}, 'static');

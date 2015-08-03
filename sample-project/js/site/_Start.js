@@ -1,4 +1,4 @@
-function Start() {
+Class(function Start() {
 
 	(function() {
     	Container.instance();
@@ -23,5 +23,5 @@ function Start() {
             // var _css = CSS._read();
         }
     }
-}
+});
 // var Start = new Start();

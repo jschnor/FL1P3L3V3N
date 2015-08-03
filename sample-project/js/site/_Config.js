@@ -1,6 +1,6 @@
 // Global site-specific config
 
-Static(function Config() {
+Class(function Config() {
     
     var _self = this;
 
@@ -71,4 +71,4 @@ Static(function Config() {
         touch: false,
         fullbg: false
     };
-});
+}, 'static');

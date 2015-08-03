@@ -1,4 +1,4 @@
-function FullBackground() {
+Class(function FullBackground() {
 
 	Inherit(this, Controller);
 
@@ -68,4 +68,4 @@ function FullBackground() {
     this.swapBG = function(){
     	_swapBG();
     };
-}
+});

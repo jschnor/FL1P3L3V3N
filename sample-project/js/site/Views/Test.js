@@ -1,4 +1,4 @@
-function Test(index) {
+Class(function Test(index) {
 
     Inherit(this, View);
     // Inherit(this, $slide);
@@ -122,4 +122,4 @@ function Test(index) {
 		// console.log(params);
 		// Evt.fireEvent(_elem, Evt.SLIDE_COMPLETE);
 	};
-}
+});

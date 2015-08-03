@@ -1,4 +1,4 @@
-function FullBackgroundImage() {
+Class(function FullBackgroundImage() {
 
     Inherit(this, View);
 
@@ -32,4 +32,4 @@ function FullBackgroundImage() {
             opacity: 0
         }, 0.5, Config.EASING.inout);
     };
-};
+});

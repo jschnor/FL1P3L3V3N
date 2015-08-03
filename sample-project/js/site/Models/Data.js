@@ -1,4 +1,4 @@
-Static(function Data() {
+Class(function Data() {
 
     Inherit(this, Model);
 
@@ -13,4 +13,4 @@ Static(function Data() {
     function _setData(){
         _self.STATE = new StateModel();
     }
-});
+}, 'static');

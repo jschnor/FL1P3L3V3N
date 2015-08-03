@@ -1,4 +1,4 @@
-function Home() {
+Class(function Home() {
 
     Inherit(this, Controller);
     Inherit(this, $slidelist);
@@ -72,4 +72,4 @@ function Home() {
     this.destroy = function() {
         this.__destroy();
     };
-}
+});

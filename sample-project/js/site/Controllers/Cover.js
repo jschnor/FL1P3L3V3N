@@ -1,4 +1,4 @@
-function Cover(){
+Class(function Cover(){
 
 	Inherit(this, Controller);
 	
@@ -125,4 +125,4 @@ function Cover(){
 			
 		}
 	}
-}
+});
