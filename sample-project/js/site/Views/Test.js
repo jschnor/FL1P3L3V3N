@@ -90,8 +90,23 @@ Class(function Test(index) {
                 }
             };
 
-            xhr.open('GET', '/ajaxtest.php');
-            xhr.send();
+            var data = {
+            	name: 'John Rambo',
+            	time: 'to get ill'
+            };
+
+            var queryStr = '';
+            var kvPairs = [];
+            for (var idx in data){
+            	kvPairs.push(encodeURIComponent(idx)+'='+encodeURIComponent(data[idx]));
+            }
+            if (kvPairs.length > 0){
+            	queryStr = kvPairs.join('&');
+            }
+
+            xhr.open('GET', '/ajaxtest.php?'+queryStr);
+            // xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+			xhr.send();
         }
     }
 
