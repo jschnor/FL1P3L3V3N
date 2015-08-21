@@ -52,6 +52,7 @@ Class(function Test(index) {
 				console.log('out');
 			}, function(){
 				console.log('click');
+				_ajaxTest();
 			});
 
 	    	_link = _t1.create('.link', 'a');
@@ -74,8 +75,24 @@ Class(function Test(index) {
 		}
     }
 
-    function _derp(){
-    	console.log('derp');
+    function _ajaxTest(){
+
+    	if (window.XMLHttpRequest){
+            xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function(){
+                if (xhr.readyState == 4){
+                    if (xhr.status == 200){
+                    	console.log(xhr.responseText);
+                    }else{
+                        console.log('ERROR');
+                    }
+                }
+            };
+
+            xhr.open('GET', '/ajaxtest.php');
+            xhr.send();
+        }
     }
 
     function colorPick(id) {
