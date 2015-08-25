@@ -76,11 +76,13 @@ Class(function Test(index) {
     }
 
     function _ajaxTest(){
-
-    	if (window.XMLHttpRequest){
+    	Ajax.get('/ajaxtest.php', {herp: 'derp'}, function(response){
+    		console.log(response);
+    	});
+    	/*if (window.XMLHttpRequest){
             xhr = new XMLHttpRequest();
 
-            xhr.onreadystatechange = function(){
+            xhr.onreadystatechange = function(event){
                 if (xhr.readyState == 4){
                     if (xhr.status == 200){
                     	console.log(xhr.responseText);
@@ -104,10 +106,13 @@ Class(function Test(index) {
             	queryStr = kvPairs.join('&');
             }
 
-            xhr.open('GET', '/ajaxtest.php?'+queryStr);
-            // xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-			xhr.send();
-        }
+            // xhr.open('GET', '/ajaxtest.php?'+queryStr);
+            // xhr.send();
+
+            xhr.open('POST', '/ajaxtest.php');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+			xhr.send(queryStr);
+        }*/
     }
 
     function colorPick(id) {
