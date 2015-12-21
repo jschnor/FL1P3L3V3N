@@ -15,6 +15,7 @@ var frameworkCorePath = '..';
 var _appfiles = [
     frameworkCorePath+'/lib/Global.js',
     frameworkCorePath+'/lib/Device.js',
+    'js/site/_Config.js',
     frameworkCorePath+'/lib/bit/bitObject.js',
     frameworkCorePath+'/lib/bit/bit.js',
     frameworkCorePath+'/lib/Events.js',
@@ -34,7 +35,6 @@ var _appfiles = [
     bowerPath+'/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
     bowerPath+'/PreloadJS/lib/preloadjs-0.6.1.combined.js',
     frameworkCorePath+'/lib/utilities/Utils.js',
-    'js/site/_Config.js',
     'js/site/_SiteDevice.js',
     frameworkCorePath+'/lib/utilities/Cookie.js',
     frameworkCorePath+'/lib/utilities/Ajax.js',

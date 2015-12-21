@@ -4,6 +4,30 @@ Class(function Config() {
     
     var _self = this;
 
+    (function(){
+        _iOS9retinaSizePatch(true);
+    })();
+
+    function _iOS9retinaSizePatch(allowUserScaling){
+        if (allowUserScaling == true){
+            if(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream){
+              document.querySelector('meta[name=viewport]')
+                .setAttribute(
+                  'content', 
+                  'initial-scale=1.0001, minimum-scale=1.0001, maximum-scale=9.0001, user-scalable=1'
+                );
+            }
+        }else{
+            if(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream){
+              document.querySelector('meta[name=viewport]')
+                .setAttribute(
+                  'content', 
+                  'initial-scale=1.0001, minimum-scale=1.0001, maximum-scale=1.0001, user-scalable=0'
+                );
+            }
+        }
+    }
+
     // color values
     this.COLORS = {
         black: '#000000',
