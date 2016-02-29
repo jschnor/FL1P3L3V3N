@@ -23,7 +23,10 @@ Class(function NavItem(index) {
     function _events() {
         Evt.subscribe(window, Evt.RESIZE, _setSize);
 
-        _elem.interact(null, null, _click);
+        //_elem.interact(null, null, _click);
+        _elem.interact({
+            onClick: _click
+        });
     }
 
     function _click(){
