@@ -1,11 +1,11 @@
 {
-  "name": "F11P Website",
-  "version": "7.2.0",
+  "name": "fl1p3l3v3n",
+  "version": "0.5.18",
   "authors": [
     "Justin Schnor",
     "Matt Engel"
   ],
-  "description": "Flipeleven Creative company website",
+  "description": "FL1P3L3V3N Framework",
   "license": "Copyright Flipeleven 2015",
   "homepage": "http://flipeleven.com",
   "private": false,
@@ -13,6 +13,9 @@
     
   ],
   "dependencies": {
-    "fl1p3l3v3n": ">=0.5.14"
+    "greensock": ">=1.14.2",
+    "history.js": ">=1.8.0",
+    "PreloadJS": "=0.6.1",
+    "fontawesome": ">=4.3.0"
   }
 }
