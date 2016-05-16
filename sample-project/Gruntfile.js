@@ -7,7 +7,7 @@
 
 // config for sample project inside framework:
 var bowerPath = '../bower_components';
-var frameworkCorePath = '../fl1p3l3v3n';
+var frameworkCorePath = '..';
 
 var _appfiles = [
     frameworkCorePath + '/lib/Global.js',
@@ -30,8 +30,8 @@ var _appfiles = [
             bowerPath + '/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
             bowerPath + '/PreloadJS/lib/preloadjs-0.6.1.combined.js',
     frameworkCorePath + '/lib/utilities/Utils.js',
-                        'js/site/_Config.js',
-                        'js/site/_SiteDevice.js',
+                        'js/site/Config.js',
+                        'js/site/SiteDevice.js',
     frameworkCorePath + '/lib/utilities/Cookie.js',
     frameworkCorePath + '/lib/utilities/Ajax.js',
     frameworkCorePath + '/lib/bit/extensions/Ext_BG.js',
@@ -58,7 +58,7 @@ var _appfiles = [
     'js/site/Models/**/*.js',
     'js/site/Views/**/*.js',
     'js/site/Controllers/**/*.js',
-    'js/site/_Start.js',
+    'js/site/Start.js',
 ];
 
 // The first set is built into the framework. These shouldn't have to change much.

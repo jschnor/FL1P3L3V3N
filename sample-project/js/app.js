@@ -1,3 +1,2044 @@
+(function() {
+
+window.Global = {};
+
+window.Inherit = function(childObj, parentObj, params) {
+
+  var _child = childObj;
+  var _parent = parentObj;
+  var _params = params;
+
+  _parent.call(_child, _params);
+  
+};
+
+window.Class = function(_function, _type) {
+
+    var _self = this || window;
+    var _func = _function.toString();
+    var _name = _func.match(/function ([^\(]+)/)[1];
+    _type = (_type || "").toLowerCase();
+    _function.prototype.__call = function () {
+        if (this.events) {
+            this.events.scope(this);
+        }
+    };
+    if (!_type) {
+        _self[_name] = _function;
+    } else {
+        if (_type == "static") {
+            _self[_name] = new _function();
+        } else {
+            if (_type == "singleton") {
+                _self[_name] = (function () {
+                    var __inst = {};
+                    // console.log('singleton called');
+                    var __func;
+                    __inst.instance = function () {
+                        if (!__func) {
+                            __func = new _function();
+                        }
+                        return __func;
+                    };
+                    return __inst;
+                })();
+            }
+        }
+    }
+};
+
+// window.Singleton = function(_function) {
+
+//  var _self = this || window;
+//  var _name = _function.toString().match(/function ([^\(]+)/)[1];
+
+//  _self[_name] = (function () {
+//         var __inst = {};
+//         // console.log('singleton called');
+//         var __func;
+//         __inst.instance = function () {
+//             if (!__func) {
+//                 __func = new _function();
+//             }
+//             return __func;
+//         };
+//         return __inst;
+//     })();
+// }
+
+// window.Static = function(_function) {
+
+//  var _self = this || window;
+//  var _name = _function.toString().match(/function ([^\(]+)/)[1];
+
+//  _self[_name] = new _function();
+
+// }
+
+window.getURL = function(link, target) {
+   if (!target) {
+       target = "_blank";
+   }
+   window.open(link, target);
+};
+
+})();
+// Class(function Device() {
+Class(function Device() {
+
+    var _self   = this;
+    // var _agent  = navigator.userAgent.toLowerCase();
+    _self.agent = navigator.userAgent.toLowerCase();
+
+    function isAvailable(feature) {
+        var e = document.createElement("div"),
+            d = "Khtml ms O Moz Webkit".split(" "),
+            c = d.length;
+        if (feature in e.style) {
+            return true;
+        }
+        feature = feature.replace(/^[a-z]/, function (g) {
+            return g.toUpperCase();
+        });
+        while (c--) {
+            if (d[c] + feature in e.style) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    this.detect = function(_device) {
+        if (typeof _device === "string") {
+            _device = [_device];
+        }
+        for (var i = 0; i < _device.length; i++) {
+            if (_self.agent.indexOf(_device[i]) != -1) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    this.mobile = ( !! ("ontouchstart" in window) && this.detect(["ios", "iphone", "ipad", "windows phone", "android", "blackberry", "iemobile"])) ? {} : false;
+    if (this.mobile) {
+        this.mobile.tablet = window.innerWidth > 1000 || window.innerHeight > 900;
+        this.mobile.phone = !this.mobile.tablet;
+    }
+
+    this.browser = {};
+    this.browser.chrome = this.detect("chrome");
+    this.browser.safari = !this.browser.chrome && this.detect("safari");
+    this.browser.firefox = this.detect("firefox");
+    this.browser.ie = (function () {
+        if (_self.detect("msie")) {
+            return true;
+        }
+        if (_self.detect("trident") && _self.detect("rv:")) {
+            return true;
+        }
+    })();
+    this.vendor = (function () {
+        if (_self.browser.firefox) {
+            return "moz";
+        }
+        if (_self.browser.opera) {
+            return "o";
+        }
+        if (_self.browser.ie && _self.browser.version >= 11) {
+            return "";
+        }
+        if (_self.browser.ie) {
+            return "ms";
+        }
+        return "webkit";
+    })();
+    this.system                 = {};
+    this.system.retina          = window.devicePixelRatio > 1 ? true : false;
+    this.system.webworker       = typeof window.Worker !== "undefined";
+    this.system.offline         = typeof window.applicationCache !== "undefined";
+    this.system.geolocation     = typeof navigator.geolocation !== "undefined";
+    this.system.pushstate       = typeof window.history.pushState !== "undefined";
+    this.system.webcam          = !! (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia);
+    this.system.language        = window.navigator.userLanguage || window.navigator.language;
+    this.system.webaudio        = typeof window.webkitAudioContext !== "undefined" || typeof window.AudioContent !== "undefined";
+    this.system.localStorage    = typeof window.localStorage !== "undefined";
+    this.system.fullscreen      = typeof document[_self.vendor + "CancelFullScreen"] !== "undefined";
+    this.system.os = (function () {
+        if (_self.detect("mac os")) {
+            return "mac";
+        } else {
+            if (_self.detect("windows nt 6.3")) {
+                return "windows8.1";
+            } else {
+                if (_self.detect("windows nt 6.2")) {
+                    return "windows8";
+                } else {
+                    if (_self.detect("windows nt 6.1")) {
+                        return "windows7";
+                    } else {
+                        if (_self.detect("windows nt 6.0")) {
+                            return "windowsvista";
+                        } else {
+                            if (_self.detect("windows nt 5.1")) {
+                                return "windowsxp";
+                            } else {
+                                if (_self.detect("linux")) {
+                                    return "linux";
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return "undetected";
+    })();
+    this.media = {};
+    this.media.audio = (function () {
+        if ( !! document.createElement("audio").canPlayType) {
+            return _self.detect(["firefox", "opera"]) ? "ogg" : "mp3";
+        } else {
+            return false;
+        }
+    })();
+    this.media.video = (function () {
+        var c = document.createElement("video");
+        if ( !! c.canPlayType) {
+            if (_self.mobile) {
+                return "mp4";
+            }
+            if (_self.browser.chrome) {
+                return "webm";
+            }
+            if (_self.browser.firefox || _self.browser.opera) {
+                if (c.canPlayType('video/webm; codecs="vorbis,vp8"')) {
+                    return "webm";
+                }
+                return "ogv";
+            }
+            return "mp4";
+        } else {
+            return false;
+        }
+    })();
+    this.graphics = {};
+    this.graphics.webgl = (function () {
+        try {
+            return !!window.WebGLRenderingContext && !! document.createElement("canvas").getContext("experimental-webgl");
+        } catch (c) {}
+    })();
+    this.graphics.canvas = (function () {
+        var c = document.createElement("canvas");
+        return c.getContext ? true : false;
+    })();
+    this.styles = {};
+    this.styles.filter = isAvailable("filter") && !_self.browser.firefox;
+    this.styles.shader = _self.browser.chrome;
+    this.styles.vendor = (function () {
+        if (_self.browser.firefox) {
+            return "Moz";
+        }
+        if (_self.browser.opera) {
+            return "O";
+        }
+        if (_self.browser.ie && _self.browser.version >= 11) {
+            return "";
+        }
+        if (_self.browser.ie) {
+            return "ms";
+        }
+        return "Webkit";
+    })();
+    this.styles.vendorTransition = this.styles.vendor.length ? this.styles.vendor + "Transition" : "transition";
+    this.styles.vendorTransform = this.styles.vendor.length ? this.styles.vendor + "Transform" : "transform";
+    this.tween = {};
+    this.tween.transition = isAvailable("transition");
+    this.tween.css2d = isAvailable("transform");
+    this.tween.css3d = isAvailable("perspective");
+    this.tween.complete = (function () {
+        if (_self.browser.firefox || _self.browser.ie) {
+            return "transitionend";
+        }
+        if (_self.browser.opera) {
+            return "oTransitionEnd";
+        }
+        return "webkitTransitionEnd";
+    })();
+
+    this.openFullscreen = function (elem) {
+        elem = elem || __body;
+        if (elem && _self.system.fullscreen) {
+            if (elem == __body) {
+                elem.css({
+                    top: 0
+                });
+            }
+            elem.div[_self.vendor + "RequestFullScreen"]();
+        }
+    };
+    this.closeFullscreen = function () {
+        if (_self.system.fullscreen) {
+            document[_self.vendor + "CancelFullScreen"]();
+        }
+    };
+    this.getFullscreen = function () {
+        return document[_self.vendor + "IsFullScreen"] || document[_self.vendor + "FullScreen"];
+    }
+    // $('.video-fullscreen-btn', player).bind('click', function(e){
+    //     if (player.requestFullscreen) {
+    //         player.requestFullscreen();
+    //     } else if (player.msRequestFullscreen) {
+    //         player.msRequestFullscreen();
+    //     } else if (player.mozRequestFullScreen) {
+    //         player.mozRequestFullScreen();
+    //     } else if (player.webkitRequestFullscreen) {
+    //         player.webkitRequestFullscreen();
+    //     }
+    // });
+}, 'static')
+
+
+
+Class(function $bitObject(selector, type, exists, usefragment) {
+
+    var _self = this;
+    var _type = type;
+    var _first, _name, _timer;
+    var _selector, _content, _element, _fragment;
+
+    // this._useFragment = usefragment;
+
+    this._useFragment = usefragment === undefined ? null : usefragment;
+    this._children = new LinkedList();
+    
+    // NOT REALLY USING CUSTOM BIT OBJECT EVENTS YET
+    
+    (function() {
+        _init();
+    })();
+
+    function _init() {
+        
+        _selector = selector;
+
+        if (Config.DEBUG.all || Config.DEBUG.bitobject) {
+            // console.log('BITOBJECT :: '+_selector);
+            // console.log(_selector);
+            // throw 'selector from init';
+        }
+
+        if (_selector && typeof _selector !== 'string') {
+            _self.div = _selector;
+            // console.log('not string :: '+_selector);
+        } else {
+            _first  = _selector ? _selector.charAt(0) : null;
+            _name   = _selector ? _selector.slice(1) : null;
+
+            // console.log(_selector);
+            // console.log(_name);
+            // console.log('first');
+            // console.log(_first);
+            // if (this.useFragment === true) {
+            // console.log('this.useFragment')
+            // console.log(_self.useFragment)
+
+
+            if (_first != '.' && _first != '#') {
+                // console.log('none :: '+_selector);
+                _name = _selector;
+                _first = '.';
+            }
+            if (!exists) {
+
+                _self._type = _type || 'div';
+                _self.div = document.createElement(_self._type);
+
+            
+                if (_first) {
+                    if (_first == '#') {
+                        _self.div.id = _name;
+                    } else {
+                        _self.div.className = _name;
+                    }
+                }
+
+            } else {
+                if (_first != '#') {
+                    throw 'Bit Selectors Require #ID';
+                }
+                _self.div = document.getElementById(_name);
+            }
+            
+        }
+
+        _self.div.$bitObject = _self;
+
+        // return _self.div;
+        // console.log('####### _self.div')
+        // console.log(_self.div)
+        // console.log(_self.div)
+        // console.log(_first)
+        
+        // this.useFragment
+        // _self.div.$bitObject = _self;
+        // console.log('$bitObject :: init');
+        // console.log(_self);
+
+        // console.log('instanceof $bitObject')
+        // console.log(_self instanceof $bitObject)
+        
+    }
+
+    function attachFragment() {
+        if (!_fragment) {
+            return false;
+        }
+        _self.div.appendChild(_fragment);
+
+        if (Config.DEBUG.all || Config.DEBUG.bitobject) {
+            // console.log('BITOBJECT :: attachFragment called');
+            // console.log(_fragment);
+        }
+        // if (_fragExists) {
+        //     clearInterval(_int);
+        // }
+        _timer = _fragment = null;
+    };
+
+    this.addChild = this.add = function(child) {
+        // console.log('============ BITOBJECT :: ADDCHILD ===============');
+        // console.log('child');
+        // console.log(child);
+        // console.log(child.element);
+        // console.log(_self)
+
+        // if (_self.useFragment === true) {
+        //     console.log('USE FRAGMENT');
+        // }
+        
+        var __div = _self.div;
+
+        if (_self._useFragment) {
+            // console.log('USE FRAGMENT');
+            if (!_fragment) {
+                _fragment = document.createDocumentFragment();
+                clearTimeout(_timer);
+                _timer = setTimeout(attachFragment, 1);
+
+            }
+            __div = _fragment;
+        }
+
+        if (child.element && child.element instanceof $bitObject) {
+
+            if (Config.DEBUG.all || Config.DEBUG.bitobject) {
+                console.log('if child element ===============');
+                console.log(__div);
+            }
+
+            __div.appendChild(child.element.div);
+
+            // _self.div = __div;
+            child.div = child.element.div;
+            // child = child.element;
+            
+            // _self._children.push(child.element);
+            _self._children.push(__div);
+            child.element._parent = _self;
+            
+
+        } else {
+            // console.log('============ child.element NOT $bitObject ===============');
+            // console.log(child);
+            // console.log(child.container);
+            // __div.appendChild(child.div);
+            // console.log('=========================================================');
+
+            if (child.container && child.container instanceof FlipObject) {
+                __div.appendChild(child.container.div);
+                
+                child.div = child.container.div;
+                // child = child.container;
+
+
+                _self._children.push(child.container);
+                child.container._parent = _self;
+
+            
+            } else {
+                if (child.div) {
+                    __div.appendChild(child.div);
+                    
+                    // child.element = child.div;
+
+                    this._children.push(child);
+                    child._parent = this;
+            
+                } else {
+                    if (child.nodeName) {
+                        // console.log('============ child.nodeName ===============');
+                        // console.log(child.nodeName)
+                        __div.appendChild(child);
+                    }
+                }
+            }
+        }
+        return _self;
+    };
+
+    this.removeChild = function (object, keepalive) {
+        if (!keepalive) {
+            try {
+                this.div.removeChild(object.div);
+            } catch(e) {}
+        }
+        this._children.remove(object);
+    };
+
+    this.create = function(__newelement, __type) {
+
+        var child = $(__newelement, __type);
+        this.addChild(child);
+        return child;
+    };
+    this.clone = function () {
+        return $(this.div.cloneNode(true));
+    };
+    this.text = function (text) {
+        if (typeof text !== "undefined") {
+            
+            _self.div.innerHTML = text;
+            
+            return _self;
+
+        } else {
+
+            return _self.div.innerHTML;
+
+        }
+    };
+
+    // this.parent = function () {
+    //     return this._parent;
+    // };
+    // this.children = function () {
+    //     return this.div.children ? this.div.children : this.div.childNodes;
+    // };
+});
+Class(function bit() {
+
+    var _self = this;
+    var _arg = [];
+
+    (function() {
+        _init();
+    })();
+
+    function _init() {
+        if (document.addEventListener) { //check for Mozilla or Opera
+            document.addEventListener('DOMContentLoaded', _domReadyCallback, false);
+        } else {
+            if (document.attachEvent) {   // IE before version 9
+                document.attachEvent('DOMContentLoaded', _domReadyCallback);
+            }
+        }
+    }
+
+    function _domReadyCallback() {
+        if (window.removeEventListener) {
+            window.removeEventListener("DOMContentLoaded", _domReadyCallback, false);
+        }
+
+        for (var i = 0; i < _arg.length; i++) {
+            _arg[i]();
+        }
+
+        _arg        = null;
+        _self.READY = true;
+        
+        if (window.Start) {
+            new window.Start();
+        }
+    }
+    
+    this.ready = function(callback) {
+        if (this.READY) {
+            return callback();
+        }
+        _arg.push(callback);
+    };
+    
+    this.$ = function(selector, type, isself) {
+
+            var _isself = arguments[arguments.length - 1] == '_self';
+            // console.log('######## ARGS ########');
+            // console.log(arguments[arguments.length - 1]);
+            if (_isself) {
+                type = null;
+            }
+
+            // console.log('bit selector');
+            // console.log(selector);
+            // console.log(_isself);
+            // return new F11PObject(selector, type, exists);
+            // return new F11PObject(selector, type, exists);
+            return new $bitObject(selector, type, _isself);
+        };
+        this.$.fn = $bitObject.prototype;
+
+         window.$ = this.$;
+
+    window.$ = this.$;
+
+}, 'static');
+// initialize static $bit
+// var bit = new $bit();
+// window.bit = new $bit();
+Class(function Evt() {
+// function $events() {
+
+    var _self = this;
+    var _EventsArray;
+    var _EventsObj    = {};
+    var _IEEventsObj  = {};
+    var _params;
+
+    var _eObj = [];
+    this.events = {};
+
+    this.BLUR = 'blur';
+    this.FOCUS = 'focus';
+    this.FOCUS_IN = 'focusin';
+    this.FOCUS_OUT = 'focusout';
+    this.LOAD = 'load';
+    this.RESIZE = 'resize';
+    this.SCROLL = 'scroll';
+    this.UNLOAD = 'unload';
+    this.CLICK = 'click';
+    this.DBL_CLICK = 'dblclick';
+    this.MOUSE_DOWN = 'mousedown';
+    this.MOUSE_UP = 'mouseup';
+    this.MOUSE_MOVE = 'mousemove';
+    this.MOUSE_OVER = 'mouseover';
+    this.MOUSE_OUT = 'mouseout';
+    this.MOUSE_ENTER = 'mouseenter';
+    this.MOUSE_LEAVE = 'mouseleave';
+    // this.MOUSE_LEAVE = 'mouseleave';
+    this.CHANGE = 'change';
+    this.SELECT = 'select';
+    this.SUBMIT = 'submit';
+    this.KEY_DOWN = 'keydown';
+    this.KEY_PRESS = 'keypress';
+    this.KEY_UP = 'keyup';
+    this.ERROR = 'error';
+    this.CUSTOM = 'custom';
+    // CUSTOM EVENTS
+    this.NAV_SELECT = 'navselect';
+    this.TAP = 'tap';
+    this.SWIPE_UP = 'swipeup';
+    this.SWIPE_DOWN = 'swipedown';
+    this.SWIPE_LEFT = 'swipeleft';
+    this.SWIPE_RIGHT = 'swiperight';
+    this.CHANGE = 'change';
+    this.ORIENTATION = 'orientation';
+    this.BROWSER_FOCUS = 'browserfocus';
+    this.MOUSE_SCROLL = Device.browser.firefox ? 'DOMMouseScroll' : 'mousewheel';
+    this.BG_LOADED = 'bgloaded';
+
+    (function() {
+        // initialization
+        _init();
+    })();
+
+    function _init() {
+        
+        /*creating the objects of the Dom Events, cross-browser*/
+
+        var DOMEventsStr     =  'blur focus focusin focusout load resize scroll unload click canplay ended';
+            DOMEventsStr     += 'dblclick mousedown mouseup mousemove mouseover mouseout mouseenter ';
+            DOMEventsStr     += 'mouseleave change select submit keydown keypress keyup error mousewheel ';
+            DOMEventsStr     += 'DOMMouseScroll touchstart touchmove touchend timeupdate';
+
+        _EventsArray          = DOMEventsStr.split(' ');
+
+        for (var i = 0; i < _EventsArray.length; i++) {
+            
+            _EventsObj[_EventsArray[i]]         = i + 1;
+            _IEEventsObj["on"+_EventsArray[i]]  = i + 1;
+
+        }
+
+    }
+
+    /*function to check wheter the given event is the custom event or dom event*/
+    function _checkDomEvent(e) {
+        
+        if (document.addEventListener && _EventsObj[e] === undefined) {
+
+            return false;
+
+        }
+        else if (document.attachEvent && _IEEventsObj["on"+e] === undefined) {
+
+            return false;
+
+        }
+
+        return true;
+    }
+
+    /*start of the Event utility that provides addition of events*/
+
+    this.subscribe = function(elem, evt, callback) {
+        var _elem;
+
+        if (elem instanceof $bitObject) {
+            _elem = elem.div;
+        } else {
+            _elem = elem;
+
+        }
+
+        var isDOMEvent = _checkDomEvent(evt) || _self[evt];
+
+        if (typeof evt !== undefined && typeof evt == "string") {
+            if (isDOMEvent) {
+                // attach a function to a built-in event
+                if (_elem.addEventListener) {
+                    _elem.addEventListener(evt, callback, false);
+                } else {
+                    _elem.attachEvent('on' + evt, callback);
+                    
+                }
+            } else {
+                // attach a function to a custom event
+                _self.events[evt] = callback;
+            }
+        }
+    };
+
+    // special resize event which can throttle the function call
+    // set throttle to boolean false to run the function at normal intervals
+    this.resize = function(callback, throttle) {
+        var timeout = null;
+
+        if (throttle !== false){
+            _callback = function(){
+                clearTimeout(timeout);
+                timeout = setTimeout(callback, 100); // limit function calls to this interval (milliseconds)
+            };
+        }else{
+            _callback = callback;
+        }
+
+        if (window.addEventListener){
+            window.addEventListener('resize', _callback, false);
+        } else {
+            window.attachEvent('onresize', _callback);
+        }
+    };
+
+    // this.fireEvent = function(elem, evt, params) {
+    this.fireEvent = function(elem, evt, params) {
+        var _params;
+
+        if (!params) {
+            _params = null;
+        }
+
+        _params = arguments[2];
+
+        var isDOMEvent = _checkDomEvent(evt) || _self[evt];
+
+        if (isDOMEvent) {
+            for (var i = 0; i < _eObj.length; i++) {
+                if (_eObj[i].evt == evt) {
+                    // run the callback for a built-in event
+                    if (typeof _eObj[i].callback == 'function') {
+                        _eObj[i].callback(_params);
+                    }
+                }
+            }
+        } else {
+            // run the callback for a custom event
+            if (typeof _self.events[evt] == 'function') {
+                _self.events[evt](_params);
+            }
+        }
+
+    };
+
+    this.removeEvent = function(elem, evt, callback, log) {
+        if (elem.detachEvent) {
+            elem.detachEvent( 'on'+evt, elem[evt+callback] );
+            elem[evt+callback] = null;
+        } else {
+            if (elem.removeEventListener){
+                elem.removeEventListener( evt, callback, false );
+            } else {
+                // apparently this doesn't do JACK
+                for (var e in _self.events){
+                    if (e == evt && _self.events[e] == callback){
+                        _self.events[e] = null;
+                    }
+                }
+            }
+        }
+    }
+
+}, 'static');
+Class(function Mobile() {
+
+    var _self = this;
+    var i = true;
+    var h = {};
+    if (Device.mobile){
+
+        this.phone = Device.mobile.phone;
+        this.tablet = Device.mobile.tablet;
+        this.orientation = Math.abs(window.orientation) == 90 ? "landscape" : "portrait";
+
+        this.os = (function () {
+            // console.log(Device)
+            if (Device.detect(["ipad", "iphone"])) {
+                // console.log("iOS");
+                return "iOS";
+            }
+            if (Device.detect(["android", "kindle"])) {
+                // console.log("Android");
+                return "Android";
+            }
+            if (Device.detect("windows phone")) {
+                // console.log("Windows");
+                return "Windows";
+            }
+            if (Device.detect("blackberry")) {
+                // console.log("Blackberry");
+                return "Blackberry";
+            }
+            // console.log("Unknown");
+            return "Unknown";
+        })();
+
+        this.version = (function () {
+            try {
+                if (_self.os == "iOS") {
+                    var _agent = Device.agent.split("os ")[1].split("_");
+                    var _version = _agent[0];
+                    var _release = _agent[1].split(" ")[0];
+                    
+                    // console.log(Number(_version + "." + _release));
+
+                    return Number(_version + "." + _release);
+                }
+                if (_self.os == "Android") {
+                    var k = Device.agent.split("android ")[1].split(";")[0];
+                    if (k.length > 3) {
+                        k = k.slice(0, -2);
+                    }
+                    return Number(k);
+                }
+                if (_self.os == "Windows") {
+                    return Number(Device.agent.split("windows phone ")[1].split(";")[0]);
+                }
+            } catch (n) {}
+            return -1;
+        })();
+
+        this.browser = (function () {
+            if (_self.os == "iOS") {
+                return Device.detect("crios") ? "Chrome" : "Safari";
+            }
+            if (_self.os == "Android") {
+                if (Device.detect("chrome")) {
+                    return "Chrome";
+                }
+                if (Device.detect("firefox")) {
+                    return "Firefox";
+                }
+                return "Browser";
+            }
+            if (_self.os == "Windows") {
+                return "IE";
+            }
+            return "Unknown";
+        })();
+
+        bit.ready(function(){
+            // console.log('Mobile Bit Ready')
+            window.addEventListener("orientationchange", _onOrientationChange);
+            // window.addEventListener("touchstart", _handleMobileTouch);
+            // window.addEventListener("touchmove", _handleMobileTouchMove);
+
+            window.onresize = _onResize;
+
+        });
+
+        function _handleMobileTouch(e) {
+            // var n = Utils.touchEvent(e);
+
+            // console.log('touch');
+
+            var l = e.target;
+            var k = l.nodeName == "INPUT" || l.nodeName == "TEXTAREA" || l.nodeName == "SELECT";
+            if (_self.allowScroll) {
+                return;
+            }
+            if (i) {
+                return e.preventDefault();
+            }
+            var j = true;
+            var l = e.target;
+
+            while (l.parentNode) {
+                if (k) {
+                    j = false;
+                }
+                if (l._scrollParent) {
+                    j = false;
+                    h.target = l;
+                    h.y = n.y;
+                }
+                l = l.parentNode;
+            }
+            if (j) {
+                e.preventDefault();
+            }
+        }
+        function _handleMobileTouchMove(e) {
+            // var m = Utils.touchEvent(l);
+            // console.log('touch move');
+            if (e.allowScroll) {
+                return;
+            }
+            if (h.target) {
+                var k = h.target;
+                var j = k.__scrollHeight || Number((k.style.height || "0px").slice(0, -2));
+                k.__scrollheight = j;
+                if (m.y < h.y) {
+                    if (Math.round(k.scrollTop) == Math.round(j / 2)) {
+                        e.preventDefault();
+                    }
+                } else {
+                    if (k.scrollTop == 0) {
+                        e.preventDefault();
+                    }
+                }
+            }
+        }
+    }
+
+        // TO DO: figure out versioning for mobile
+        // some example implementation of this is below
+
+        // if (Device.mobile) {
+        //     this.phone = Device.mobile.phone;
+        //     this.tablet = Device.mobile.tablet;
+        //     this.orientation = Math.abs(window.orientation) == 90 ? "landscape" : "portrait";
+        //     this.os = (function () {
+        //         if (Device.detect(["ipad", "iphone"])) {
+        //             return "iOS"
+        //         }
+        //         if (Device.detect(["android", "kindle"])) {
+        //             return "Android"
+        //         }
+        //         if (Device.detect("windows phone")) {
+        //             return "Windows"
+        //         }
+        //         if (Device.detect("blackberry")) {
+        //             return "Blackberry"
+        //         }
+        //         return "Unknown"
+        //     })();
+
+
+
+        //     this.version = (function () {
+        //         try {
+        //             if (e.os == "iOS") {
+        //                 var l = Device.agent.split("os ")[1].split("_");
+        //                 var j = l[0];
+        //                 var m = l[1].split(" ")[0];
+        //                 return Number(j + "." + m)
+        //             }
+        //             if (e.os == "Android") {
+        //                 var k = Device.agent.split("android ")[1].split(";")[0];
+        //                 if (k.length > 3) {
+        //                     k = k.slice(0, -2)
+        //                 }
+        //                 return Number(k)
+        //             }
+        //             if (e.os == "Windows") {
+        //                 return Number(Device.agent.split("windows phone ")[1].split(";")[0])
+        //             }
+        //         } catch (n) {}
+        //         return -1
+        //     })();
+        //     this.browser = (function () {
+        //         if (e.os == "iOS") {
+        //             return Device.detect("crios") ? "Chrome" : "Safari"
+        //         }
+        //         if (e.os == "Android") {
+        //             if (Device.detect("chrome")) {
+        //                 return "Chrome"
+        //             }
+        //             if (Device.detect("firefox")) {
+        //                 return "Firefox"
+        //             }
+        //             return "Browser"
+        //         }
+        //         if (e.os == "Windows") {
+        //             return "IE"
+        //         }
+        //         return "Unknown"
+        //     })();
+        //     Flip.ready(function () {
+        //         window.addEventListener("orientationchange", d);
+        //         window.addEventListener("touchstart", c);
+        //         window.addEventListener("touchmove", g);
+        //         window.onresize = b
+        //     });
+
+        //     function b() {
+        //         if (!e.allowScroll) {
+        //             document.body.scrollTop = 0
+        //         }
+        //         setTimeout(function () {
+        //             Stage.width = window.innerWidth;
+        //             Stage.height = window.innerHeight;
+        //             e.events.fire(FlipEvents.RESIZE)
+        //         }, 50)
+        //     }
+        //     function d() {
+        //         e.orientation = Math.abs(window.orientation) == 90 ? "landscape" : "portrait";
+        //         setTimeout(function () {
+        //             Stage.width = window.innerWidth;
+        //             Stage.height = window.innerHeight;
+        //             FlipEvents._fireEvent(FlipEvents.ORIENTATION, {
+        //                 orientation: e.orientation
+        //             })
+        //         }, 50)
+        //     }
+        //     function c(m) {
+        //         var n = Utils.touchEvent(m);
+        //         var l = m.target;
+        //         var k = l.nodeName == "INPUT" || l.nodeName == "TEXTAREA" || l.nodeName == "SELECT";
+        //         if (e.allowScroll) {
+        //             return
+        //         }
+        //         if (i) {
+        //             return m.preventDefault()
+        //         }
+        //         var j = true;
+        //         var l = m.target;
+        //         while (l.parentNode) {
+        //             if (k) {
+        //                 j = false
+        //             }
+        //             if (l._scrollParent) {
+        //                 j = false;
+        //                 h.target = l;
+        //                 h.y = n.y
+        //             }
+        //             l = l.parentNode
+        //         }
+        //         if (j) {
+        //             m.preventDefault()
+        //         }
+        //     }
+        //     function g(l) {
+        //         var m = Utils.touchEvent(l);
+        //         if (e.allowScroll) {
+        //             return
+        //         }
+        //         if (h.target) {
+        //             var k = h.target;
+        //             var j = k.__scrollHeight || Number((k.style.height || "0px").slice(0, -2));
+        //             k.__scrollheight = j;
+        //             if (m.y < h.y) {
+        //                 if (Math.round(k.scrollTop) == Math.round(j / 2)) {
+        //                     l.preventDefault()
+        //                 }
+        //             } else {
+        //                 if (k.scrollTop == 0) {
+        //                     l.preventDefault()
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
+    function _onResize(e){
+        // console.log(e)
+        // reposition; helps when user opens address bar
+        if (!e.allowScroll) {
+            document.body.scrollTop = 0;
+        }
+        // document.body.scrollTop = 0;
+
+        setTimeout(function () {
+            // console.log('derpitus');
+            Stage.width = window.innerWidth;
+            Stage.height = window.innerHeight;
+            Evt.fireEvent(window, Evt.RESIZE);
+        }, 50);
+    }
+
+    function _onOrientationChange() {
+
+        _self.orientation = Math.abs(window.orientation) == 90 ? "landscape" : "portrait";
+
+        // console.log('MOBILE :: ' + _self.orientation);
+
+        setTimeout(function () {
+            Stage.width = window.innerWidth;
+            Stage.height = window.innerHeight;
+
+            Evt.fireEvent(window, Evt.ORIENTATION, {
+                orientation: _self.orientation
+            });
+        }, 50);
+
+        // switch(window.orientation) {
+        //     case -90:
+        //     case 90:
+        //         console.log('landscape');
+        //         // _onResize();
+        //         this.orientation = 'landscape';
+        //         // document.body.scrollTop = 15;
+
+        //         break;
+        //     default:
+        //         console.log('portrait');
+        //         // _onResize();
+        //         this.orientation = 'portrait';
+        //         break;
+        // }
+    }
+
+    // this.overflowScroll = function (k, j, m) {
+    //     if (!Device.mobile) {
+    //         return false;
+    //     }
+    //     var l = {
+    //         "-webkit-overflow-scrolling": "touch"
+    //     };
+    //     if ((!j && !m) || (j && m)) {
+    //         l.overflow = "scroll";
+    //     }
+    //     if (!j && m) {
+    //         l.overflowY = "scroll";
+    //         l.overflowX = "hidden";
+    //     }
+    //     if (j && !m) {
+    //         l.overflowX = "scroll";
+    //         l.overflowY = "hidden";
+    //     }
+    //     k.css(l);
+    //     k.div._scrollParent = true;
+    //     i = false;
+    // };
+}, 'static');
+Class(function ScrollUtil() {
+
+    var _self   = this;
+    var _new, _speed, _direction;
+    var _startX,
+        _startY,
+        _changeX,
+        _changeY,
+        _touchTarget,
+        _locked         = false;
+    var _lastwheeltime  = 0;
+    var _elements       = [];
+    this.touch          = {};
+
+    (function() {
+
+    })();
+
+    function _onMouseScroll(e) {
+        // console.log('on mouse scroll');
+        // console.log(e);
+        // console.log(e.target);
+        // var _id = _elements.indexOf(elem);
+        // var _elem = _elements.splice(_id, 1);
+        // cross-browser wheel delta
+        
+
+        _direction = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
+
+        // Returns +1 for a single wheel roll 'up', -1 for a single roll 'down'
+
+        // normalize scroll across os/browser
+        var w = e.wheelDelta, d = e.detail;
+        var _amount;
+
+        if (d) {
+            if (w) {
+                _amount = (w/d/40*d) > 0 ? 1 : -1; // Opera
+
+            } else {
+                _amount = Device.system.os == 'mac' && Device.browser.firefox ? -d/3 : -d/3; // Firefox; TODO: do not /3 for OS X
+
+            }
+        } else {
+            _amount = Device.system.os == 'mac' && Device.browser.chrome ? w/3 : w/120; // IE/Safari/Chrome; TODO: /3 for Chrome OS X
+        }
+        
+        if (Config.DEBUG.all || Config.DEBUG.scroll) {
+            // console.log(Device);
+            console.log(_direction);
+
+            console.log('e.detail');
+            console.log(e.detail);
+            console.log('e.wheelDelta');
+            console.log(e.wheelDelta);
+            console.log('_amount');
+            console.log(_amount);
+            // console.log('d: '+d);
+            // console.log('w: '+w);
+            console.log('================');
+        }
+        // _now            = e.timeStamp;
+        // _speed          = Math.round(1000 / (_now - _lastwheeltime));
+        // _lastwheeltime  = _now;
+        // var _amount     = _speed * _direction;
+
+        // var __scrolldirection = _direction == 1 ? 'up' : 'down';
+        e.amount = _amount;
+
+        if (_direction >= 1) {
+            for (var i in _elements) {
+                if (_elements[i].elem !== undefined) {
+                    e.direction = 'up';
+                    _elements[i].callback(e);
+                }
+
+            }
+            return;
+        }
+
+        if (_direction <= -1) {
+            for (var ii in _elements) {
+
+                if (_elements[ii].elem !== undefined) {
+                    e.direction = 'down';
+                    _elements[ii].callback(e);
+                }
+            }
+            return;
+        }
+    }
+
+    this.bind = function(elem, callback) {
+        // console.log('bind');
+        // console.log(elem);
+        _elements.push({elem: elem, callback: callback});
+
+        var scrollEvt = Device.browser.firefox ? 'DOMMouseScroll' : 'mousewheel';
+
+        // Evt.subscribe(elem, Evt.MOUSE_SCROLL, _onMouseScroll);
+
+        if (elem instanceof $bitObject) {
+            elem = elem.div;
+        }
+
+        if (elem.addEventListener) {
+            elem.addEventListener(scrollEvt, _onMouseScroll, false);
+        } else {
+            elem.attachEvent('on' + scrollEvt, _onMouseScroll);
+        }
+    };
+
+    this.unbind = function(elem) {
+        // Note: browser support for indexOf is limited, it is not supported in IE7-8.
+        // Then remove it with splice:
+
+        for (var i in _elements) {
+
+            if (_elements[i].elem == elem) {
+                __elem = _elements.splice(_elements[i], 1);
+
+                var scrollEvt = Device.browser.firefox ? 'DOMMouseScroll' : 'mousewheel';
+
+                // Evt.removeEvent(__elem, Evt.MOUSE_SCROLL, _onMouseScroll, true);
+
+                if (elem instanceof $bitObject) {
+                    elem = elem.div;
+                }
+                
+                if (elem.removeEventListener) {
+                    elem.removeEventListener(scrollEvt, _onMouseScroll, false);
+                } else {
+                    elem.detachEvent('on' + scrollEvt, _onMouseScroll);
+                }
+
+                if (Config.DEBUG.all || Config.DEBUG.scroll) {
+                    console.log('UNBIND :: _elements[i]');
+                    console.log(_elements[i]);
+                }
+            }
+        }
+    };
+
+    this.scrollTop = function(){
+        return (window.pageYOffset !== undefined) ? window.pageYOffset : (document.documentElement || document.body.parentNode || document.body).scrollTop;
+    };
+}, 'static');
+Class(function TouchUtil(){
+
+	var _self = this,
+		_trackedTouches = [],
+		_boundElements = [],
+		_tapThreshold = 10,
+		_directionThreshold = 150;
+
+	var disallowTouchAdd = [
+		'a',
+		'input',
+		'button',
+		'select',
+		'textarea'
+	];
+
+	// TODO: add a callback for the drag/move event and figure out how to properly bind, call, and unbind it
+
+	// bind touch events to an element
+	this.bind = function(element, clickCallback, moveCallback){
+		element.div.addEventListener("touchstart", _handleStart, false);
+		element.div.addEventListener("touchmove", _handleMove, false);
+		element.div.addEventListener("touchend", _handleEnd, false);
+		element.div.addEventListener("touchleave", _handleEnd, false);
+		element.div.addEventListener("touchcancel", _handleCancel, false);
+
+		// add the element to our bound elements array with its callback
+		_addBinding(element, clickCallback, moveCallback);
+	};
+
+	// remove touch events from an element
+	// you still need to pass the callback in to identify what you want to unbind. this way, other functions bound to this element can still run.
+	this.unbind = function(element, clickCallback, moveCallback){
+		element.div.removeEventListener("touchstart", clickCallback, false);
+		element.div.removeEventListener("touchmove", moveCallback, false);
+		element.div.removeEventListener("touchend", clickCallback, false);
+		element.div.removeEventListener("touchleave", clickCallback, false);
+		element.div.removeEventListener("touchcancel", clickCallback, false);
+
+		// remove element from list of bound elements
+		_removeBinding(element, clickCallback, moveCallback);
+	};
+
+	function _handleStart(event){
+		// console.log('_handleStart');
+		var touches = event.changedTouches;
+		// console.log(touches[0]);
+
+		// check if the type of clicked node should be handled in a default manner
+		var allowTouchAdd = true;
+		for (var idx = 0; idx < disallowTouchAdd.length; idx++){
+			if (touches[0].target.tagName.toLowerCase() == disallowTouchAdd[idx]){
+				allowTouchAdd = false;
+			}
+		}
+
+		// for now, we only want to track single touches
+		// we won't run anything when there's multi-touch so that
+		// pinch zoom can work without triggering a click
+		if (touches.length > 1){
+			allowTouchAdd = false;
+		}
+
+		// if (elements !== false){
+		if (allowTouchAdd === true){
+			// console.log('add touch');
+
+			// only add touch if we found a bound element, otherwise links wouldn't work
+
+			if (Config.touchPrevent !== false){
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			
+			// normally, the touch target is the target element
+			var targetElement = touches[0].target;
+
+			// see if the element clicked is bound
+			var elements = _getBindings(touches[0].target);
+
+			if (elements == false){
+				// see if any of its parents are bound
+
+				var foundparents = _findParents(targetElement);
+				if (foundparents !== false){
+		            for (var parent in foundparents){
+		            	// the parent becomes the target element
+		            	targetElement = foundparents[parent];
+		            }
+		        }
+			}
+
+			// push this touch into our array
+			// not handling multi-touch at this time
+			_addTouch(targetElement, touches[0]);
+		}
+	}
+
+	function _handleMove(event){
+		if (Config.touchPrevent !== false){
+			event.preventDefault();
+			event.stopPropagation();
+		}
+
+		var touches = event.changedTouches;
+		var findID = _getTouchIndex(touches[0].identifier);
+
+		if (findID >= 0){
+			// this touch matches an existing touch
+			// do something with previous x,y and new x,y at this point
+			var theTouch = _getTouch(touches[0].identifier);
+			
+			var evt = _buildEventResponse(theTouch, false);
+			// console.log(evt);
+
+	        // pass touch data back to the correct element's callback functions
+	        var elements = _getBindings(theTouch.target);
+	        if (elements !== false){
+	        	for (var i = 0; i < elements.length; i++){
+	        		if (typeof elements[i].moveCallback == 'function'){
+			        	elements[i].moveCallback(evt, event);
+			        }
+	        	}
+	        }
+
+			// update its values in the array
+			_updateTouch(findID, touches[0]);
+		}
+	}
+
+	function _handleEnd(event){
+		// console.log('_handleEnd');
+		if (Config.touchPrevent !== false){
+			event.preventDefault();
+			event.stopPropagation();
+		}
+
+		var touches = event.changedTouches;
+		var findID = _getTouchIndex(touches[0].identifier);
+		
+		if (findID >= 0){
+			// this touch matches an existing touch
+			// get the touch and begin adding to our event
+			var theTouch = _getTouch(touches[0].identifier);
+
+			var evt = _buildEventResponse(theTouch);
+			// console.log(evt);
+
+	        // pass touch data back to the correct element's callback functions
+	        if (evt.direction == 'tap'){
+	        	// but only if it's a tap
+		        var elements = _getBindings(theTouch.target);
+		        if (elements !== false){
+		        	for (var i = 0; i < elements.length; i++){
+		        		if (typeof elements[i].clickCallback == 'function'){
+				        	elements[i].clickCallback(evt, event);
+				        }
+		        	}
+		        }
+		    }
+
+			// the touch has ended, remove it from our array
+			_removeTouch(findID);
+		}
+	}
+
+	// creates the custom event object that gets passed back to the bound element's callback function
+	// theTouch (object): the touch object returned by the _getTouch function
+	// isEnd (boolean): whether this touch event is the end of the touch (default true) set to false for dragging
+	function _buildEventResponse(theTouch, isEnd){
+		// find difference on X and Y axes
+        // for more versatility and precision, future versions could use a vector (I think it's: start vector, end vector, subtract vectors to get direction + distance)
+        var deltaX = theTouch.startX - theTouch.x;
+        var deltaY = theTouch.startY - theTouch.y;
+
+        // console.log('response: ', deltaX, deltaY);
+
+        // initialize boolean directions
+        var evt = {};
+        evt.startX = theTouch.startX;
+        evt.startY = theTouch.startY;
+        evt.deltaX = deltaX;
+        evt.deltaY = deltaY;
+        evt.startX = theTouch.startX;
+        evt.startY = theTouch.startY;
+        evt.x = theTouch.x;
+        evt.y = theTouch.y;
+        evt.swiperight = false;
+        evt.swipeleft = false;
+        evt.swipeup = false;
+        evt.swipedown = false;
+        evt.tap = false;
+        evt.direction = false;
+
+        if (isEnd != false){
+        	evt.type = 'end';
+        }else{
+        	evt.type = 'drag';
+        }
+
+        if (Math.abs(deltaX) > _tapThreshold || Math.abs(deltaY) > _tapThreshold){
+            // movement
+
+            // left/right, with threshold on up/down
+            if (Math.abs(deltaX) > _tapThreshold && Math.abs(deltaY) < _directionThreshold) {
+                if (theTouch.x > theTouch.startX) {
+                    evt.swiperight = true;
+                    evt.direction = 'right';
+                } else {
+                    evt.swipeleft = true;
+                    evt.direction = 'left';
+                }
+            }
+
+            // up/down, with threshold on left/right
+            if (Math.abs(deltaY) > _tapThreshold && Math.abs(deltaX) < _directionThreshold) {
+                if (theTouch.y < theTouch.startY) {
+                    evt.swipeup = true;
+                    evt.direction = 'up';
+                } else {
+                    evt.swipedown = true;
+                    evt.direction = 'down';
+                }
+            }
+        }else{
+            // tap
+            evt.tap = true;
+            evt.direction = 'tap';
+        }
+
+        return evt;
+	}
+
+	function _handleCancel(event){
+		event.preventDefault();
+		event.stopPropagation();
+
+		var touches = event.changedTouches;
+		var findID = _getTouchIndex(touches[0].identifier);
+
+		if (findID >= 0){
+			// this touch matches an existing touch
+			// the touch has ended, remove it from our array
+			_removeTouch(findID);
+		}
+	}
+
+	// add a new touch to our tracked touches array
+	function _addTouch(element, touch){
+		_trackedTouches.push({
+			id: touch.identifier,
+			startX: touch.clientX,
+			startY: touch.clientY,
+			x: touch.clientX,
+			y: touch.clientY,
+			target: element,
+			touchTarget: touch.target,
+			touch: touch
+		});
+	}
+
+	// update the x and y coordinates of an existing touch
+	function _updateTouch(id, touch){
+		_trackedTouches[id].x = touch.clientX;
+		_trackedTouches[id].y = touch.clientY;
+	}
+
+	// stop tracking a touch
+	function _removeTouch(id){
+		_trackedTouches.splice(id, 1);
+	}
+
+	function _getTouch(touchID){
+		for (var i = 0; i < _trackedTouches.length; i++){
+			if (_trackedTouches[i].id == touchID){
+				return _trackedTouches[i];
+
+				// now you've got the touch
+				// https://www.youtube.com/watch?v=A52--FKUQgU
+			}
+		}
+
+		return false; // not found
+	}
+
+	// find the array index of a touch by its Touch.identifier
+	function _getTouchIndex(touchID){
+		for (var i = 0; i < _trackedTouches.length; i++){
+			if (_trackedTouches[i].id == touchID){
+				return i;
+			}
+		}
+
+		return -1; // not found
+	}
+
+	// find all bound elements by comparing to the touch event target
+	function _getBindings(touchtarget){
+		var bindings = [];
+		for (var i = 0; i < _boundElements.length; i++){
+			if (touchtarget == _boundElements[i].element.div){
+				bindings.push(_boundElements[i]);
+			}
+		}
+
+		if (bindings.length > 0){
+			// return all found bindings
+			return bindings;
+		}
+
+		return false; // not found
+	}
+
+	// add a single bound element to the array
+	function _addBinding(element, clickCallback, moveCallback){
+		_boundElements.push({
+			element: element,
+			clickCallback: clickCallback,
+			moveCallback: moveCallback
+		});
+	}
+
+	// remove a single bound element from the array
+	function _removeBinding(element, clickCallback, moveCallback){
+		for (var i = 0; i < _boundElements.length; i++){
+			if (element == _boundElements[i].element && clickCallback == _boundElements[i].clickCallback && moveCallback == _boundElements[i].moveCallback){
+				_boundElements.splice(i, 1);
+			}
+		}
+	}
+
+	// find the specific parent $bitObject of a child $bitObject by traversing up the tree
+    // @param DOM Object child: the child element you want to begin with
+    // @param DOM Object parent: the parent you're looking for
+    function _findParent(child, parent){
+        // console.log('_findParent:');
+        // console.log(child);
+        // console.log(parent);
+
+        var level = 0;
+        for (var element = child; element; element = element.parentNode) {
+            if (element === parent) {
+                // console.log('found parent:');
+                // console.log(element);
+
+                // parent found among ancestors
+                // return element and its relative level for use in comparisons
+                return {element: element, level: level};
+            }
+            level++;
+        }
+
+        // parent not found in child's ancestors
+        return false;
+    }
+
+    // collect all parent elements of the given child that are within the set of bound elements, in order from nearest to farthest
+    // @param DOM Object child: the child element you want to begin with
+    function _findParents(child){
+        var parents = [];
+
+        for (var i in _boundElements) {
+            var found = _findParent(child, _boundElements[i].element.div);
+
+            if (found !== false){
+                parents.push(_boundElements[i].element.div);
+            }
+        }
+
+        if (parents.length > 0){
+            // sort from nearest to farthest ancestor
+            return parents.sort(_compareLevels);
+        }else{
+            return false;
+        }
+    }
+
+    // comparison function for _findParents sorting
+    function _compareLevels(a, b) {
+        if (a.level < b.level) {
+            return -1;
+        }
+
+        if (a.level > b.level) {
+            return 1;
+        }
+
+        // a must be equal to b
+        return 0;
+    }
+
+}, 'static');
+Class(function MVC() {
+
+    // Inherit(this, _Events);
+    
+    var _gsobject = {};
+    this.classes = {};
+
+    function _getterSetter(name, value) {
+        _gsobject[value] = {};
+        Object.defineProperty(name, value, {
+            set: function(_event) {
+                if (_gsobject[value]) {
+                    _gsobject[value].set.apply(name, [_event]);
+                }
+            },
+            get: function() {
+                if (_gsobject[value]) {
+                    return _gsobject[value].get.apply(name);
+                }
+            }
+        });
+    }
+
+    this.set = function(name, value) {
+        if (!_gsobject[name]) {
+            _getterSetter(this, name);
+        }
+        _gsobject[name].set = value;
+    };
+    this.get = function(name, value) {
+        if (!_gsobject[name]) {
+            _getterSetter(this, name);
+        }
+        _gsobject[name].get = value;
+    };
+
+    this.delayedCall = function(callback, time, params) {
+        var _self = this;
+        return setTimeout(function() {
+            // if (_self.element && _self.element.show) {
+            if (_self.element) {
+                callback.apply(_self, [params]);
+            }
+        }, time || 0);
+    };
+
+
+    this.initClass = function(name, param1, param2, param3, param4, param5, param6, param7) {
+        var _time = Utils.timestamp();
+        this.classes[_time] = new name(param1, param2, param3, param4, param5, param6, param7);
+        this.classes[_time].parent = this;
+        this.classes[_time].__id = _time;
+        if (this.element && arguments[arguments.length - 1] !== null) {
+            this.element.addChild(this.classes[_time]);
+        }
+
+        return this.classes[_time];
+    };
+
+    this.__destroy = function() {
+
+        // this
+        if (this.container) {
+            
+            if (Config.DEBUG.all || Config.DEBUG.markup) {
+                console.log('MARKUP :: destroy : container ==============');
+                console.log(this.container);
+
+                // a note about debug - it will stop executing the given function
+                // if you use the 'throw' keyword
+                // throw 'DESTROY: this.container()';
+            }
+
+            this.container._parent.div.removeChild(this.container.div);
+            this.container._children = null;
+
+            // this.container.div = null;
+
+            this.container = null;
+        }
+
+        if (this.element) {
+
+            try {
+                if (this.element.div.hasOwnProperty('remove')){
+                    this.element.div.remove();
+                }else{
+                    this.element._parent.div.removeChild(this.element.div);
+                }
+            }catch(error){
+                console.warn('Could not remove element.');
+                console.log(error);
+            }
+
+            this.element = null;
+            delete this.element;
+        }
+
+        if (this.__id) {
+
+            if (Config.DEBUG.all || Config.DEBUG.markup) {
+                console.log('MARKUP :: destroy : id/classes =================');
+                console.log(this.__id);
+                console.log(this.classes);
+            }
+
+            this.__id = null;
+            this.classes = null;
+
+            if (Config.DEBUG.all || Config.DEBUG.markup) {
+                console.log(this.__id);
+                console.log(this.classes);
+                console.log('MARKUP :: destroy : id/classes :: END ============');
+            }
+        }
+        
+    };
+   
+});
+Class(function Component() {
+     // console.log('< COMPONENT >')
+    Inherit(this, MVC);
+    this.__call = function () {
+        this.events.scope(this);
+        delete this.__call;
+    }
+});
+Class(function Model() {
+    // console.log('< MODEL >')
+    Inherit(this, MVC);
+    var _self = this;
+
+    // console.log('######### _self.constructor #########');
+    // console.log(_self.constructor);
+
+    Global[_self.constructor.toString().match(/function ([^\(]+)/)[1].toUpperCase()] = {};
+
+    this.__call = function () {
+        // this.events.scope(this);
+        delete this.__call;
+    };
+});
+Class(function View() {
+
+    var _self = this;
+    Inherit(this, MVC);
+
+    var _name = _self.constructor.toString().match(/function ([^\(]+)/)[1];
+    
+    this.element                = $("." + _name);
+
+    // console.log('this.element');
+    // console.log(this.element);
+    
+    this.element._useFragment   = true;
+    Global[_name.toUpperCase()] = {};
+    
+    this.size = function(_width, _height) {
+        this.element.size(_width, _height);
+        return this;
+    };
+
+    this.css = function(properties) {
+        this.element.css(properties);
+        return this;
+    };
+    
+    this.transform = function(properties) {
+        this.element.transform(properties || this);
+        return this;
+    };
+    
+    this.tween = function(d, e, f, b, g, c) {
+        // console.log('View :: tween : d: '+d);
+        // console.log('View :: tween : e: '+e);
+        // console.log('View :: tween : f: '+f);
+        // console.log('View :: tween : b: '+b);
+        // console.log('View :: tween : g: '+g);
+        // console.log('View :: tween : c: '+c);
+        return this.element.tween(d, e, f, b, g, c);
+    };
+
+});
+
+
+Class(function Controller() {
+
+	Inherit(this, MVC);
+	
+	var _self = this;
+	// Global.
+	var _name = _self.constructor.toString().match(/function ([^\(]+)/)[1];
+	this.element = this.container = $("#" + _name);
+
+	this.element._useFragment = true;
+    Global[_name.toUpperCase()] = {};
+
+	// console.log('Controller :: _self.constructor');
+	// console.log('this.element');
+	// console.log(this.element);
+	// console.log(this.container);
+
+	// console.log('Controller :: Inerhits MVC:')
+	// console.log(_self)
+	// console.log('_self.constructor: ' + _name);
+	// console.log(_self);
+	// console.log(_self.constructor.toString().match(/function ([^\(]+)/)[1]);
+	// console.log(_self.constructor.toString());
+	// console.log(_self.constructor.toString());
+
+	// console.log(arguments.callee.toString());
+	// console.log(arguments);
+	// functionName = functionName.constructor.toString().match(/function ([^\(]+)/)[1];
+	// this.element = this.container = $("#" + functionName);
+	// this.element.__useFragment = true;
+	// Global[functionName.toUpperCase()] = {};
+
+	// console.log(functionName);
+
+	// this.publicTest = function() {
+	// 	console.log('publicTest')
+	// }
+	this.css = function(properties) {
+	    this.container.css(properties)
+	}
+
+});
+Class(function LinkedList() {
+    // console.log('< LINKED LIST >')
+    var _list = LinkedList.prototype;
+    this.length = 0;
+    this.first = null;
+    this.last = null;
+    this.current = null;
+    
+    _list.push = function (_elem) {
+        if (this.first === null) {
+            _elem.__prev = _elem;
+            _elem.__next = _elem;
+            this.first = _elem;
+            this.last = _elem;
+        } else {
+            _elem.__prev = this.last;
+            _elem.__next = this.first;
+            this.last.__next = _elem;
+            this.last = _elem;
+        }
+        this.length++;
+    };
+    _list.remove = function (_elem) {
+        if (this.length > 1 && _elem.__prev) {
+            _elem.__prev.__next = _elem.__next;
+            _elem.__next.__prev = _elem.__prev;
+            if (_elem == this.first) {
+                this.first = _elem.__next;
+            }
+            if (_elem == this.last) {
+                this.last = _elem.__prev;
+            }
+        } else {
+            this.first = null;
+            this.last = null;
+        }
+        _elem.__prev = null;
+        _elem.__next = null;
+        this.length--;
+    };
+    _list.empty = function () {
+        this.length = 0;
+        this.first = null;
+        this.last = null;
+        this.current = null;
+    };
+    _list.start = function (_elem) {
+        _elem = _elem || this;
+        _elem.current = this.first;
+        return _elem.current;
+    };
+    _list.next = function (_elem) {
+        _elem = _elem || this;
+        if (!_elem.current || !_elem.current.__next) {
+            return false;
+        }
+        _elem.current = _elem.current.__next;
+        if (_elem.current == _elem.current.__next || _elem.current == _elem.current.__prev) {
+            _elem.current = null;
+        }
+        return _elem.current
+    };
+    _list.destroy = function () {
+        Utils.nullObject(this);
+        return null;
+    }
+});
+Class(function Render() {
+	
+	Inherit(this, Component);
+
+	var _self = this;
+	var _callbacks = [];
+
+	(function() {
+	})();
+
+	function _removeCallback(callback) {
+		for (var i = 0; i < _callbacks.length; i++) {
+			// var __callback = _callbacks[i];
+			// console.log(__callback);
+
+			if (_callbacks[i] == callback) {
+
+				var _cb = _callbacks.indexOf(callback);
+				if (_cb != -1) {
+					_callbacks.splice(_cb, 1);
+				}
+
+				TweenLite.ticker.removeEventListener('tick', callback);
+
+			}
+		}
+	}
+
+	this.startRender = function(callback) {
+		
+		_callbacks.push(callback);
+		TweenLite.ticker.addEventListener('tick', callback);
+	
+	};
+
+	this.stopRender = function(callback) {
+
+		for (var i = 0; i < _callbacks.length; i++) {
+			
+			// console.log(_callbacks[i]);
+
+			if (_callbacks[i] == callback) {
+
+				var _cb = _callbacks.indexOf(callback);
+				if (_cb != -1) {
+					_callbacks.splice(_cb, 1);
+				}
+
+				TweenLite.ticker.removeEventListener('tick', callback);
+			}
+		}
+
+	};
+
+	this.nextFrame = function(callback) {
+		// var __callback = callback;
+
+		// _callbacks.push(function(){_removeCallback(callback)});
+		// TweenLite.ticker.addEventListener('tick', function(){_removeCallback(callback)});
+		_self.startRender(function(){_removeCallback(callback)});
+
+	}
+
+
+
+}, 'static')
 /*!
  * VERSION: 1.17.0
  * DATE: 2015-05-27
@@ -17894,6 +19935,506 @@ this.createjs = this.createjs || {};
 	createjs.XMLLoader = createjs.promote(XMLLoader, "AbstractLoader");
 
 }());
+Class(function Utils() {
+	
+	var _self = this;
+
+	this.lerp = function(ratio, start, end) {
+		return start + (end - start) * ratio;
+	};
+	
+	this.rand = function(min, max) {
+		return this.lerp(Math.random(), min, max);
+	};
+	
+	this.doRandom = function (min, max) {
+		return Math.round(this.rand(min - 0.5, max + 0.5));
+	};
+	
+	this.timestamp = function () {
+		var _timestamp = Date.now() + _self.doRandom(0, 99999);
+		return _timestamp.toString();
+	};
+
+	this.convertToPX = this.convertToPx = function(number) {
+		var _pixelvalue;
+
+		if (typeof number == 'string' && number.slice(-2) != 'px') {
+			_pixelvalue = number + 'px';
+		}
+
+		if (typeof number == 'string' && number.slice(-2) != 'px') {
+			_pixelvalue = number;
+		}
+		
+		if (typeof number != 'string') {
+			_pixelvalue = number + 'px';
+		}
+
+		return _pixelvalue;
+	};
+
+	this.convertToDeg = function(number) {
+		var _degreevalue;
+
+		if (typeof number == 'string' && number.slice(-3) != 'deg') {
+			_degreevalue = number + 'deg';
+		}
+
+		if (typeof number == 'string' && number.slice(-3) != 'deg') {
+			_degreevalue = number;
+		}
+		
+		if (typeof number != 'string') {
+			_degreevalue = number + 'deg';
+		}
+
+		return _degreevalue;
+	};
+
+	this.nullObject = function(obj) {
+		if (obj.destroy) {
+			for (var f in obj) {
+				if (typeof obj[f] !== "undefined") {
+					obj[f] = null;
+				}
+			}
+		}
+		return null;
+	};
+
+	this.ucfirst = this.capFirstLetter = function(string) {
+		return string.charAt(0).toUpperCase() + string.slice(1);
+	};
+
+	this.permalink = function(str){
+        return str.replace(/'/gi, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-*|-*$/g, '').toLowerCase();
+    };
+
+	this.urlstr = function(string){
+		var str = string.replace(/ /g, "-").toLowerCase();
+		var _str = str.replace(/:/g, "");
+
+		return _str;
+	};
+
+	// @param string filter  name of the CSS3 filter function
+	// @param mixed value  value to apply (certain values are converted to percentage or pixels)
+	// @param boolean render  if true, returns a CSS3 filter string, else returns an object containing function name and value
+	// @param boolean units  if true, applies units to value, converting it to a string
+	this.sanitizeFilter = function(filter, value, render, units){
+		switch (filter){
+            case 'grayscale':
+            case 'sepia':
+            case 'invert':
+            case 'opacity':
+            // only positive percentage values between 0 and 100 are allowed
+            if (typeof value == 'string'){
+                value = parseInt(value.replace(/\D/g,''));
+            }
+            value = Math.abs(value);
+            if (value > 100){ value = 100 }
+
+            if (units === true){
+            	value += '%';
+            }
+            break;
+
+            case 'saturate':
+            case 'brightness':
+            case 'contrast':
+            // only positive percentage values are allowed
+            if (typeof value == 'string'){
+                value = parseInt(value.replace(/\D/g,''));
+            }
+            value = Math.abs(value);
+
+            if (units === true){
+            	value += '%';
+            }
+            break;
+
+            case 'blur':
+            // only positive pixel values are allowed
+            if (typeof value == 'string'){
+                value = parseInt(value.replace(/\D/g,''));
+            }
+            value = Math.abs(value);
+
+            if (units === true){
+            	value += 'px';
+            }
+            break;
+
+            case 'hue-rotate':
+            case 'drop-shadow':
+            case 'url':
+            default:
+            // input is used unchanged
+            break;
+        }
+
+        if (render === true){
+        	return filter+'('+value+')';
+        }else{
+        	return {filter: filter, value: value};
+        }
+	};
+
+	this.getCssPrefix = function(){
+        var prefixes = ['', '-o-', '-ms-', '-moz-', '-webkit-'];
+
+        // Create a temporary DOM object for testing
+        var _testDiv = document.createElement('div');
+
+        for (var i = 0; i < prefixes.length; i++){
+            // Attempt to set the style
+            _testDiv.style.background = prefixes[i] + 'linear-gradient(#000000, #ffffff)';
+
+            // Detect if the style was successfully set
+            if (_testDiv.style.background){
+                _testDiv = null;
+                delete _testDiv;
+                return prefixes[i]; // return the first one that works so we can default to W3C version if possible
+            }
+        }
+
+        return '';
+    };
+
+    this.randColor = function(){
+        return '#'+Math.floor(Math.random()*16777215).toString(16);
+    };
+
+    this.randRGBA = function(_alpha){
+        if (typeof _alpha == 'undefined'){
+            _alpha = 1;
+        }
+        return 'rgba('+Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255)+','+_alpha+')';
+    };
+
+    this.formatDate = function(format, timestamp) {
+        //  discuss at: http://phpjs.org/functions/date/
+        // original by: Carlos R. L. Rodrigues (http://www.jsfromhell.com)
+        // original by: gettimeofday
+        //    parts by: Peter-Paul Koch (http://www.quirksmode.org/js/beat.html)
+        // improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+        // improved by: MeEtc (http://yass.meetcweb.com)
+        // improved by: Brad Touesnard
+        // improved by: Tim Wiel
+        // improved by: Bryan Elliott
+        // improved by: David Randall
+        // improved by: Theriault
+        // improved by: Theriault
+        // improved by: Brett Zamir (http://brett-zamir.me)
+        // improved by: Theriault
+        // improved by: Thomas Beaucourt (http://www.webapp.fr)
+        // improved by: JT
+        // improved by: Theriault
+        // improved by: Rafał Kukawski (http://blog.kukawski.pl)
+        // improved by: Theriault
+        //    input by: Brett Zamir (http://brett-zamir.me)
+        //    input by: majak
+        //    input by: Alex
+        //    input by: Martin
+        //    input by: Alex Wilson
+        //    input by: Haravikk
+        // bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+        // bugfixed by: majak
+        // bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+        // bugfixed by: Brett Zamir (http://brett-zamir.me)
+        // bugfixed by: omid (http://phpjs.org/functions/380:380#comment_137122)
+        // bugfixed by: Chris (http://www.devotis.nl/)
+        //        note: Uses global: php_js to store the default timezone
+        //        note: Although the function potentially allows timezone info (see notes), it currently does not set
+        //        note: per a timezone specified by date_default_timezone_set(). Implementers might use
+        //        note: this.php_js.currentTimezoneOffset and this.php_js.currentTimezoneDST set by that function
+        //        note: in order to adjust the dates in this function (or our other date functions!) accordingly
+        //   example 1: date('H:m:s \\m \\i\\s \\m\\o\\n\\t\\h', 1062402400);
+        //   returns 1: '09:09:40 m is month'
+        //   example 2: date('F j, Y, g:i a', 1062462400);
+        //   returns 2: 'September 2, 2003, 2:26 am'
+        //   example 3: date('Y W o', 1062462400);
+        //   returns 3: '2003 36 2003'
+        //   example 4: x = date('Y m d', (new Date()).getTime()/1000);
+        //   example 4: (x+'').length == 10 // 2009 01 09
+        //   returns 4: true
+        //   example 5: date('W', 1104534000);
+        //   returns 5: '53'
+        //   example 6: date('B t', 1104534000);
+        //   returns 6: '999 31'
+        //   example 7: date('W U', 1293750000.82); // 2010-12-31
+        //   returns 7: '52 1293750000'
+        //   example 8: date('W', 1293836400); // 2011-01-01
+        //   returns 8: '52'
+        //   example 9: date('W Y-m-d', 1293974054); // 2011-01-02
+        //   returns 9: '52 2011-01-02'
+
+        var that = this;
+        var jsdate, f;
+        // Keep this here (works, but for code commented-out below for file size reasons)
+        // var tal= [];
+        var txt_words = [
+        'Sun', 'Mon', 'Tues', 'Wednes', 'Thurs', 'Fri', 'Satur',
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        // trailing backslash -> (dropped)
+        // a backslash followed by any character (including backslash) -> the character
+        // empty string -> empty string
+        var formatChr = /\\?(.?)/gi;
+        var formatChrCb = function(t, s) {
+        return f[t] ? f[t]() : s;
+        };
+        var _pad = function(n, c) {
+        n = String(n);
+        while (n.length < c) {
+          n = '0' + n;
+        }
+        return n;
+        };
+        f = {
+        // Day
+        d : function() {
+          // Day of month w/leading 0; 01..31
+          return _pad(f.j(), 2);
+        },
+        D : function() {
+          // Shorthand day name; Mon...Sun
+          return f.l()
+            .slice(0, 3);
+        },
+        j : function() {
+          // Day of month; 1..31
+          return jsdate.getDate();
+        },
+        l : function() {
+          // Full day name; Monday...Sunday
+          return txt_words[f.w()] + 'day';
+        },
+        N : function() {
+          // ISO-8601 day of week; 1[Mon]..7[Sun]
+          return f.w() || 7;
+        },
+        S : function() {
+          // Ordinal suffix for day of month; st, nd, rd, th
+          var j = f.j();
+          var i = j % 10;
+          if (i <= 3 && parseInt((j % 100) / 10, 10) == 1) {
+            i = 0;
+          }
+          return ['st', 'nd', 'rd'][i - 1] || 'th';
+        },
+        w : function() {
+          // Day of week; 0[Sun]..6[Sat]
+          return jsdate.getDay();
+        },
+        z : function() {
+          // Day of year; 0..365
+          var a = new Date(f.Y(), f.n() - 1, f.j());
+          var b = new Date(f.Y(), 0, 1);
+          return Math.round((a - b) / 864e5);
+        },
+
+        // Week
+        W : function() {
+          // ISO-8601 week number
+          var a = new Date(f.Y(), f.n() - 1, f.j() - f.N() + 3);
+          var b = new Date(a.getFullYear(), 0, 4);
+          return _pad(1 + Math.round((a - b) / 864e5 / 7), 2);
+        },
+
+        // Month
+        F : function() {
+          // Full month name; January...December
+          return txt_words[6 + f.n()];
+        },
+        m : function() {
+          // Month w/leading 0; 01...12
+          return _pad(f.n(), 2);
+        },
+        M : function() {
+          // Shorthand month name; Jan...Dec
+          return f.F()
+            .slice(0, 3);
+        },
+        n : function() {
+          // Month; 1...12
+          return jsdate.getMonth() + 1;
+        },
+        t : function() {
+          // Days in month; 28...31
+          return (new Date(f.Y(), f.n(), 0))
+            .getDate();
+        },
+
+        // Year
+        L : function() {
+          // Is leap year?; 0 or 1
+          var j = f.Y();
+          return j % 4 === 0 & j % 100 !== 0 | j % 400 === 0;
+        },
+        o : function() {
+          // ISO-8601 year
+          var n = f.n();
+          var W = f.W();
+          var Y = f.Y();
+          return Y + (n === 12 && W < 9 ? 1 : n === 1 && W > 9 ? -1 : 0);
+        },
+        Y : function() {
+          // Full year; e.g. 1980...2010
+          return jsdate.getFullYear();
+        },
+        y : function() {
+          // Last two digits of year; 00...99
+          return f.Y()
+            .toString()
+            .slice(-2);
+        },
+
+        // Time
+        a : function() {
+          // am or pm
+          return jsdate.getHours() > 11 ? 'pm' : 'am';
+        },
+        A : function() {
+          // AM or PM
+          return f.a()
+            .toUpperCase();
+        },
+        B : function() {
+          // Swatch Internet time; 000..999
+          var H = jsdate.getUTCHours() * 36e2;
+          // Hours
+          var i = jsdate.getUTCMinutes() * 60;
+          // Minutes
+          // Seconds
+          var s = jsdate.getUTCSeconds();
+          return _pad(Math.floor((H + i + s + 36e2) / 86.4) % 1e3, 3);
+        },
+        g : function() {
+          // 12-Hours; 1..12
+          return f.G() % 12 || 12;
+        },
+        G : function() {
+          // 24-Hours; 0..23
+          return jsdate.getHours();
+        },
+        h : function() {
+          // 12-Hours w/leading 0; 01..12
+          return _pad(f.g(), 2);
+        },
+        H : function() {
+          // 24-Hours w/leading 0; 00..23
+          return _pad(f.G(), 2);
+        },
+        i : function() {
+          // Minutes w/leading 0; 00..59
+          return _pad(jsdate.getMinutes(), 2);
+        },
+        s : function() {
+          // Seconds w/leading 0; 00..59
+          return _pad(jsdate.getSeconds(), 2);
+        },
+        u : function() {
+          // Microseconds; 000000-999000
+          return _pad(jsdate.getMilliseconds() * 1000, 6);
+        },
+
+        // Timezone
+        e : function() {
+          // Timezone identifier; e.g. Atlantic/Azores, ...
+          // The following works, but requires inclusion of the very large
+          // timezone_abbreviations_list() function.
+          /*              return that.date_default_timezone_get();
+           */
+          throw 'Not supported (see source code of date() for timezone on how to add support)';
+        },
+        I : function() {
+          // DST observed?; 0 or 1
+          // Compares Jan 1 minus Jan 1 UTC to Jul 1 minus Jul 1 UTC.
+          // If they are not equal, then DST is observed.
+          var a = new Date(f.Y(), 0);
+          // Jan 1
+          var c = Date.UTC(f.Y(), 0);
+          // Jan 1 UTC
+          var b = new Date(f.Y(), 6);
+          // Jul 1
+          // Jul 1 UTC
+          var d = Date.UTC(f.Y(), 6);
+          return ((a - c) !== (b - d)) ? 1 : 0;
+        },
+        O : function() {
+          // Difference to GMT in hour format; e.g. +0200
+          var tzo = jsdate.getTimezoneOffset();
+          var a = Math.abs(tzo);
+          return (tzo > 0 ? '-' : '+') + _pad(Math.floor(a / 60) * 100 + a % 60, 4);
+        },
+        P : function() {
+          // Difference to GMT w/colon; e.g. +02:00
+          var O = f.O();
+          return (O.substr(0, 3) + ':' + O.substr(3, 2));
+        },
+        T : function() {
+          // Timezone abbreviation; e.g. EST, MDT, ...
+          // The following works, but requires inclusion of the very
+          // large timezone_abbreviations_list() function.
+          /*              var abbr, i, os, _default;
+          if (!tal.length) {
+            tal = that.timezone_abbreviations_list();
+          }
+          if (that.php_js && that.php_js.default_timezone) {
+            _default = that.php_js.default_timezone;
+            for (abbr in tal) {
+              for (i = 0; i < tal[abbr].length; i++) {
+                if (tal[abbr][i].timezone_id === _default) {
+                  return abbr.toUpperCase();
+                }
+              }
+            }
+          }
+          for (abbr in tal) {
+            for (i = 0; i < tal[abbr].length; i++) {
+              os = -jsdate.getTimezoneOffset() * 60;
+              if (tal[abbr][i].offset === os) {
+                return abbr.toUpperCase();
+              }
+            }
+          }
+          */
+          return 'UTC';
+        },
+        Z : function() {
+          // Timezone offset in seconds (-43200...50400)
+          return -jsdate.getTimezoneOffset() * 60;
+        },
+
+        // Full Date/Time
+        c : function() {
+          // ISO-8601 date.
+          return 'Y-m-d\\TH:i:sP'.replace(formatChr, formatChrCb);
+        },
+        r : function() {
+          // RFC 2822
+          return 'D, d M Y H:i:s O'.replace(formatChr, formatChrCb);
+        },
+        U : function() {
+          // Seconds since UNIX epoch
+          return jsdate / 1000 | 0;
+        }
+        };
+        this.date = function(format, timestamp) {
+        that = this;
+        jsdate = (timestamp === undefined ? new Date() : // Not provided
+          (timestamp instanceof Date) ? new Date(timestamp) : // JS Date()
+          new Date(timestamp * 1000) // UNIX timestamp (auto-convert to int)
+        );
+        return format.replace(formatChr, formatChrCb);
+        };
+        return this.date(format, timestamp);
+    };
+
+}, 'static');
 // Global site-specific config
 
 Class(function Config() {
@@ -18043,6 +20584,1907 @@ Class(function SiteDevice() {
     };
     
 }, 'static');
+Class(function Cookie() {
+	
+	var _self = this;
+
+	// get the value of a cookie
+	// @param sKey string  the name of the cookie to get
+	this.get = function (sKey){
+		if (!sKey) { return null; }
+		return decodeURIComponent(document.cookie.replace(new RegExp("(?:(?:^|.*;)\\s*" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=\\s*([^;]*).*$)|^.*$"), "$1")) || null;
+	};
+
+	// set the value of a cookie
+	// @param sKey string  the name of the new cookie
+	// @param sValue string  the value of the new cookie
+	// @param vEnd integer  the maximum age of the cookie in seconds
+	// @param sPath string  the path the cookie is readable from
+	// @param sDomain string  the domain the cookie is readable from
+	// @param bSecure boolean  whether to use https
+	this.set = function (sKey, sValue, vEnd, sPath, sDomain, bSecure) {
+		if (!sKey || /^(?:expires|max\-age|path|domain|secure)$/i.test(sKey)) { return false; }
+
+		var sExpires = "";
+		if (vEnd) {
+			switch (vEnd.constructor) {
+				case Number:
+				sExpires = vEnd === Infinity ? "; expires=Fri, 31 Dec 9999 23:59:59 GMT" : "; max-age=" + vEnd;
+				break;
+
+				case String:
+				sExpires = "; expires=" + vEnd;
+				break;
+
+				case Date:
+				sExpires = "; expires=" + vEnd.toUTCString();
+				break;
+			}
+		}
+
+		document.cookie = encodeURIComponent(sKey) + "=" + encodeURIComponent(sValue) + sExpires + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "") + (bSecure ? "; secure" : "");
+		return true;
+	};
+
+	// remove/delete a cookie
+	// @param sKey string  the name of the cookie
+	// @param sPath string  the path the cookie is readable from
+	// @param sDomain string  the domain the cookie is readable from
+	this.remove = function (sKey, sPath, sDomain) {
+		if (!this.exists(sKey)) { return false; }
+
+		document.cookie = encodeURIComponent(sKey) + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT" + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "");
+		return true;
+	};
+
+	// check if a cookie exists
+	// @param sKey string  the name of the cookie
+	this.exists = function (sKey) {
+		if (!sKey) { return false; }
+		return (new RegExp("(?:^|;\\s*)" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=")).test(document.cookie);
+	};
+
+	// get a list of all set cookies as an array
+	this.list = function () {
+		var aKeys = document.cookie.replace(/((?:^|\s*;)[^\=]+)(?=;|$)|^\s*|\s*(?:\=[^;]*)?(?:\1|$)/g, "").split(/\s*(?:\=[^;]*)?;\s*/);
+		for (var nLen = aKeys.length, nIdx = 0; nIdx < nLen; nIdx++) { aKeys[nIdx] = decodeURIComponent(aKeys[nIdx]); }
+		return aKeys;
+	};
+
+}, 'static');
+Class(function Ajax() {
+	
+	// basic ajax call method
+	//
+	// url (string) required. The URL to make the request to
+	// dataObj (object) Key-value pairs to send to the url
+	// method (string) GET/get or POST/post. Defaults to GET
+	// callback (function) a function to run on successful response. receives response text as first argument
+	function _call(url, dataObj, method, callback){
+		var _queryStr = '';
+
+		if (typeof url != 'string'){
+			console.warn('AJAX Error: Request URL not specified.');
+			return false;
+		}
+
+		if (typeof dataObj == 'object'){
+            var _kvPairs = [];
+            for (var idx in dataObj){
+            	_kvPairs.push(encodeURIComponent(idx)+'='+encodeURIComponent(dataObj[idx]));
+            }
+            if (_kvPairs.length > 0){
+            	_queryStr = _kvPairs.join('&');
+            }
+		}
+
+		var _xhr = new XMLHttpRequest();
+
+		_xhr.onreadystatechange = function(){
+			if (_xhr.readyState == 4 ) {
+				if (_xhr.status == 200){
+					// OK
+					if (typeof callback == 'function'){
+						callback(_xhr.responseText);
+					}
+
+				}else if(_xhr.status == 400){
+					console.warn('AJAX Error: 400 Bad Request');
+				}else if (_xhr.status == 404){
+					console.warn('AJAX Error: 404 Not Found');
+				}else{
+					console.warn('AJAX Error: Request failed');
+				}
+			}
+		}
+
+		switch (method){
+			case 'POST':
+			case 'post':
+			if (_queryStr == ''){
+				console.warn('AJAX Error: No data to post! Use GET method instead.');
+			}else{
+				_xhr.open('POST', url, true);
+		    	_xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+				_xhr.send(_queryStr);
+			}
+			break;
+
+			case 'GET':
+			case 'get':
+			default:
+			if (_queryStr != ''){
+				_xhr.open('GET', url+'?'+_queryStr, true);
+			}else{
+				_xhr.open('GET', url, true);
+			}
+        	_xhr.send();
+			break;
+		}
+	}
+
+
+	this.call = function(url, dataObj, method, callback){
+		_call(url, dataObj, method, callback);
+	};
+
+	this.get = function(url, dataObj, callback) {
+		_call(url, dataObj, 'GET', callback);
+	};
+
+	this.post = function(url, dataObj, callback){
+		_call(url, dataObj, 'POST', callback);
+	};
+
+}, 'static');
+(function(){
+    $.fn.bg = function(background) {
+        var _self = this;
+
+        if (!background){
+            background = '#ffffff';
+        }
+        
+        var _bg = background;
+        var _ext = _bg.slice(-4);
+
+        var _isImage = _ext.substring(1, -1) == '.' ? true : false;
+
+        if (_isImage) {
+            _self.div.style.backgroundImage = 'url(' + _bg + ')';
+
+        } else {
+              _self.div.style.backgroundColor = background;
+        }
+        
+        return _self;
+    };
+
+    // apply an image background
+    // @param string url  the URL of the image (required)
+    // @param object params {
+    // preloaded: boolean  whether to use the preloaded asset (default true),
+    // repeat: string  css background-repeat value,
+    // pos: string  css background-position value,
+    // size: string  css background-size value
+    // }
+    $.fn.imgbg = function(url, params){
+        var _self = this;
+        
+        // check for params or set default
+        if (typeof params != 'object'){
+            params = {};
+        }
+
+        // check for repeat or set default
+        if (typeof params.repeat != 'string'){
+            params.repeat = 'no-repeat';
+        }
+
+        // check for position or set default
+        if (typeof params.pos != 'string'){
+            params.pos = 'center center';
+        }
+
+        // check for size or set default
+        if (typeof params.size != 'string'){
+            params.size = 'auto';
+        }
+
+        // check if we should retrieve from preloaded
+        if (typeof params.preloaded != 'boolean'){
+            params.preloaded = true;
+        }
+
+        if (params.preloaded === true){
+            var img = SiteDevice.getImg(url);
+            url = img.div.src;
+        }
+
+        _self.setProps({
+            backgroundImage: 'url("'+url+'")',
+            backgroundRepeat: params.repeat,
+            backgroundPosition: params.pos
+        });
+
+        if (params.size == 'auto' || params.size == 'cover' || params.size == 'contain' || params.size == 'initial' || params.size == 'inherit'){
+            _self.css({
+                backgroundSize: params.size
+            });
+        }else{
+            _self.setProps({
+                backgroundSize: params.size
+            });
+        }
+
+        return _self;
+    };
+})();
+(function(){
+    $.fn.center = function (centerHorizontal, centerVertical) {
+        var _object = {};
+        if (typeof centerHorizontal === "undefined") {
+            _object.left = "50%";
+            _object.top = "50%";
+            _object.marginLeft = -this.width / 2;
+            _object.marginTop = -this.height / 2;
+        } else {
+            if (centerHorizontal) {
+                _object.left = "50%";
+                _object.marginLeft = -this.width / 2;
+            }
+            if (centerVertical) {
+                _object.top = "50%";
+                _object.marginTop = -this.height / 2;
+            }
+        }
+        this.css(_object);
+        return this;
+    };
+})();
+(function(){
+    $.fn.css = function(styles) {
+      
+        var _self = this;
+
+        // CSS2Properties
+        if (styles) {
+
+            // if (styles.background)
+            _self.div.style.background              = styles.background;
+
+            // if (styles.backgroundAttachment)
+            _self.div.style.backgroundAttachment    = styles.backgroundAttachment;
+
+            // if (styles.backgroundBlendMode)
+            _self.div.style.backgroundBlendMode     = styles.backgroundBlendMode;
+
+            // if (styles.backgroundClip)
+            _self.div.style.backgroundClip          = styles.backgroundClip;
+
+            // if (styles.backgroundColor)
+            _self.div.style.backgroundColor         = styles.backgroundColor;
+
+            _self.div.style.backgroundImage         = styles.backgroundImage;
+            _self.div.style.backgroundOrigin        = styles.backgroundOrigin;
+            _self.div.style.backgroundPosition      = styles.backgroundPosition;
+            _self.div.style.backgroundRepeat        = styles.backgroundRepeat;
+            _self.div.style.backgroundSize          = styles.backgroundSize;
+            _self.div.style.border                  = styles.border;
+            _self.div.style.borderBottom            = styles.borderBottom;
+            _self.div.style.borderBottomColor       = styles.borderBottomColor;
+            _self.div.style.borderBottomLeftRadius  = styles.borderBottomLeftRadius;
+            _self.div.style.borderBottomRightRadius = styles.borderBottomRightRadius;
+            _self.div.style.borderBottomStyle       = styles.borderBottomStyle;
+            _self.div.style.borderBottomWidth       = styles.borderBottomWidth;
+            _self.div.style.borderCollapse          = styles.borderCollapse;
+            _self.div.style.borderColor             = styles.borderColor;
+            _self.div.style.borderImage             = styles.borderImage;
+            _self.div.style.borderImageOutset       = styles.borderImageOutset;
+            _self.div.style.borderImageRepeat       = styles.borderImageRepeat;
+            _self.div.style.borderImageSlice        = styles.borderImageSlice;
+            _self.div.style.borderImageSource       = styles.borderImageSource;
+            _self.div.style.borderImageWidth        = styles.borderImageWidth;
+            _self.div.style.borderLeft              = styles.borderLeft;
+            _self.div.style.borderLeftColor         = styles.borderLeftColor;
+            _self.div.style.borderLeftStyle         = styles.borderLeftStyle;
+            _self.div.style.borderLeftWidth         = styles.borderLeftWidth;
+            _self.div.style.borderRadius            = styles.borderRadius;
+            _self.div.style.borderRight             = styles.borderRight;
+            _self.div.style.borderRightColor        = styles.borderRightColor;
+            _self.div.style.borderRightStyle        = styles.borderRightStyle;
+            _self.div.style.borderRightWidth        = styles.borderRightWidth;
+            _self.div.style.borderSpacing           = styles.borderSpacing;
+            _self.div.style.borderStyle             = styles.borderStyle;
+            _self.div.style.borderTop               = styles.borderTop;
+            _self.div.style.borderTopColor          = styles.borderTopColor;
+            _self.div.style.borderTopLeftRadius     = styles.borderTopLeftRadius;
+            _self.div.style.borderTopRightRadius    = styles.borderTopRightRadius;
+            _self.div.style.borderTopStyle          = styles.borderTopStyle;
+            _self.div.style.borderTopWidth          = styles.borderTopWidth;
+            _self.div.style.borderWidth             = styles.borderWidth;
+            _self.div.style.bottom                  = Utils.convertToPx(styles.bottom);
+            _self.div.style.boxDecorationBreak      = styles.boxDecorationBreak;
+            _self.div.style.boxShadow               = styles.boxShadow;
+            _self.div.style.boxSizing               = styles.boxSizing;
+            _self.div.style.captionSide             = styles.captionSide;
+            _self.div.style.clear                   = styles.clear;
+            _self.div.style.clip                    = styles.clip;
+            _self.div.style.clipPath                = styles.clipPath;
+            _self.div.style.clipRule                = styles.clipRule;
+            _self.div.style.color                   = styles.color;
+            
+            if (Device.browser.ie == false){
+                  _self.div.style.colorInterpolation      = styles.colorInterpolation;
+                  _self.div.style.colorInterpolationFilters = styles.colorInterpolationFilters;
+                  _self.div.style.content                 = styles.content;
+            }
+            
+            if (styles.counterIncrement) { _self.div.style.counterIncrement = styles.counterIncrement; }
+
+            if (styles.counterReset) { _self.div.style.counterReset = styles.counterReset; }
+
+            _self.div.style.cssFloat                = styles.cssFloat;
+
+            if (styles.cssText) { _self.div.style.cssText = styles.cssText; }
+
+            _self.div.style.cursor                  = styles.cursor;
+            _self.div.style.direction               = styles.direction;
+            _self.div.style.display                 = styles.display;
+            _self.div.style.dominantBaseline        = styles.dominantBaseline;
+            _self.div.style.emptyCells              = styles.emptyCells;
+            
+            // _self.div.style.fill                    = styles.fill;
+            if (styles.fill) { _self.div.style.fill = styles.fill; }
+            
+            _self.div.style.fillOpacity             = styles.fillOpacity;
+            _self.div.style.fillRule                = styles.fillRule;
+            _self.div.style.filter                  = styles.filter;
+            _self.div.style.flex                    = styles.flex;
+            _self.div.style.flexBasis               = styles.flexBasis;
+            _self.div.style.flexDirection           = styles.flexDirection;
+            _self.div.style.flexFlow                = styles.flexFlow;
+            _self.div.style.flexGrow                = styles.flexGrow;
+            _self.div.style.flexShrink              = styles.flexShrink;
+            _self.div.style.flexWrap                = styles.flexWrap;
+            _self.div.style.floodColor              = styles.floodColor;
+            _self.div.style.floodOpacity            = styles.floodOpacity;
+            _self.div.style.font                    = styles.font;
+
+            if (styles.fontFamily) { _self.div.style.fontFamily = styles.fontFamily; }
+
+            _self.div.style.fontSize                = styles.fontSize;
+            _self.div.style.fontSizeAdjust          = styles.fontSizeAdjust;
+            _self.div.style.fontStretch             = styles.fontStretch;
+            _self.div.style.fontStyle               = styles.fontStyle;
+            _self.div.style.fontVariant             = styles.fontVariant;
+            _self.div.style.fontWeight              = styles.fontWeight;
+            _self.div.style.height                  = Utils.convertToPx(styles.height);
+            _self.div.style.imageOrientation        = styles.imageOrientation;
+            _self.div.style.imageRendering          = styles.imageRendering;
+            _self.div.style.imeMode                 = styles.imeMode;
+            _self.div.style.justifyContent          = styles.justifyContent;
+            _self.div.style.left                    = Utils.convertToPx(styles.left);
+            _self.div.style.length                  = styles.length;
+            _self.div.style.letterSpacing           = styles.letterSpacing;
+            _self.div.style.lightingColor           = styles.lightingColor;
+            _self.div.style.lineHeight              = styles.lineHeight;
+
+            if (styles.fontFamily) { _self.div.style.listStyle = styles.listStyle; };
+
+            _self.div.style.listStyleImage          = styles.listStyleImage;
+            _self.div.style.listStylePosition       = styles.listStylePosition;
+
+            if (styles.listStyleType) { _self.div.style.listStyleType = styles.listStyleType; };
+            
+            _self.div.style.margin                  = styles.margin;
+            _self.div.style.marginBottom            = styles.marginBottom;
+            _self.div.style.marginLeft              = styles.marginLeft;
+            _self.div.style.marginRight             = styles.marginRight;
+            _self.div.style.marginTop               = styles.marginTop;
+            _self.div.style.marker                  = styles.marker;
+            _self.div.style.markerEnd               = styles.markerEnd;
+            _self.div.style.markerMid               = styles.markerMid;
+            _self.div.style.markerOffset            = styles.markerOffset;
+            _self.div.style.markerStart             = styles.markerStart;
+            _self.div.style.marks                   = styles.marks;
+            _self.div.style.mask                    = styles.mask;
+            _self.div.style.maxHeight               = styles.maxHeight;
+            _self.div.style.maxWidth                = styles.maxWidth;
+            _self.div.style.minHeight               = styles.minHeight;
+            _self.div.style.minWidth                = styles.minWidth;
+            _self.div.style.mixBlendMode            = styles.mixBlendMode;
+            _self.div.style.opacity                 = styles.opacity;
+            _self.div.style.order                   = styles.order;
+            _self.div.style.orphans                 = styles.orphans;
+            _self.div.style.outline                 = styles.outline;
+            _self.div.style.outlineColor            = styles.outlineColor;
+            _self.div.style.outlineOffset           = styles.outlineOffset;
+            _self.div.style.outlineStyle            = styles.outlineStyle;
+            _self.div.style.outlineWidth            = styles.outlineWidth;
+            _self.div.style.overflow                = styles.overflow;
+            _self.div.style.overflowX               = styles.overflowX;
+            _self.div.style.overflowY               = styles.overflowY;
+            _self.div.style.padding                 = styles.padding;
+            _self.div.style.paddingBottom           = styles.paddingBottom;
+            _self.div.style.paddingLeft             = styles.paddingLeft;
+            _self.div.style.paddingRight            = styles.paddingRight;
+            _self.div.style.paddingTop              = styles.paddingTop;
+
+            if (styles.page) { _self.div.style.page = styles.page };
+
+            _self.div.style.pageBreakAfter          = styles.pageBreakAfter;
+            _self.div.style.pageBreakBefore         = styles.pageBreakBefore;
+            _self.div.style.pageBreakInside         = styles.pageBreakInside;
+            _self.div.style.paintOrder              = styles.paintOrder;
+            _self.div.style.parentRule              = styles.parentRule;
+            _self.div.style.perspective             = styles.perspective;
+            _self.div.style.perspectiveOrigin       = styles.perspectiveOrigin;
+            _self.div.style.pointerEvents           = styles.pointerEvents;
+            _self.div.style.position                = styles.position;
+            _self.div.style.quotes                  = styles.quotes;
+            _self.div.style.resize                  = styles.resize;
+            _self.div.style.right                   = Utils.convertToPx(styles.right);
+            _self.div.style.shapeRendering          = styles.shapeRendering;
+            _self.div.style.size                    = styles.size;
+            _self.div.style.stopColor               = styles.stopColor;
+            _self.div.style.stopOpacity             = styles.stopOpacity;
+            
+            if (styles.stroke) { _self.div.style.stroke = styles.stroke };
+
+            _self.div.style.strokeDasharray         = styles.strokeDasharray;
+            _self.div.style.strokeDashoffset        = styles.strokeDashoffset;
+            _self.div.style.strokeLinecap           = styles.strokeLinecap;
+            _self.div.style.strokeLinejoin          = styles.strokeLinejoin;
+            _self.div.style.strokeMiterlimit        = styles.strokeMiterlimit;
+            _self.div.style.strokeOpacity           = styles.strokeOpacity;
+            _self.div.style.strokeWidth             = styles.strokeWidth;
+            _self.div.style.tableLayout             = styles.tableLayout;
+            _self.div.style.textAlign               = styles.textAlign;
+            _self.div.style.textAnchor              = styles.textAnchor;
+            _self.div.style.textDecoration          = styles.textDecoration;
+            _self.div.style.textIndent              = styles.textIndent;
+            _self.div.style.textOverflow            = styles.textOverflow;
+            _self.div.style.textRendering           = styles.textRendering;
+            _self.div.style.textShadow              = styles.textShadow;
+            _self.div.style.textTransform           = styles.textTransform;
+            _self.div.style.top                     = Utils.convertToPx(styles.top);
+            _self.div.style.transform               = styles.transform;
+            _self.div.style.transformOrigin         = styles.transformOrigin;
+            _self.div.style.transformStyle          = styles.transformStyle;
+            
+            if (styles.transition) { _self.div.style.transition = styles.transition; }
+
+            _self.div.style.transitionDelay         = styles.transitionDelay;
+            _self.div.style.transitionDuration      = styles.transitionDuration;
+
+            if (styles.transitionProperty) { _self.div.style.transitionProperty = styles.transitionProperty; }
+
+            _self.div.style.transitionTimingFunction = styles.transitionTimingFunction;
+            _self.div.style.unicodeBidi             = styles.unicodeBidi;
+            _self.div.style.vectorEffect            = styles.vectorEffect;
+            _self.div.style.visibility              = styles.visibility;
+            _self.div.style.whiteSpace              = styles.whiteSpace;
+            _self.div.style.widows                  = styles.widows;
+
+
+            _self.div.style.width                   = Utils.convertToPx(styles.width);
+
+            _self.div.style.wordBreak               = styles.wordBreak;
+            _self.div.style.wordSpacing             = styles.wordSpacing;
+            _self.div.style.wordWrap                = styles.wordWrap;
+            _self.div.style.zIndex                  = styles.zIndex;
+
+        }
+
+        // @@iterator()
+        // getPropertyCSSValue()
+        // getPropertyPriority()
+        // getPropertyValue()
+        // item()
+        // removeProperty()
+        // setProperty()
+
+        return this;
+
+    };
+})();
+
+(function(){
+    $.fn.fontStyle = function (name, size, color, style) {
+        var _styles = {};
+        if (name) {
+            _styles.fontFamily = name;
+        }
+        if (size) {
+            _styles.fontSize = size;
+        }
+        if (color) {
+            _styles.color = color;
+        }
+        if (style) {
+            _styles.fontStyle = style;
+        }
+        this.css(_styles);
+
+        return this;
+    };
+})();
+(function(){
+    // @param onOver (function) function to run on mouse over
+    // @param onOut (function) function to run on mouse out
+    // @param onClick (function) function to run on click or tap events
+    // @param onDrag (function) function to run while move events are firing
+    // @param setZ (boolean) set to true to set high z-index
+
+    // TODO: implement the onDrag event, both with mouse event and touch event
+    
+    $.fn.interact = function(paramsObj) {
+
+        var _self = this,
+            _onOver,
+            _onOut,
+            _onClick,
+            _onDrag,
+            _setZ;
+
+        if (typeof paramsObj.onOver == 'function'){
+            _onOver = paramsObj.onOver;
+        }else{
+            _onOver = null;
+        }
+
+        if (typeof paramsObj.onOut == 'function'){
+            _onOut = paramsObj.onOut;
+        }else{
+            _onOut = null;
+        }
+
+        if (typeof paramsObj.onClick == 'function'){
+            _onClick = paramsObj.onClick;
+        }else{
+            _onClick = null;
+        }
+
+        if (typeof paramsObj.onDrag == 'function'){
+            _onDrag = paramsObj.onDrag;
+        }else{
+            _onDrag = null;
+        }
+
+        if (paramsObj.setZ === true){
+            _setZ = true;
+        }else{
+            _setZ = false;
+        }
+
+
+        // create hit box
+        _self.hit = _self.create('.hit');
+        _self.hit.size("100%").css({ cursor: "pointer", position: "absolute", left: 0, top: 0 });
+
+        if (_setZ === true){
+            _self.hit.setZ(99999);
+        }
+
+        if (!Device.mobile){
+            if (typeof _onOver == 'function'){
+                Evt.subscribe(_self.hit, Evt.MOUSE_OVER, _onOver);
+            }
+
+            if (typeof _onOut == 'function'){
+                Evt.subscribe(_self.hit, Evt.MOUSE_OUT, _onOut);
+            }
+
+            if (typeof _onClick == 'function'){
+                Evt.subscribe(_self.hit, Evt.CLICK, _onClick);
+            }
+
+            // TODO: bind
+            /*if (typeof _onDrag == 'function'){
+                Evt.subscribe(_self.hit, Evt.CLICK, _onDrag);
+            }*/
+        }else{
+            TouchUtil.bind(_self.hit, _onClick, _onDrag);
+        }
+
+        return _self;
+    };
+
+    $.fn.removeInteract = function(paramsObj) {
+        // console.log('remove:');
+        // console.log(paramsObj);
+        
+        var _self = this;
+
+        if (typeof _self.hit == 'object'){
+            if (!Device.mobile){
+                if (typeof paramsObj.onOver == 'function'){
+                    Evt.removeEvent(_self.hit, Evt.MOUSE_OVER, paramsObj.onOver);
+                }
+
+                if (typeof paramsObj.onOut == 'function'){
+                    Evt.removeEvent(_self.hit, Evt.MOUSE_OUT, paramsObj.onOut);
+                }
+
+                if (typeof paramsObj.onClick == 'function'){
+                    Evt.removeEvent(_self.hit, Evt.CLICK, paramsObj.onClick);
+                }
+
+                if (typeof paramsObj.onDrag == 'function'){
+                    // TODO: unbind
+                }
+            }else{
+                if (typeof paramsObj.onClick == 'function'){
+                    if (typeof paramsObj.onDrag == 'function'){
+                        TouchUtil.unbind(_self.hit, paramsObj.onClick, paramsObj.onDrag);
+                    }else{
+                        TouchUtil.unbind(_self.hit, paramsObj.onClick);
+                    }
+                }
+            }
+        }
+
+        return _self;
+    };
+})();
+(function(){
+    $.fn.setZ = function(zindex) {
+        var _self = this;
+
+        _self.div.style.zIndex = zindex;
+    	
+    	return this;
+    };
+})();
+(function(){
+      $.fn.size = function(width, height) {
+
+            var _self = this;
+            var _width;
+            var _height;
+            
+            // console.log('SIZE :: div: '+_self.div);
+            // console.log(_self);
+            // console.log(_self.div);
+
+            if (typeof width == 'string') {
+
+                  if (width.slice(-1) == '%') {
+
+                        _width      = width;
+                        _height     = !height ? width : height;
+
+                  } else {
+                        
+                        _width      = Utils.convertToPx(width) ;
+                        _height     = !height ? Utils.convertToPx(width) : Utils.convertToPx(height);
+
+                  }
+
+            } else {
+
+                  _width            = Utils.convertToPx(width);
+                  _height           = !height ? Utils.convertToPx(width) : Utils.convertToPx(height);
+
+            }
+
+            _self.div.style.width   = _width;
+            _self.div.style.height  = _height;
+            
+
+            return _self;
+
+      };
+})();
+(function(){
+
+    $.fn.transform = function(propObject){
+      var _self = this;
+
+      TweenLite.set(_self.div, {css: propObject});
+
+      return this;
+    }
+    
+})();
+(function(){
+      $.fn.tween = function(propObject, seconds, ease, delay, callback, params) {
+
+            var _self = this;
+            var _seconds = seconds;
+            var _ease = ease ? ease : 'Quad.easeOut';
+            var _propObject = propObject;
+            var _delay = delay ? delay : null;
+            var _callback = callback ? callback : null;
+            var _params = params ? params : null;
+            var _tran;
+            var _anim;
+            var _transObject = {};
+            var _timeout;
+
+            (function() {
+                  
+                  _propObject.transform = {};
+
+                  for (var key in _propObject) {
+                        if (_propObject.hasOwnProperty(key)) {
+                              // console.log(key + " -> " + _propObject[key]);
+                              // console.log(key[_propObject[key]]);
+                              // _transObject.props = _propObject[key];
+                              // var _name = key
+                              // if (_propObject[key] == _propObject.rotation || 
+                              if (_propObject[key] == _propObject.rotate || 
+                                  _propObject[key] == _propObject.scaleX || 
+                                  _propObject[key] == _propObject.scaleY || 
+                                  _propObject[key] == _propObject.scale || 
+                                  // _propObject[key] == _propObject.matrix || 
+                                  _propObject[key] == _propObject.skewX || 
+                                  _propObject[key] == _propObject.skewY || 
+                                  _propObject[key] == _propObject.x || 
+                                  _propObject[key] == _propObject.y || 
+                                  _propObject[key] == _propObject.xPercent || 
+                                  _propObject[key] == _propObject.yPercent ) {
+                                    
+                                    // TO DO: MAP THE PROPERTY OBJECT 'ROTATION'
+                                    // TO 'ROTATE' SO IT MATCHES TRANSFORM 
+
+                                    //then assign it to the propobject
+                                    _propObject.transform[key] = _propObject[key];
+                                    // console.log(_propObject)
+                              } 
+                              // _propObject.transform = key[_propObject[key]];
+                        }
+                  }
+
+                  // console.log('_propObject.transform')
+                  // console.log(_propObject.transform)
+                  
+
+                  _timeout = setTimeout(_animate, 0);
+                  // _animate();
+                  
+
+            })();
+            
+            function _animate() {
+
+                clearTimeout(_timeout);
+
+                
+                // testing for velocity
+                // var __sec = _seconds * 1000;
+
+                // var _animationProps =   {
+                //                             duration: __sec,
+                //                             easing: _ease !== null ? _ease : 'easeOutQuint', // Default easing
+                //                             delay: _delay,
+                //                             queue: false,
+                //                             complete: _onComplete,
+                //                         };
+                
+
+                _anim = TweenLite.to(_self.div, seconds, {css:_propObject, ease:_ease, force3D:false, clearProps:'matrix'});
+
+                // testing for velocity
+                // _anim = Velocity(_self.div, _propObject, _animationProps);
+                
+
+
+                if (_callback !== null) {
+                      _anim.eventCallback("onComplete", function() {
+
+                        _callback(_params);
+                        _anim.kill();
+
+                      });
+                    // _cssanim
+                } else {
+                      _anim.eventCallback("onComplete", null);
+                }
+
+                if (_delay !== null) {
+                      _anim.delay(_delay); //sets delay
+                }
+            }
+
+            // testing for velocity
+            // function _onComplete() {
+            //     console.log('on complete');
+            //     if (_callback !== null) {
+            //         // console.log(_callback)
+            //         console.log('this should call back the function')
+            //         _callback(_params);
+            //     } else {
+            //         return;
+            //     }
+            // }
+            
+            return this;
+    };
+
+    // update the GreenSock properties of an object, without performing a tween
+    // useful in a resize event, for example
+    $.fn.setProps = $.fn.setProperties = function(propObject){
+      var _self = this;
+
+      TweenLite.set(_self.div, {css: propObject});
+
+      return this;
+    };
+
+      // $.fn.stopTween = function(propObject) {
+      //   var _self = this;
+      //   _self.tween.anim.kill();
+
+      // }
+})();
+(function(){
+
+    $.fn.visible = function () {
+        this.div.style.visibility = "visible";
+        return this;
+    };
+    $.fn.invisible = function () {
+        this.div.style.visibility = "hidden";
+        return this;
+    };
+})();
+(function(){
+    /**
+     * filter - Apply a CSS3 filter to an element
+     * 
+     * @param object properties  an object where properties are function names and values are function arguments.
+     *
+     * for example:
+     * _elem.filter({
+     *    grayscale: 100,
+     *    contrast: 150
+     * });
+     *
+     * Values are converted to percentages if necessary.
+     *
+     * NOTE: order is important with multiple effects; a different order will produce a different result
+     *
+     */
+    $.fn.filter = function(properties){
+        var _functions = [];
+
+        // build the css string of functions
+        for (var property in properties){
+            if (properties.hasOwnProperty(property)){
+                // correct the value based on which kind of filter is used
+                _functions.push(Utils.sanitizeFilter(property, properties[property], true, true));
+            }
+        }
+
+        var _css = _functions.join(' ');
+
+        // set property based on browser
+        if (Device.browser.chrome || Device.browser.safari){
+            this.setProps({
+                webkitFilter: _css
+            });
+        }
+
+        if (Device.browser.firefox){
+            this.setProps({
+                filter: _css
+            });
+        }
+
+        // IE sux
+
+        return this;
+    };
+
+    $.fn.tweenfilter = function(properties, duration, easing) {
+        var _self = this;
+
+        // get current filter values
+        var _filterCSS, _currentFilters = {};
+
+        if (Device.browser.chrome || Device.browser.safari){
+            _filterCSS = _self.div.style.webkitFilter;
+        }
+
+        if (Device.browser.firefox){
+            _filterCSS = _self.div.style.filter;
+        }
+
+        var filters = _filterCSS.split(' ');
+        for (var idx = 0; idx < filters.length; idx++){
+            // split filter into function name and value
+            var filter = filters[idx].replace(')', '');
+            var split = filter.split('(');
+            var property = split[0], value = split[1];
+
+            var filter = Utils.sanitizeFilter(property, value, false, false);
+            
+            // build object of current filters
+            _currentFilters[filter.filter] = filter.value;
+        }
+
+        // set any new properties to zero
+        for (var attr in properties){
+            if (!_currentFilters.hasOwnProperty(attr)){
+                _currentFilters[attr] = 0;
+            }
+        }
+
+        TweenMax.to(_self.div, duration, {
+            ease: easing,
+
+            onUpdate: function(tl){
+                // convert timeline progress to a percentage, then normalize
+                var _p = Math.round(tl.progress()*100)/100;
+                var _functions = [];
+
+                // build the css string of functions
+                for (var attr in properties){
+                    // find differences between current filter value and desired filter value so we know what to tween and how much
+                    // multiply by current progress to find tween value
+                    var _diff = (properties[attr] - _currentFilters[attr])*_p;
+                    var _tweenval = _currentFilters[attr] + _diff;
+                    _functions.push(Utils.sanitizeFilter(attr, _tweenval, true, true));
+                }
+
+                // add any functions that aren't being tweened
+                for (var attr in _currentFilters){
+                    if (!properties.hasOwnProperty(attr)){
+                        _functions.push(Utils.sanitizeFilter(attr, _currentFilters[attr], true, true));
+                    }
+                }
+
+                var _css = _functions.join(' ');
+
+                // set property based on browser
+                if (Device.browser.chrome || Device.browser.safari){
+                    _self.setProps({
+                        webkitFilter: _css
+                    });
+                }
+
+                if (Device.browser.firefox){
+                    _self.setProps({
+                        filter: _css
+                    });
+                }
+
+                // IE sux
+            },
+            
+            onUpdateParams: ["{self}"] // references the tweens timeline
+        });
+
+        return _self;
+    };
+})();
+bit.ready(function() {
+    window.__html   = $(document.getElementsByTagName("html")[0]);
+    window.__body   = $(document.getElementsByTagName("body")[0]);
+    window.__body.removeChild( $(document.getElementById("seo_content")) );
+    window.Stage    = __body.create("#Stage");
+
+    Stage.width     = window.innerWidth || document.documentElement.offsetWidth || document.body.clientWidth;
+    Stage.height    = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+
+    window.onresize = function () {
+        if (Device.mobile && Global.SCROLLING === false){
+            // reposition; helps when user opens address bar
+            document.body.scrollTop = 0;
+        }
+
+        Stage.width     = window.innerWidth || document.documentElement.offsetWidth || document.body.clientWidth;
+        Stage.height    = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+
+        // Device.mobile ? Stage.height += '10px' : Stage.height = Stage.height;
+        // console.log('resize: '+Stage.width+'x'+Stage.height);
+
+        Evt.fireEvent(window, Evt.RESIZE);
+    };
+
+    (function () {
+        // var b = Date.now();
+        var _date = Date.now();
+        var _visibility;
+
+        setTimeout(function () {
+            var _hiddenTypes = ["hidden", "msHidden", "webkitHidden"];
+            var _htype, _vischange;
+            (function () {
+                for (var key in _hiddenTypes) {
+                    if (document[_hiddenTypes[key]] !== "undefined") {
+                        _htype = _hiddenTypes[key];
+                        switch (_htype) {
+                            case "hidden":
+                                _vischange = "visibilitychange";
+                                break;
+                            case "msHidden":
+                                _vischange = "msvisibilitychange";
+                                break;
+                            case "webkitHidden":
+                                _vischange = "webkitvisibilitychange";
+                                break;
+                            }
+                            return;
+                    }
+                }
+            })();
+            if (typeof document[_htype] === "undefined") {
+                if (Device.browser.ie) {
+                    document.onfocus = focus;
+                    document.onblur = blur;
+                } else {
+                    window.onfocus = focus;
+                    window.onblur = blur;
+                }
+            } else {
+                document.addEventListener(_vischange, function () {
+                    var _newdate = Date.now();
+                    if (_newdate - _date > 10) {
+                        if (document[_htype] === false) {
+                            focus();
+                        } else {
+                            blur();
+                        }
+                    }
+                    _date = _newdate;
+                })
+            }
+        }, 250);
+        
+        // checks for IE and Chromium versions
+        if (window.addEventListener) {
+
+            // bind focus event
+            window.addEventListener("focus", function (event) {
+
+                // tween resume() code goes here
+                setTimeout(function(){                 
+                     focus();
+                },300);
+
+            }, false);
+
+            // bind blur event
+            window.addEventListener("blur", function (event) {
+
+                // tween pause() code goes here
+                 blur();
+
+            }, false);
+
+        } else {
+
+            // bind focus event
+            window.attachEvent("focus", function (event) {
+
+                // tween resume() code goes here
+                setTimeout(function(){             
+                     focus();
+                },300);
+
+            });
+
+            // bind focus event
+            window.attachEvent("blur", function (event) {
+
+                // tween pause() code goes here
+                // console.log("blur");
+                blur();
+
+            });
+        }
+
+        function focus() {
+            if (_visibility != "focus") {
+                // FlipEvents._fireEvent(FlipEvents.BROWSER_FOCUS, {
+                //     type: "focus"
+                // })
+                Evt.fireEvent(window, Evt.BROWSER_FOCUS, {
+                    type: 'focus'
+                });
+                // console.log('focus');
+                // alert('focus');
+            }
+            _visibility = "focus";
+        }
+
+        function blur() {
+            if (_visibility != "blur") {
+                // FlipEvents._fireEvent(FlipEvents.BROWSER_FOCUS, {
+                //     type: "blur"
+                // })
+                Evt.fireEvent(window, Evt.BROWSER_FOCUS, {
+                    type: 'blur'
+                });
+                // console.log('blur');
+                // alert('blur');
+            }
+            _visibility = "blur";
+        }
+    })();
+});
+Class(function ErrorLog() {
+    
+    var _self = this;
+    
+    this.send = function(errorobj){
+    	console.log(errorobj);
+    	
+        Ajax.post(window.location.protocol+'//'+window.location.host+'/wp-content/plugins/rm-error-log-viewer/log-error.php', { json: JSON.stringify(errorobj) }, function(response){
+        	// console.log(response);
+        });
+    };
+    
+}, 'static');
+Class(function CSS() {
+    var g = this;
+    var f, b, a;
+    bit.ready(function () {
+        b = "";
+        f = document.createElement("style");
+        f.type = "text/css";
+        document.getElementsByTagName("head")[0].appendChild(f);
+    });
+
+    function d(j) {
+        var i = j.match(/[A-Z]/);
+        var k = i ? i.index : null;
+        if (k) {
+            var l = j.slice(0, k);
+            var h = j.slice(k);
+            j = l + "-" + h.toLowerCase();
+        }
+        return j;
+    }
+    function e(j) {
+        var i = j.match(/\-/);
+        var l = i ? i.index : null;
+        if (l) {
+            var m = j.slice(0, l);
+            var h = j.slice(l).slice(1);
+            var k = h.charAt(0);
+            h = h.slice(1);
+            h = k.toUpperCase() + h;
+            j = m + h;
+        }
+        return j;
+    }
+    function c() {
+        TweenLite.ticker.removeEventListener('tick', c);
+        f.innerHTML = b;
+        a = false;
+    }
+    this._read = function () {
+        return b;
+    };
+    this._write = function (h) {
+        b = h;
+        if (!a) {
+            a = true;
+
+            TweenLite.ticker.addEventListener('tick', c);
+            // Render.nextFrame(c);
+        }
+    };
+    this._toCSS = d;
+    this.style = function (h, k) {
+        var j = h + " {";
+        for (var i in k) {
+            var m = d(i);
+            var l = k[i];
+            if (typeof l !== "string" && i != "opacity") {
+                l += "px";
+            }
+            j += m + ":" + l + "!important;";
+        }
+        j += "}";
+        f.innerHTML += j;
+    };
+    this.get = function (k, h) {
+        var q = new Object();
+        var n = f.innerHTML.split(k + " {");
+        for (var m = 0; m < n.length; m++) {
+            var o = n[m];
+            if (!o.length) {
+                continue;
+            }
+            var p = o.split("!important;");
+            for (var l in p) {
+                if (p[l].strpos(":")) {
+                    var r = p[l].split(":");
+                    if (r[1].slice(-2) == "px") {
+                        r[1] = Number(r[1].slice(0, -2));
+                    }
+                    q[e(r[0])] = r[1];
+                }
+            }
+        }
+        if (!h) {
+            return q;
+        } else {
+            return q[h];
+        }
+    };
+    this.textSize = function (k) {
+        var j = k.clone();
+        j.css({
+            position: "relative",
+            cssFloat: "left",
+            styleFloat: "left",
+            marginTop: -99999,
+            width: "",
+            height: ""
+        });
+        __body.addChild(j);
+        var i = j.div.offsetWidth;
+        var h = j.div.offsetHeight;
+        j.remove();
+        return {
+            width: i,
+            height: h
+        };
+    };
+    this.prefix = function (h) {
+        return Device.styles.vendor === "" ? h[0].toLowerCase() + h.slice(1) : Device.styles.vendor + h;
+    };
+}, 'static');
+Class(function GATracker() {
+    
+    // track a page view
+    this.trackPage = function (page) {
+        if (typeof ga !== "undefined") {
+            ga("send", "pageview", page);
+        }
+    };
+
+    // track some other custom event
+    // eventCategory and eventAction are required
+    // looks like values can be anything you want
+    this.trackEvent = function (eventCategory, eventAction, eventLabel, eventValue) {
+        if (typeof ga !== "undefined") {
+            ga("send", "event", eventCategory, eventAction, eventLabel, (eventValue || 0));
+        }
+    };
+
+}, 'static');
+Class(function Vector2(x, y) {
+    // console.log('Vector2')
+    var _self   = this;
+    var _proto  = Vector2.prototype;
+    this.x = typeof x == "number" ? x : 0;
+    this.y = typeof y == "number" ? y : 0;
+    this.type = "vector2";
+    _proto.set = function (e, f) {
+        this.x = e;
+        this.y = f;
+        return this;
+    };
+    _proto.clear = function () {
+        this.x = 0;
+        this.y = 0;
+        return this;
+    };
+    _proto.copyTo = function (e) {
+        e.x = this.x;
+        e.y = this.y;
+        return this;
+    };
+    _proto.copyFrom = function (e) {
+        this.x = e.x;
+        this.y = e.y;
+        return this;
+    };
+    _proto.addVectors = function (f, e) {
+        this.x = f.x + e.x;
+        this.y = f.y + e.y;
+        return this;
+    };
+    _proto.subVectors = function (f, e) {
+        this.x = f.x - e.x;
+        this.y = f.y - e.y;
+        return this;
+    };
+    _proto.multiplyVectors = function (f, e) {
+        this.x = f.x * e.x;
+        this.y = f.y * e.y;
+    };
+    _proto.add = function (e) {
+        this.x += e.x;
+        this.y += e.y;
+        return this;
+    };
+    _proto.sub = function (e) {
+        this.x -= e.x;
+        this.y -= e.y;
+        return this;
+    };
+    _proto.multiply = function (e) {
+        this.x *= e;
+        this.y *= e;
+        return this;
+    };
+    _proto.divide = function (e) {
+        this.x /= e;
+        this.y /= e;
+        return this;
+    };
+    _proto.lengthSq = function () {
+        return (this.x * this.x + this.y * this.y) || 0.00001
+    };
+    _proto.length = function () {
+        return Math.sqrt(this.lengthSq());
+    };
+    _proto.normalize = function () {
+        var e = this.length();
+        this.x /= e;
+        this.y /= e;
+        return this;
+    };
+    _proto.perpendicular = function (h, f) {
+        var g = this.x;
+        var e = this.y;
+        this.x = -e;
+        this.y = g;
+        return this;
+    };
+    _proto.lerp = function (e, f) {
+        this.x += (e.x - this.x) * f;
+        this.y += (e.y - this.y) * f;
+        return this;
+    };
+    _proto.isZero = function () {
+        return this.x == 0 && this.y == 0;
+    };
+    _proto.setAngleRadius = function (e, f) {
+        this.x = Math.cos(e) * f;
+        this.y = Math.sin(e) * f;
+        return this;
+    };
+    _proto.addAngleRadius = function (e, f) {
+        this.x += Math.cos(e) * f;
+        this.y += Math.sin(e) * f;
+        return this;
+    };
+    _proto.clone = function () {
+        return new Vector2(this.x, this.y);
+    };
+    _proto.dot = function (f, e) {
+        e = e || this;
+        return (f.x * e.x + f.y * e.y);
+    };
+    _proto.distanceTo = function (g, h) {
+        var f = this.x - g.x;
+        var e = this.y - g.y;
+        if (!h) {
+            return Math.sqrt(f * f + e * e);
+        }
+        return f * f + e * e;
+    };
+    _proto.solveAngle = function (f, e) {
+        if (!e) {
+            e = this;
+        }
+        return Math.acos(f.dot(e) / (f.length() * e.length()));
+    };
+    _proto.equals = function (e) {
+        return this.x == e.x && this.y == e.y;
+    }
+});
+/**
+ * $slidelist
+ * 
+ * Allows objects to Inherit() these properties and methods, providing an easy way
+ * to build slide navigation into your project.
+ * ^^ LIES ^^
+ *
+ * This file acts as a controller for a set of slides, managing next and previous actions.
+ */
+function $slidelist(_uniqid){
+    Inherit(this, Controller);
+
+    var _self = this,
+        _elem = _self.element,
+        _xPos = 0,
+        _yPos = 0;
+    
+    _self.orientation = 'vertical'; // 'vertical' || 'horizontal' || 'static'; set using initSlides from the class that inherits this
+    _self.slides = []; // the object that inherits this is expected to populate slides
+    _self.sizeToContainer = false; // if true, will resize and position slides to their parent container; if false, will size and position to Stage
+    _self.slideindex = 0;
+    _self.scrolltick = null;
+    _self.isScrolling = false;
+    _self.currdir = -1;
+    _self.isAnimating = false;
+    _self.container = false;
+    _self.paused = false;
+    _self.autoResize = true;
+    _self.uniqid = _uniqid = '' ? Date.now() : _uniqid;
+
+    _self.outputWidth = Stage.width;
+    _self.outputHeight = Stage.height;
+
+    // set a default easing; can be set whenever by the object that inherits this
+    _self.easing = 'Quad.easeInOut';
+    if (typeof Config.EASING == 'object'){
+        if (Config.EASING.hasOwnProperty('inout')){
+            _self.easing = Config.EASING.inout;
+        }
+    }
+
+    _self.transtime = 0.5; // seconds
+    _self.delay = null; // null or seconds
+
+    // set up events
+    Evt.SLIDE_NAVCHANGE = 'slide_navchange';
+    Evt.SLIDE_NAVSELECT = 'slide_navselect'; // fire this in your "onClick" function in your slidenav item class
+    Evt.SLIDE_COMPLETE = 'slide_complete'; // when using 'static' for _self.orientation, you need to fire this event from your slide when animation is complete; it resets _self.isAnimating to false
+
+    (function(){
+        // initialize stuff
+        if (Device.mobile){
+            TouchUtil.bind(_elem, _directionHandler);
+        }else{
+            ScrollUtil.bind(_elem, _directionHandler);
+        }
+
+        Evt.subscribe(_elem, Evt.SLIDE_COMPLETE, function(params){
+            if (params.uniqid == _self.uniqid){
+                _self.isAnimating = false;
+            }else{
+                console.log('wtf');
+            }
+        });
+
+        // if (_self.uniqid == 'workweb'){
+            Evt.subscribe(_elem, Evt.SLIDE_NAVSELECT, _goto);
+        // }
+
+        _elem.size(_self.outputWidth, _self.outputHeight);
+    })();
+
+    function _directionHandler(event) {
+
+        if (_self.paused === true){
+            return;
+        }
+
+        // detect the end of scrolling and reset the _self.isScrolling variable
+        clearTimeout(_self.scrolltick);
+        _self.scrolltick = setTimeout(function(){
+            _self.isScrolling = false;
+        }, 50);
+
+        // reset is scrolling to false if the user changes the direction of scroll
+        if (_self.currdir != event.direction) {
+            _self.isScrolling = false;
+        }
+        _self.currdir = event.direction;
+
+        // reset is scrolling to false if user is hammering on scroll and animation is complete
+        if (!_self.isAnimating && Math.abs(event.amount) > 1.2) {
+            _self.isScrolling = false;
+        }
+
+        // curb multiple firings of implementation
+        if (!_self.isScrolling) {
+            _self.isScrolling = true;
+
+            // set direction of scroll
+            if (!Device.mobile) {
+                switch (_self.orientation){
+                    case 'horizontal':
+                    if (event.direction == 'left' || event.direction == 'up'){
+                        if (_self.orientation == 'static'){
+                            _getPrev('fade');
+                        }else{
+                            _getPrev('right');
+                        }
+                    }else if (event.direction == 'right' || event.direction == 'down'){
+                        if (_self.orientation == 'static'){
+                            _getNext('fade');
+                        }else{
+                            _getNext('left');
+                        }
+                    }
+                    break;
+
+                    case 'vertical':
+                    case 'static':
+                    default:
+                    if (event.direction == 'up'){
+                        if (_self.orientation == 'static'){
+                            // _getPrev('fade');
+                            _getPrev('down');
+                        }else{
+                            _getPrev('down');
+                        }
+                    }else if (event.direction == 'down'){
+                        if (_self.orientation == 'static'){
+                            _getNext('up');
+                        }else{
+                            _getNext('up');
+                        }
+                    }
+                    break;
+                }
+            }else{
+                switch (_self.orientation){
+                    case 'horizontal':
+                    if (event.direction == 'left'){
+                        if (_self.orientation == 'static'){
+                            _getNext('left');
+                        }else{
+                            _getNext('left');
+                        }
+                    }else if (event.direction == 'right'){
+                        if (_self.orientation == 'static'){
+                            // _getPrev('fade');
+                            _getPrev('right');
+                        }else{
+                            _getPrev('right');
+                        }
+                    }
+                    break;
+
+                    case 'vertical':
+                    case 'static':
+                    default:
+                    if (event.direction == 'up'){
+                        if (_self.orientation == 'static'){
+                            // _getNext('fade');
+                            _getNext('up');
+                        }else{
+                            _getNext('up');
+                        }
+                    }else if (event.direction == 'down'){
+                        if (_self.orientation == 'static'){
+                            // _getPrev('fade');
+                            _getPrev('down');
+                        }else{
+                            _getPrev('down');
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    function _getNext(dir){
+        if (_self.slideindex < _self.slides.length - 1 && _self.isAnimating === false){
+            _self.isAnimating = true;
+
+            // trigger animations on slides
+            var current = _self.previous = _self.slideindex;
+            // console.log('slidelist getNext: '+_self.slideindex);
+            _self.slideindex++;
+            var next = _self.slideindex;
+
+            // you need to implement this.animateOut and this.animateIn on your slide class
+            if (_self.slides[current].hasOwnProperty('animateOut')){
+                _self.slides[current].animateOut(dir);
+            }
+
+            if (_self.slides[next].hasOwnProperty('animateIn')){
+                _self.slides[next].animateIn(dir);
+            }
+
+            Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
+                index: next,
+                uniqid: _self.uniqid
+            });
+
+            // when using a container, scroll the container
+            if (_self.container !== false){
+                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos - _self.outputWidth;
+                _yPos = (_self.orientation == 'vertical') ? _yPos - _self.outputHeight : 0;
+
+                _self.container.tween({
+                    x: _xPos,
+                    y: _yPos
+                }, _self.transtime, _self.easing, _self.delay, function(){
+                    _self.isAnimating = false;
+                });
+            }
+        }
+    }
+
+    function _getPrev(dir){
+        if (_self.slideindex > 0 && _self.isAnimating === false){
+            _self.isAnimating = true;
+            
+            // trigger animations on slides
+            // console.log('slidelist getPrev: '+_self.slideindex);
+            var current = _self.previous = _self.slideindex;
+            _self.slideindex--;
+            var prev = _self.slideindex;
+
+            // you need to implement this.animateOut and this.animateIn on your slide class
+            if (_self.slides[current].hasOwnProperty('animateOut')){
+                _self.slides[current].animateOut(dir);
+            }
+
+            if (_self.slides[prev].hasOwnProperty('animateIn')){
+                _self.slides[prev].animateIn(dir);
+            }
+
+            Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
+                index: prev,
+                uniqid: _self.uniqid
+            });
+
+            // when using a container, scroll the container
+            if (_self.container !== false  && _self.orientation != 'static'){
+                _xPos = (_self.orientation == 'vertical') ? 0 : _xPos + _self.outputWidth;
+                _yPos = (_self.orientation == 'vertical') ? _yPos + _self.outputHeight : 0;
+
+                _self.container.tween({
+                    x: _xPos,
+                    y: _yPos
+                }, _self.transtime, _self.easing, _self.delay, function(){
+                    _self.isAnimating = false;
+                });
+            }
+        }
+    }
+
+    function _goto(params){
+
+        if (params.uniqid == _self.uniqid){
+            if (_self.isAnimating === false){
+                _self.isAnimating = true;
+
+                _self.previous = _self.slideindex;
+                _self.slideindex = params.index;
+
+                var diff = Math.abs(_self.previous - _self.slideindex);
+                if (diff > 1){
+                    diff = diff*0.66; // this is used later to extend the transition animation so it's not too quick
+                }
+
+                if (Config.DEBUG.slidelist) {
+                    console.log('========================');
+                    console.log('GOTO');
+                    console.log('prev:' + _self.previous);
+                    console.log('index:' + _self.slideindex);
+                    console.log('========================');
+                }
+
+                // determine the direction for slide animation
+                switch (_self.orientation){
+                    case 'horizontal':
+                    if (_self.slideindex < _self.previous){
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'right';
+                        }else{
+                            dir = 'right';
+                        }
+                    }else{
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'left';
+                        }else{
+                            dir = 'left';
+                        }
+                    }
+                    break;
+
+                    case 'vertical':
+                    case 'static':
+                    default:
+                    if (_self.slideindex < _self.previous){
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'down';
+                        }else{
+                            dir = 'down';
+                        }
+                    }else{
+                        if (_self.orientation == 'static'){
+                            // dir = 'fade';
+                            dir = 'up';
+                        }else{
+                            dir = 'up';
+                        }
+                    }
+                    break;
+                }
+
+                // you need to implement this.animateOut and this.animateIn on your slide class
+                if (_self.slides[_self.previous].hasOwnProperty('animateOut')){
+                    _self.slides[_self.previous].animateOut(dir);
+                }
+
+                if (_self.slides[_self.slideindex].hasOwnProperty('animateIn')){
+                    _self.slides[_self.slideindex].animateIn(dir);
+                }
+
+                Evt.fireEvent(_elem, Evt.SLIDE_NAVCHANGE, {
+                    index: _self.slideindex,
+                    uniqid: _self.uniqid
+                });
+
+                // when using a container, scroll the container
+                if (_self.container !== false && _self.orientation != 'static'){
+                    _xPos = (_self.orientation == 'vertical') ? 0 : -(_self.outputWidth * _self.slideindex);
+                    _yPos = (_self.orientation == 'vertical') ? -(_self.outputHeight * _self.slideindex) : 0;
+
+                    _self.container.tween({
+                        x: _xPos,
+                        y: _yPos
+                    }, _self.transtime * diff, _self.easing, _self.delay, function(){
+                        _self.isAnimating = false;
+                    });
+                }
+            }
+        }else{
+            console.log(params.uniqid + ' ' + _self.uniqid);
+        }
+    }
+
+    // this needs to be called to set the slides in the correct places
+    // objParams = {
+    //      orientation: 'vertical' || 'horizontal' || 'static',
+    //      use_container: true || false
+    // }
+    this.initSlides = function(objParams){
+        // whether to create a container element for all slides
+        var use_container = true;
+
+        if (typeof objParams == 'object'){
+            if (objParams.hasOwnProperty('orientation')){
+                _self.orientation = objParams.orientation;
+            }
+
+            if (objParams.hasOwnProperty('use_container')){
+                if (objParams.use_container === false){
+                    use_container = false;
+                }
+            }
+
+            if (objParams.hasOwnProperty('sizeToContainer')){
+                if (objParams.sizeToContainer === true){
+                    _self.sizeToContainer = true;
+                }else{
+                    _self.sizeToContainer = false;
+                }
+            }
+        }
+
+        // if you set _self.sizeToContainer = true, you need to also set _self.width and _self.height in the class that inherits this
+        _self.outputWidth = _self.sizeToContainer ? _self.width : Stage.width;
+        _self.outputHeight = _self.sizeToContainer ? _self.height : Stage.height;
+
+        if (_self.orientation == 'static'){
+            use_container = false;
+        }
+
+        // create container
+        if (use_container === true){
+            _self.container = _elem.create('.scroll-container');
+            _self.container.size('100%');
+        }
+
+        for (idx = 0; idx < _self.slides.length; idx++){
+            if (_self.container !== false){
+                _self.container.add(_self.slides[idx]);
+                _self.slides[idx].element.setProps({
+                    x: (_self.orientation == 'vertical') ? 0 : _self.outputWidth * idx,
+                    y: (_self.orientation == 'vertical') ? _self.outputHeight * idx : 0
+                });
+            }
+        }
+
+        if (_self.autoResize == true){
+            Evt.subscribe(window, Evt.RESIZE, _onresize);
+        }
+    };
+
+    function _onresize() {
+        // if you set _self.sizeToContainer = true, you need to also set _self.width and _self.height in the class that inherits this
+        _self.outputWidth = _self.sizeToContainer ? _self.width : Stage.width;
+        _self.outputHeight = _self.sizeToContainer ? _self.height : Stage.height;
+
+        _elem.size(_self.outputWidth, _self.outputHeight);
+
+        _xPos = (_self.orientation == 'vertical') ? 0 : -(_self.outputWidth * _self.slideindex);
+        _yPos = (_self.orientation == 'vertical') ? -(_self.outputHeight * _self.slideindex) : 0;
+
+        if (_self.container !== false && _self.orientation != 'static') {
+
+            _self.container.setProps({
+                x: _xPos,
+                y: _yPos
+            });
+        }
+
+        for (idx = 0; idx < _self.slides.length; idx++){
+            if (_self.container !== false && _self.orientation != 'static'){
+                _self.slides[idx].element.setProps({
+                    x: (_self.orientation == 'vertical') ? 0 : _self.outputWidth * idx,
+                    y: (_self.orientation == 'vertical') ? _self.outputHeight * idx : 0
+                });
+            }
+        }
+    }
+
+    this.resize = function(){
+        _onresize();
+    };
+
+    this.next = function(dir){
+        if (typeof dir != 'string'){
+            console.error('No direction specified for $slide.next');
+            return false;
+        }
+        _getNext(dir);
+    };
+
+    this.prev = function(dir){
+        if (typeof dir != 'string'){
+            console.error('No direction specified for $slide.prev');
+            return false;
+        }
+        _getPrev(dir);
+    };
+
+    this.pause = function(){
+        _self.paused = true;
+    };
+
+    this.resume = function(){
+        _self.paused = false;
+    };
+
+    this.__destroySlideList = function() {
+        Evt.removeEvent(_elem, Evt.SLIDE_COMPLETE, function(){ _self.delayedCall( function() { _self.isAnimating = false; }, _self.delay); });
+        Evt.removeEvent(_elem, Evt.SLIDE_NAVSELECT, _goto);
+
+        if (_self.autoResize == true){
+            Evt.removeEvent(window, Evt.RESIZE, _onresize);
+        }
+
+        this.__destroy();
+    }
+}
+/**
+ * $slidenav
+ * 
+ * Allows objects to Inherit() these properties and methods, providing an easy way
+ * to build slide navigation into your project.
+ *
+ * This file acts as a list of slide navigation points, managing selections.
+ */
+function $slidenav(){
+	var _self = this,
+		_elem = _self.element;
+
+	_self.current = 0;
+	_self.previous = 0;
+	_self.items = []; // the object that inherits this is expected to populate items
+
+	(function(){
+		Evt.subscribe(_elem, Evt.SLIDE_NAVCHANGE, _onNavChange);
+	})();
+
+	function _onNavChange(params){
+		_self.previous = _self.current;
+		_self.current = params.index;
+
+		// you need to implement this.deactivate and this.activate on your nav item class
+		if (_self.items[_self.previous].hasOwnProperty('deactivate')){
+			_self.items[_self.previous].deactivate();
+		}
+
+		if (_self.items[_self.current].hasOwnProperty('activate')){
+			_self.items[_self.current].activate();
+		}
+	}
+}
 Class(function Data() {
 
     Inherit(this, Model);
@@ -19776,12 +24218,9 @@ Class(function FullBackground() {
 Class(function Home() {
 
     Inherit(this, Controller);
-    Inherit(this, $slidelist);
     
     var _self = this,
-        _elem = _self.element,
-        _nav,
-        _button;
+        _elem = _self.element;
 
     Global.HOME = this;
 
@@ -19789,62 +24228,22 @@ Class(function Home() {
         _init();
         _events();
         _onResize();
-        _animateIn();
     })();
 
     function _init() {
-        _elem.setZ(10);
-
-        /*_button = _elem.create('.button');
-        _button.setProps({
-            border: '5px solid '+Config.COLORS.white
-        }).bg(Config.COLORS.test);*/
-
-        // init slides
-        for (var idx = 0; idx < 5; idx++){
-            var test = _self.initClass(Test, idx);
-            _self.slides.push(test);
-        }
-        _self.initSlides({
-            orientation: 'vertical'
-        });
-
-        _nav = _self.initClass(Nav);
+        _elem.setZ(10).bg('#053aac');
     }
 
     function _events() {
         Evt.subscribe(window, Evt.RESIZE, _onResize);
-        // _button.interact(_onOver, _onOut, _onClick);
-    }
-
-    function _onOver(){
-        _button.bg('#ff0000');
-    }
-
-    function _onOut(){
-        _button.bg(Config.COLORS.test);
-    }
-
-    function _onClick(){
-        Global.FULLBG.swapBG();
-        Global.FULLBG.video.play();
     }
 
     function _onResize(){
         _elem.size(Stage.width, Stage.height);
-
-        /*var buttonsize = Stage.width * (200/1920);
-        _button.size(buttonsize, buttonsize).setProps({
-            left: (Stage.width - buttonsize)/2,
-            top: (Stage.height - buttonsize)/2
-        });*/
-    }
-
-    function _animateIn(){
-        Global.FULLBG.image.animateIn();
     }
 
     this.destroy = function() {
+        Evt.removeEvent(window, Evt.RESIZE, _onResize);
         this.__destroy();
     };
 });
