@@ -30,6 +30,7 @@ var _appfiles = [
             bowerPath + '/history.js/scripts/bundled-uncompressed/html4+html5/native.history.js',
             bowerPath + '/PreloadJS/lib/preloadjs-0.6.1.combined.js',
     frameworkCorePath + '/lib/utilities/Utils.js',
+    frameworkCorePath + '/lib/utilities/AssetLoader.js',
                         'js/site/Config.js',
                         'js/site/SiteDevice.js',
     frameworkCorePath + '/lib/utilities/Cookie.js',
@@ -51,8 +52,6 @@ var _appfiles = [
     
     frameworkCorePath + '/lib/GATracker.js',
     frameworkCorePath + '/lib/Vector2.js',
-    frameworkCorePath + '/addons/slidelist.js',
-    frameworkCorePath + '/addons/slidenav.js',
 
 
     'js/site/Models/**/*.js',

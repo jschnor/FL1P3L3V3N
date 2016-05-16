@@ -3,7 +3,8 @@ Class(function Home() {
     Inherit(this, Controller);
     
     var _self = this,
-        _elem = _self.element;
+        _elem = _self.element,
+        _src = 'https://media.giphy.com/media/xT9DPiF2FOAvxvpNXG/giphy.gif';
 
     Global.HOME = this;
 
@@ -11,6 +12,7 @@ Class(function Home() {
         _init();
         _events();
         _onResize();
+        _loadTest();
     })();
 
     function _init() {
@@ -23,6 +25,23 @@ Class(function Home() {
 
     function _onResize(){
         _elem.size(Stage.width, Stage.height);
+    }
+
+    function _loadTest(){
+        AssetLoader.load(_src, 'image', _onImgLoaded);
+    }
+
+    this.load = function(){
+        _loadTest();
+    };
+
+    this.test = function(){
+        _elem.bg(_src);
+    };
+
+    function _onImgLoaded(img){
+        console.dir(img);
+        console.log(AssetLoader.getLoaded());
     }
 
     this.destroy = function() {
