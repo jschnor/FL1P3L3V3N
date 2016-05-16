@@ -28,7 +28,8 @@ Class(function Container() {
 	}
 
 	function _preloadSite() {
-		_loader = _self.initClass(Loader, _onLoadComplete);
+		// _loader = _self.initClass(Loader, _onLoadComplete);
+		_onLoadComplete(); // <-- testing
 	}
 
 	function _onLoadComplete() {
@@ -37,17 +38,17 @@ Class(function Container() {
 		// attempt to rescale the stage when mobile chrome is visible
 		// on initial load only
 		// seems hackish ¯\_(ツ)_/¯
-		if (Device.mobile.phone){
+		/*if (Device.mobile.phone){
 			window.scrollTo( 0, 1 );
 			var scrollTop = 1;
 
 			setTimeout(function(){
 				window.scrollTo( 0, scrollTop === 1 ? 0 : 1 );
 			}, 50);
-		}
+		}*/
 
 		// add cover
-		_cover = _self.initClass(Cover);
+		// _cover = _self.initClass(Cover);
 
 		// set page state
 		_pageState();
@@ -83,11 +84,7 @@ Class(function Container() {
 		}
 
 		Global.PAGE = _pagename;
-
-		_fullbg = _self.initClass(FullBackground);
-		_pageclass  = _self.initClass(className);
-		
-		_elem.add(_fullbg);
+		_pageclass = _self.initClass(className);
 		_elem.add(_pageclass);
 	}
 	
