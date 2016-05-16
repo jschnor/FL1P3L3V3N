@@ -36,12 +36,13 @@ Class(function Home() {
     };
 
     this.test = function(){
-        _elem.bg(_src);
+        
     };
 
     function _onImgLoaded(img){
         console.dir(img);
         console.log(AssetLoader.getLoaded());
+        _elem.bg(_src);
     }
 
     this.destroy = function() {
