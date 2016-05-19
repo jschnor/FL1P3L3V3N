@@ -4,7 +4,8 @@ Class(function Home() {
     
     var _self = this,
         _elem = _self.element,
-        _src = 'https://media.giphy.com/media/xT9DPiF2FOAvxvpNXG/giphy.gif';
+        // _src = 'https://media.giphy.com/media/xT9DPiF2FOAvxvpNXG/giphy.gif';
+        _src = 'http://auto-database.com/image/pictures-of-nissan-silvia-s14-1997-124337.jpg';
 
     Global.HOME = this;
 
@@ -29,6 +30,7 @@ Class(function Home() {
 
     function _loadTest(){
         AssetLoader.load(_src, 'image', _onImgLoaded);
+        AssetLoader.load('/js/mock_data.json', 'json', _onJSONLoaded);
     }
 
     this.load = function(){
@@ -43,6 +45,10 @@ Class(function Home() {
         console.dir(img);
         console.log(AssetLoader.getLoaded());
         _elem.bg(_src);
+    }
+
+    function _onJSONLoaded(json){
+        console.log(json);
     }
 
     this.destroy = function() {

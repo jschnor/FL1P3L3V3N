@@ -162,7 +162,9 @@ Class(function Device() {
     this.system.webcam          = !! (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia);
     this.system.language        = window.navigator.userLanguage || window.navigator.language;
     this.system.webaudio        = typeof window.webkitAudioContext !== "undefined" || typeof window.AudioContent !== "undefined";
-    this.system.localStorage    = typeof window.localStorage !== "undefined";
+    // this.system.localStorage    = typeof window.localStorage !== "undefined";
+    this.system.sessionStorage  = storageAvailable('sessionStorage');
+    this.system.localStorage    = storageAvailable('localStorage');
     this.system.fullscreen      = typeof document[_self.vendor + "CancelFullScreen"] !== "undefined";
     this.system.os = (function () {
         if (_self.detect("mac os")) {
@@ -265,6 +267,19 @@ Class(function Device() {
         }
         return "webkitTransitionEnd";
     })();
+
+    function storageAvailable(type) {
+        try {
+            var storage = window[type],
+                x = '__storage_test__';
+            storage.setItem(x, x);
+            storage.removeItem(x);
+            return true;
+        }
+        catch(e) {
+            return false;
+        }
+    }
 
     this.openFullscreen = function (elem) {
         elem = elem || __body;
@@ -20435,6 +20450,64 @@ Class(function Utils() {
     };
 
 }, 'static');
+Class(function LocalStorage() {
+
+	var _self = this,
+		_storage = false;
+
+	(function(){
+		if (Device.system.localStorage){
+			_init();
+		}
+	})();
+
+	function _init(){
+		_storage = window.localStorage;
+		if (!_storage.data){
+			_storage.data = JSON.stringify([]);
+		}
+	}
+
+	this.get = function(){
+		if (_storage !== false){
+			return JSON.parse(_storage.data);
+		}else{
+			return false;
+		}
+	};
+
+	this.set = function(_array){
+		if (_storage !== false){
+			_storage.data = JSON.stringify(_array);
+		}else{
+			return false;
+		}
+	};
+
+	this.add = function(_object){
+		if (_storage !== false){
+			var _data = JSON.parse(_storage.data);
+
+			// check if already saved
+			for (var i = _data.length - 1; i >= 0; i--) {
+				var _datastr = JSON.stringify(_data[i]);
+				var _objstr = JSON.stringify(_object);
+
+				// data is already saved in localStorage
+				if (_datastr == _objstr){
+					return false;
+				}
+			};
+
+			_data.push(_object);
+
+			_storage.data = JSON.stringify(_data);
+		}else{
+			return false;
+		}
+	};
+
+}, 'static');
 Class(function AssetLoader() {
 
 	var _self = this,
@@ -20502,6 +20575,11 @@ Class(function AssetLoader() {
 					}
 				});
 
+				// TODO: check localStorage
+				
+
+				// console.log(_isLoaded);
+
 				if (_isLoaded === false){
 					Ajax.get(url, {}, function(response){
 						try {
@@ -20514,8 +20592,13 @@ Class(function AssetLoader() {
 							
 							// push new data
 							_loaded.data.push({ src: url, result: _json });
+
+							// TODO: put data in web storage
+							if (Device.system.localStorage){
+								
+							}
 						}catch (error){
-							console.error('AssetLoader: Response was not valid JSON.');
+							console.error('AssetLoader: Error processing loaded data.');
 							console.error(error);
 							console.log(response);
 						}
@@ -23889,7 +23972,8 @@ Class(function Home() {
     
     var _self = this,
         _elem = _self.element,
-        _src = 'https://media.giphy.com/media/xT9DPiF2FOAvxvpNXG/giphy.gif';
+        // _src = 'https://media.giphy.com/media/xT9DPiF2FOAvxvpNXG/giphy.gif';
+        _src = 'http://auto-database.com/image/pictures-of-nissan-silvia-s14-1997-124337.jpg';
 
     Global.HOME = this;
 
@@ -23914,6 +23998,7 @@ Class(function Home() {
 
     function _loadTest(){
         AssetLoader.load(_src, 'image', _onImgLoaded);
+        AssetLoader.load('/js/mock_data.json', 'json', _onJSONLoaded);
     }
 
     this.load = function(){
@@ -23928,6 +24013,10 @@ Class(function Home() {
         console.dir(img);
         console.log(AssetLoader.getLoaded());
         _elem.bg(_src);
+    }
+
+    function _onJSONLoaded(json){
+        console.log(json);
     }
 
     this.destroy = function() {
