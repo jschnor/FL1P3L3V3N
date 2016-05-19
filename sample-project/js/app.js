@@ -20666,7 +20666,7 @@ Class(function LocalStorage() {
 
 					// data is already saved in localStorage
 					if (_datastr == _objstr){
-						return true;
+						return _data[i];
 					}
 				};
 
@@ -20689,7 +20689,7 @@ Class(function LocalStorage() {
 				for (var i = _data.length - 1; i >= 0; i--) {
 					// data is already saved in localStorage
 					if (_data[i].id == _id){
-						return true;
+						return _data[i];
 					}
 				};
 
@@ -20704,19 +20704,22 @@ Class(function LocalStorage() {
 
 	this.find = function(_object_or_id){
 		if (typeof _object_or_id == 'string' || typeof _object_or_id == 'number'){
-			if (_findById(_object_or_id)){
-				return true;
+			var _find = _findById(_object_or_id);
+			if (_find){
+				return _find;
 			}
 
 			return false;
 		}else if (typeof _object_or_id == 'object'){
-			if (_findByComparison(_object_or_id)){
-				return true;
+			var _find = _findByComparison(_object_or_id);
+			if (_find){
+				return _find;
 			}
 
 			if (_object.id){
-				if (_findById(_object.id)){
-					return true;
+				var _find = _findById(_object.id);
+				if (_find){
+					return _find;
 				}
 			}
 
