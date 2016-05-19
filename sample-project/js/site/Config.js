@@ -28,6 +28,8 @@ Class(function Config() {
         }
     }
 
+    this.useLocalStorage = true;
+
     // color values
     this.COLORS = {
         black: '#000000',

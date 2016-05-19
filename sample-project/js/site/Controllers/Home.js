@@ -42,9 +42,13 @@ Class(function Home() {
     };
 
     function _onImgLoaded(img){
-        console.dir(img);
-        console.log(AssetLoader.getLoaded());
-        _elem.bg(_src);
+        // console.dir(img);
+        // console.log(AssetLoader.getLoaded());
+        _elem.bg(_src).css({
+            backgroundSize: 'contain',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+        });
     }
 
     function _onJSONLoaded(json){
