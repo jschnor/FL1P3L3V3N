@@ -20764,6 +20764,28 @@ Class(function LocalStorage() {
 		}
 	};
 
+	this.remove = function(_id){
+		if (_storage !== false){
+			try {
+				var _data = JSON.parse(_storage.data);
+
+				for (var i = _data.length - 1; i >= 0; i--) {
+					if (_data[i].id == _id){
+						_data.splice(i, 1);
+						_storage.data = JSON.stringify(_data);
+						return true;
+					}
+				};
+
+				return false;
+			}catch (e){
+				return false;
+			}
+		}else{
+			return false;
+		}
+	};
+
 }, 'static');
 Class(function AssetLoader() {
 
