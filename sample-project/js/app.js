@@ -1706,12 +1706,20 @@ Class(function MVC() {
         Object.defineProperty(name, value, {
             set: function(_event) {
                 if (_gsobject[value]) {
-                    _gsobject[value].set.apply(name, [_event]);
+                    if (_gsobject[value].set){
+                        if (typeof _gsobject[value].set.apply == 'function'){
+                            _gsobject[value].set.apply(name, [_event]);
+                        }
+                    }
                 }
             },
             get: function() {
                 if (_gsobject[value]) {
-                    return _gsobject[value].get.apply(name);
+                    if (_gsobject[value].get){
+                        if (typeof _gsobject[value].get.apply == 'function'){
+                            return _gsobject[value].get.apply(name);
+                        }
+                    }
                 }
             }
         });
@@ -1735,7 +1743,11 @@ Class(function MVC() {
         return setTimeout(function() {
             // if (_self.element && _self.element.show) {
             if (_self.element) {
-                callback.apply(_self, [params]);
+                if (callback){
+                    if (typeof callback.apply == 'function'){
+                        callback.apply(_self, [params]);
+                    }
+                }
             }
         }, time || 0);
     };
@@ -1784,8 +1796,10 @@ Class(function MVC() {
                     this.element._parent.div.removeChild(this.element.div);
                 }
             }catch(error){
-                console.warn('Could not remove element.');
-                console.log(error);
+                if (Config.DEBUG.all || Config.DEBUG.markup) {
+                    console.warn('Could not remove element.');
+                    console.log(error);
+                }
             }
 
             this.element = null;
@@ -1987,6 +2001,71 @@ Class(function LinkedList() {
         Utils.nullObject(this);
         return null;
     }
+});
+// _class (object) the type of class you want to create a pool of
+Class(function ObjectPool(_class){
+
+	var _self = this,
+		_pool = ObjectPool.prototype,
+		_objpool = [],
+		_metrics = {};
+
+	_clearMetrics();
+
+	// allocate a new object from the pool
+	_pool.allocate = function(){
+		var _obj;
+
+		if (_objpool.length == 0){
+			// nothing free, so allocate a new object
+			_obj = new _class();
+
+			// keep track of how many are allocated
+			_metrics.totalalloc++;
+		}else{
+			// grab available from top of the pool
+			_obj = _objpool.pop();
+
+			// keep track of how many are free
+			_metrics.totalfree--;
+		}
+
+		return _obj;
+	};
+
+	// return an object to the pool
+	// _obj (object) the object you want to put back
+	// NOTE: you need to reinitialize the object's value in your code before dropping it back in here
+	// otherwise it may still contain values from its previous use
+	_pool.release = function(_obj){
+		_objpool.push(_obj);
+		_metrics.totalfree++;
+	};
+
+	// allow garbage collection of pool
+	_pool.empty = function(){
+		_objpool = [];
+
+		// track objects currently in use that are not in pool
+		var _inUse = _metrics.totalalloc - _metrics.totalfree;
+		_clearMetrics(_inUse);
+	};
+
+	// get the contents of the pool
+	_pool.get = function(){
+		return _objpool;
+	};
+
+	// get the metrics
+	_pool.getMetrics = function(){
+		return _metrics;
+	};
+
+	// clear internal metrics
+	function _clearMetrics(_allocated){
+		_metrics.totalalloc = _allocated || 0;
+		_metrics.totalfree = 0;
+	};
 });
 Class(function Render() {
 	
@@ -20615,7 +20694,7 @@ Class(function LocalStorage() {
 	function _init(){
 		_storage = window.localStorage;
 		if (!_storage.data){
-			_storage.data = JSON.stringify([]);
+			_storage.data = JSON.stringify([{date_created: Date.now()}]);
 		}
 	}
 
@@ -20643,13 +20722,24 @@ Class(function LocalStorage() {
 		}
 	};
 
-	this.clear = function(){
+	// pass boolean true to clear ALL localStorage,
+	// otherwise just empties the data object
+	this.clear = function(all){
 		if (_storage !== false){
-			try {
-				_storage.clear();
-				return true;
-			}catch (e){
-				return false;
+			if (all === true){
+				try {
+					_storage.clear();
+					return true;
+				}catch (e){
+					return false;
+				}
+			}else{
+				try {
+					_storage.data = JSON.stringify([{date_created: Date.now()}]);
+					return true;
+				}catch (e){
+					return false;
+				}
 			}
 		}
 	};
@@ -20749,6 +20839,11 @@ Class(function LocalStorage() {
 				if (_findById(_object.id)){
 					return false;
 				}
+			}
+
+			// just in case it got deleted
+			if (!_storage.data){
+				_storage.data = JSON.stringify([{date_created: Date.now()}]);
 			}
 
 			try {
