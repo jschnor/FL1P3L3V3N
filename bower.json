@@ -1,6 +1,6 @@
 {
   "name": "fl1p3l3v3n",
-  "version": "0.5.27",
+  "version": "0.5.28",
   "authors": [
     "Justin Schnor",
     "Matt Engel"
@@ -9,7 +9,7 @@
   "main": [
     "lib/bit/bitObject.js"
   ],
-  "license": "Copyright Flipeleven 2015",
+  "license": "Copyright Flipeleven 2016",
   "homepage": "http://flipeleven.com",
   "private": false,
   "ignore": [
