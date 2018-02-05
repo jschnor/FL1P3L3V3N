@@ -1,5 +1,10 @@
 /**
  * Main Site Preloader
+ *
+ * IMPORTANT: PreloadJS is used in this example, but is no longer a dependency.
+ *            Your implementation should either include PreloadJS in its own dependencies or
+ *            create its own loading solution
+ *
  * uses PreloadJS
  * see http://www.createjs.com/PreloadJS for demos and usage
  */

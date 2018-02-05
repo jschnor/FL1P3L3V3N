@@ -1,24 +1,21 @@
 {
-  "name": "fl1p3l3v3n",
-  "version": "0.5.30",
-  "authors": [
-    "Justin Schnor",
-    "Matt Engel"
-  ],
-  "description": "FL1P3L3V3N Framework",
-  "main": [
-    "lib/bit/bitObject.js"
-  ],
-  "license": "Copyright Flipeleven 2016",
-  "homepage": "http://flipeleven.com",
-  "private": false,
-  "ignore": [
-    
-  ],
-  "dependencies": {
-    "greensock": ">=1.14.2",
-    "history.js": ">=1.8.0",
-    "PreloadJS": "=0.6.1",
-    "fontawesome": ">=4.3.0"
-  }
+	"name": "fl1p3l3v3n",
+	"version": "0.5.31",
+	"authors": [
+		"Justin Schnor",
+		"Matt Engel"
+	],
+	"description": "FL1P3L3V3N Framework",
+	"main": [
+		"lib/bit/bitObject.js"
+	],
+	"license": "Copyright Flipeleven 2018",
+	"homepage": "http://flipeleven.com",
+	"private": false,
+	"ignore": [],
+	"dependencies": {
+		"greensock": ">=1.19.0",
+		"history.js": ">=1.8.0",
+		"fontawesome": ">=4.3.0"
+	}
 }
