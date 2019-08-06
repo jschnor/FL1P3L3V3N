@@ -8,7 +8,7 @@ To get started with a new project:
 1. Run npm install
 2. Run bower install
 3. Add new server to VM
-4. Run grunt
+4. Run gulp/grunt
 
 Check server url; new sample project should be running.
 If the server rejects your permission, move all files
